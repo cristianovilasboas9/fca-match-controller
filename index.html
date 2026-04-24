@@ -2,782 +2,970 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FCA Match">
+<meta name="theme-color" content="#04080F">
 <title>FCA Match Controller</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin:0; padding:0; background:#04080F; color:#fff; font-family:'Inter', -apple-system, sans-serif; min-height:100vh; overscroll-behavior: none; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin:0; padding:0; }
+  html, body { background:#04080F; color:#fff; min-height:100vh; overscroll-behavior: none; font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
 
-  /* TOP BAR */
-  .appbar {
-    position: sticky; top: 0; z-index: 50;
-    background: rgba(4,8,15,0.85); backdrop-filter: blur(14px);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    padding: 14px 16px; display:flex; justify-content:space-between; align-items:center;
-  }
-  .appbar-title { font-family:'Oswald', sans-serif; font-weight:700; font-size:18px; letter-spacing:0.06em; text-transform:uppercase; }
-  .appbar-sub { font-family:'Inter'; font-weight:500; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.45); }
-  .appbar-match { text-align:right; }
-  .appbar-match strong { display:block; font-family:'Oswald'; font-weight:700; font-size:13px; letter-spacing:0.06em; }
-  .appbar-match small { display:block; font-family:'Inter'; font-weight:500; font-size:10px; color:#F5B82E; letter-spacing:0.14em; text-transform:uppercase; margin-top:2px; }
+  /* APP BAR */
+  .appbar { position:sticky; top:0; z-index:50; background:rgba(4,8,15,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid rgba(255,255,255,0.08); padding-top: calc(env(safe-area-inset-top) + 10px); padding-left:14px; padding-right:14px; padding-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .appbar .sub { font-family:'Inter'; font-weight:600; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.45); }
+  .appbar .title { font-family:'Oswald'; font-weight:700; font-size:18px; letter-spacing:0.06em; text-transform:uppercase; margin-top:2px; }
+  .appbar .right { text-align:right; max-width:60%; }
+  .appbar .right strong { display:block; font-family:'Oswald'; font-weight:600; font-size:12px; letter-spacing:0.04em; line-height:1.15; }
+  .appbar .right small { display:block; font-family:'Inter'; font-weight:500; font-size:10px; color:#F5B82E; letter-spacing:0.14em; text-transform:uppercase; margin-top:3px; }
 
-  /* MAIN */
-  .container { padding: 16px; padding-bottom: 80px; max-width: 520px; margin: 0 auto; }
+  .container { max-width:540px; margin:0 auto; padding:12px 12px calc(100px + env(safe-area-inset-bottom)); }
+
+  /* TABS */
+  .tabs { display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; margin:0 -12px 10px; padding:2px 12px 10px; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tab { flex-shrink:0; display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.72); border:1px solid rgba(255,255,255,0.10); padding:8px 14px; border-radius:999px; font-family:'Inter'; font-weight:600; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; transition:all .15s; white-space:nowrap; }
+  .tab.on { background:#2E7BFF; color:#04080F; border-color:transparent; }
+  .tab.on.gold { background:#F5B82E; color:#04080F; }
+  .tab.on.green { background:#22C55E; }
+  .tab.on.red { background:#EF4444; color:#fff; }
+  .tab.on.orange { background:#F59E0B; color:#04080F; }
+  .tab.on.light { background:#8DB6FF; color:#04080F; }
 
   /* PREVIEW */
-  .preview-wrap { position:relative; margin: 0 auto 20px; background:#000; border-radius: 18px; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06); }
-  .preview-ratio { position:relative; width:100%; padding-top: 177.78%; /* 9:16 = 1920/1080 */ }
-  .preview-inner { position:absolute; inset:0; }
-  .preview-scaled { position:absolute; top:0; left:0; transform-origin: top left; }
+  .preview-wrap { position:relative; margin:0 auto 12px; background:#000; border-radius:18px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06); max-width:320px; }
+  .preview-ratio { position:relative; width:100%; padding-top:177.78%; }
+  .preview-inner { position:absolute; inset:0; overflow:hidden; }
+  .preview-scaled { position:absolute; top:0; left:0; transform-origin:top left; }
+  .preview-loader { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.5); font-family:'Inter'; font-size:12px; }
 
-  /* SECTION */
-  .section { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
-  .section-label { font-family:'Inter'; font-weight:600; font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; }
-  .section-label .badge { background: rgba(245,184,46,0.18); color:#F5B82E; padding: 3px 10px; border-radius: 999px; font-size: 9px; letter-spacing: 0.14em; }
+  /* PANEL */
+  .panel { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+  .panel-label { font-family:'Inter'; font-weight:600; font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .panel-label .b { background:rgba(245,184,46,0.18); color:#F5B82E; padding:3px 9px; border-radius:999px; font-size:9px; letter-spacing:0.12em; }
 
-  /* VARIANT TABS (scroll horizontal) */
-  .variants-scroll { display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 2px 0; margin: 0 -16px; padding-left:16px; padding-right:16px; }
-  .variants-scroll::-webkit-scrollbar { display: none; }
-  .variant-chip { flex-shrink: 0; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.75); border:1px solid rgba(255,255,255,0.12); padding:9px 16px; border-radius:999px; font-family:'Inter'; font-weight:600; font-size:12px; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; transition: all .15s; }
-  .variant-chip.on { background:#2E7BFF; color:#04080F; border-color:transparent; }
-  .variant-chip.on.gold { background:#F5B82E; color:#04080F; }
-  .variant-chip.on.green { background:#22C55E; }
-  .variant-chip.on.red { background:#EF4444; color:#fff; }
-  .variant-chip.on.orange { background:#F59E0B; color:#04080F; }
+  /* VARIANT GRID */
+  .variant-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
+  .variant-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); border-radius:10px; padding:10px 4px; text-align:center; cursor:pointer; transition:all .15s; display:flex; flex-direction:column; align-items:center; gap:4px; min-height:60px; justify-content:center; }
+  .variant-card .ico { font-size:18px; line-height:1; }
+  .variant-card .lbl { font-family:'Inter'; font-weight:600; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.85); line-height:1.2; }
+  .variant-card.on { background:rgba(46,123,255,0.22); border-color:#2E7BFF; }
+  .variant-card.on.gold { background:rgba(245,184,46,0.22); border-color:#F5B82E; }
+  .variant-card.on.green { background:rgba(34,197,94,0.22); border-color:#22C55E; }
+  .variant-card.on.red { background:rgba(239,68,68,0.22); border-color:#EF4444; }
+  .variant-card.on.orange { background:rgba(245,158,11,0.22); border-color:#F59E0B; }
+  .variant-card.on.light { background:rgba(141,182,255,0.22); border-color:#8DB6FF; }
 
-  /* INPUT */
-  .row { display:flex; gap:10px; margin-top:10px; align-items:center; }
-  .row:first-of-type { margin-top: 0; }
-  .row label { flex-shrink:0; min-width: 90px; font-family:'Inter'; font-weight:500; font-size:13px; color:rgba(255,255,255,0.6); }
-  .row input, .row select {
-    flex: 1; min-width: 0;
-    background: rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.12);
-    padding:10px 12px; border-radius: 10px; font-family:'Inter'; font-weight:500; font-size: 15px;
-    -webkit-appearance: none; appearance: none;
-  }
-  .row input:focus, .row select:focus { outline: none; border-color: #2E7BFF; background: rgba(46,123,255,0.1); }
+  /* ROW INPUT */
+  .row { display:flex; gap:10px; margin-top:8px; align-items:center; }
+  .row:first-child { margin-top:0; }
+  .row label { flex-shrink:0; min-width:74px; font-family:'Inter'; font-weight:500; font-size:12px; color:rgba(255,255,255,0.6); }
+  .row input, .row select { flex:1; min-width:0; background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.12); padding:9px 11px; border-radius:10px; font-family:'Inter'; font-weight:500; font-size:14px; -webkit-appearance:none; appearance:none; }
+  .row select { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23fff' d='M6 8L0 0h12z' opacity='.5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:30px; }
+  .row input:focus, .row select:focus { outline:none; border-color:#2E7BFF; background:rgba(46,123,255,0.1); }
   .row input[type="number"] { font-family:'JetBrains Mono', monospace; text-align:center; }
 
-  .score-row { display:flex; gap:10px; align-items:center; justify-content:center; margin-top: 10px; }
-  .score-row input { width: 72px; font-size: 22px; font-family:'Oswald'; font-weight:700; text-align:center; padding: 10px 4px; }
+  .score-row { display:flex; gap:10px; align-items:center; justify-content:center; }
+  .score-row input { width:70px; font-size:22px; font-family:'Oswald'; font-weight:700; text-align:center; padding:8px 4px; background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.12); border-radius:10px; -webkit-appearance:none; }
+  .score-row input:focus { outline:none; border-color:#2E7BFF; }
   .score-dash { font-family:'Oswald'; font-weight:700; font-size:22px; color:rgba(255,255,255,0.4); }
 
-  /* HOME/AWAY TOGGLE */
   .toggle-pair { display:flex; gap:8px; }
-  .toggle-pair button {
-    flex: 1; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7);
-    border:1px solid rgba(255,255,255,0.12); padding:10px 14px; border-radius:10px;
-    font-family:'Inter'; font-weight:600; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer;
-  }
+  .toggle-pair button { flex:1; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.12); padding:10px 14px; border-radius:10px; font-family:'Inter'; font-weight:600; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; }
   .toggle-pair button.on.home { background:#22C55E; color:#04080F; border-color:transparent; }
   .toggle-pair button.on.away { background:#F59E0B; color:#04080F; border-color:transparent; }
 
-  /* ACTIONS */
-  .action-stack { position: sticky; bottom: 0; left:0; right:0; background: linear-gradient(180deg, transparent, #04080F 30%); padding: 20px 16px 20px; margin: 20px -16px 0; z-index:40; }
-  .action-btn {
-    width:100%; padding: 16px; border-radius: 14px; border: 0;
-    font-family:'Oswald'; font-weight:700; font-size: 16px; letter-spacing: 0.1em; text-transform:uppercase;
-    cursor:pointer; display:flex; justify-content:center; align-items:center; gap: 10px;
-    transition: all .15s;
-  }
-  .action-btn.primary { background: linear-gradient(135deg, #2E7BFF, #1A6FFF); color: #fff; box-shadow: 0 8px 24px rgba(46,123,255,0.35); }
-  .action-btn.primary:active { transform: scale(0.98); }
-  .action-btn.secondary { background: rgba(245,184,46,0.15); color:#F5B82E; border: 1px solid rgba(245,184,46,0.5); margin-top:10px; font-size: 14px; padding: 14px; }
-  .action-btn.tertiary { background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.14); margin-top: 10px; font-size: 13px; padding: 12px; }
+  /* PLAYER GRID */
+  .player-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:4px; }
+  .player-mini { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:6px; text-align:center; cursor:pointer; transition:all .15s; position:relative; }
+  .player-mini.on { background:rgba(46,123,255,0.20); border-color:#2E7BFF; }
+  .player-mini.on.gold { background:rgba(245,184,46,0.20); border-color:#F5B82E; }
+  .player-mini .pimg-wrap { position:relative; width:100%; aspect-ratio:1; border-radius:8px; overflow:hidden; background:linear-gradient(135deg, #0F2240, #1a3058); }
+  .player-mini img { width:100%; height:100%; object-fit:cover; object-position:top; }
+  .player-mini .pinit { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Oswald'; font-weight:700; font-size:18px; color:rgba(255,255,255,0.85); }
+  .player-mini .pname { font-family:'Oswald'; font-weight:600; font-size:10px; text-transform:uppercase; margin-top:4px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing:0.02em; }
+  .player-mini .pjer { position:absolute; top:3px; right:3px; background:#2E7BFF; color:#04080F; font-family:'Oswald'; font-weight:700; font-size:9px; min-width:20px; height:18px; padding:0 4px; border-radius:9px; display:flex; align-items:center; justify-content:center; }
+  .player-mini .pcheck { position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.5); background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; font-size:10px; color:transparent; }
+  .player-mini.on .pcheck { background:#2E7BFF; border-color:#2E7BFF; color:#fff; }
+  .player-mini.on.gold .pcheck { background:#F5B82E; border-color:#F5B82E; color:#04080F; }
 
-  /* CAPTION PREVIEW */
-  .caption-preview { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.5; color: rgba(255,255,255,0.8); white-space: pre-wrap; word-wrap: break-word; max-height: 240px; overflow-y: auto; }
+  /* LINEUP COUNTER */
+  .lineup-counter { font-family:'JetBrains Mono', monospace; font-weight:700; font-size:10px; letter-spacing:0.1em; padding:3px 9px; border-radius:999px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7); }
+  .lineup-counter.ok { background:rgba(34,197,94,0.18); color:#22C55E; }
+
+  /* EVENT LIST */
+  .event-list { display:flex; flex-direction:column; gap:6px; margin-top:4px; }
+  .event-item { display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:6px 10px; }
+  .event-item input[type="number"] { width:48px; background:rgba(245,184,46,0.12); color:#F5B82E; border:1px solid rgba(245,184,46,0.3); padding:5px 4px; border-radius:6px; font-family:'JetBrains Mono', monospace; font-weight:700; font-size:13px; text-align:center; -webkit-appearance:none; }
+  .event-item select { flex:1; background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.12); padding:6px 8px; border-radius:8px; font-family:'Inter'; font-size:12px; -webkit-appearance:none; }
+  .event-item .rm { flex-shrink:0; width:26px; height:26px; border:0; background:rgba(239,68,68,0.15); color:#EF4444; border-radius:6px; font-weight:700; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; }
+  .add-event-btn { margin-top:8px; width:100%; background:rgba(245,184,46,0.1); border:1px dashed rgba(245,184,46,0.4); color:#F5B82E; padding:9px; border-radius:10px; font-family:'Inter'; font-weight:600; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; }
+
+  /* ACTIONS */
+  .actions-bar { position:fixed; bottom:0; left:0; right:0; z-index:60; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.95) 30%); padding:16px 12px calc(14px + env(safe-area-inset-bottom)); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  .actions { max-width:540px; margin:0 auto; display:grid; grid-template-columns:2fr 1fr 1fr; gap:8px; }
+  .btn { padding:13px 6px; border-radius:12px; border:0; font-family:'Inter'; font-weight:700; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:4px; transition:all .15s; min-height:54px; }
+  .btn svg { width:20px; height:20px; flex-shrink:0; }
+  .btn-primary { background:#2E7BFF; color:#fff; box-shadow:0 4px 14px rgba(46,123,255,0.35); }
+  .btn-primary:active { transform:scale(0.97); }
+  .btn-gold { background:rgba(245,184,46,0.18); color:#F5B82E; border:1px solid rgba(245,184,46,0.5); }
+  .btn-gold:active { transform:scale(0.97); }
+  .btn-ghost { background:rgba(255,255,255,0.08); color:#fff; border:1px solid rgba(255,255,255,0.14); }
+  .btn-ghost:active { transform:scale(0.97); }
+
+  /* CAPTION */
+  .caption-card { background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px; font-family:'JetBrains Mono', monospace; font-size:11px; line-height:1.5; color:rgba(255,255,255,0.8); white-space:pre-wrap; word-wrap:break-word; max-height:200px; overflow-y:auto; }
 
   /* TOAST */
-  .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); opacity:0; background: #22C55E; color: #04080F; padding: 12px 22px; border-radius: 999px; font-family:'Inter'; font-weight:700; font-size: 13px; letter-spacing: 0.14em; text-transform:uppercase; transition: all .3s; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.4); pointer-events: none; }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast { position:fixed; bottom:120px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; background:#22C55E; color:#04080F; padding:11px 20px; border-radius:999px; font-family:'Inter'; font-weight:700; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; transition:all .3s; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,0.4); pointer-events:none; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.red { background:#EF4444; color:#fff; }
+  .toast.blue { background:#2E7BFF; color:#fff; }
 
-  /* PLAYER GRID */
-  .player-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
-  .player-mini { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 6px; text-align: center; cursor: pointer; transition: all .15s; position: relative; }
-  .player-mini.on { background: rgba(46,123,255,0.18); border-color: #2E7BFF; }
-  .player-mini img { width: 100%; aspect-ratio: 1; object-fit: cover; object-position: top; border-radius: 8px; background: #0F2240; }
-  .player-mini .pname { font-family:'Oswald'; font-weight:600; font-size: 11px; text-transform:uppercase; margin-top: 4px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.02em; }
-  .player-mini .pjer { position: absolute; top: 4px; right: 4px; background: #2E7BFF; color: #04080F; font-family:'Oswald'; font-weight:700; font-size: 10px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(46,123,255,0.5); }
-
-  .loading { color: rgba(255,255,255,0.4); font-size: 11px; padding: 8px; text-align: center; font-style: italic; }
-
-  /* Animations for bottom buttons */
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
-  .pulse { animation: pulse 1.5s ease-in-out infinite; }
-
-  /* Install PWA tip */
-  .tip { background: rgba(46,123,255,0.08); border: 1px solid rgba(46,123,255,0.2); border-radius: 12px; padding: 10px 14px; font-size: 11px; color: rgba(255,255,255,0.7); margin-bottom: 12px; line-height: 1.5; }
-  .tip strong { color: #2E7BFF; }
+  /* PWA install tip */
+  .tip { background:rgba(46,123,255,0.08); border:1px solid rgba(46,123,255,0.2); border-radius:10px; padding:9px 12px; font-size:11px; color:rgba(255,255,255,0.7); margin-bottom:10px; line-height:1.5; position:relative; padding-right:30px; }
+  .tip strong { color:#2E7BFF; }
+  .tip .close { position:absolute; top:6px; right:8px; background:none; border:0; color:rgba(255,255,255,0.5); font-size:16px; cursor:pointer; padding:2px 6px; }
 </style>
 </head>
 <body>
   <div class="appbar">
     <div>
-      <div class="appbar-sub">Match Controller</div>
-      <div class="appbar-title">FC Atlantic</div>
+      <div class="sub">Match Controller</div>
+      <div class="title">FC Atlantic</div>
     </div>
-    <div class="appbar-match">
-      <strong id="match-opponent">vs FC Kurde Lausanne</strong>
+    <div class="right">
+      <strong id="match-opp">vs FC Kurde LS</strong>
       <small id="match-date">Dim 26 avril · 15:00</small>
     </div>
   </div>
 
   <div class="container">
-    <div class="tip" id="install-tip">
-      <strong>📲 Tip iPhone :</strong> Safari → Partage → « Sur l'écran d'accueil » pour installer l'app en 1 tap.
+    <div class="tip" id="tip">
+      <button class="close" onclick="document.getElementById('tip').style.display='none'">×</button>
+      <strong>📲 Install :</strong> Safari → Partage → « Sur l'écran d'accueil »
     </div>
 
-    <!-- PREVIEW -->
+    <!-- POSTER PREVIEW -->
     <div class="preview-wrap">
       <div class="preview-ratio">
         <div class="preview-inner">
-          <div class="preview-scaled" id="poster-root"></div>
+          <div class="preview-scaled" id="poster-root">
+            <div class="preview-loader">Chargement...</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- VARIANTS -->
-    <div class="section">
-      <div class="section-label">Variant <span class="badge" id="variant-badge">matchday</span></div>
-      <div class="variants-scroll" id="variants-scroll"></div>
-    </div>
+    <!-- SECTION TABS -->
+    <div class="tabs" id="section-tabs"></div>
 
-    <!-- LIVE DATA -->
-    <div class="section" id="live-section">
-      <div class="section-label">Données live</div>
-      <div class="score-row">
-        <input type="number" id="score-home" min="0" max="20" value="0" inputmode="numeric">
-        <span class="score-dash">—</span>
-        <input type="number" id="score-away" min="0" max="20" value="0" inputmode="numeric">
-      </div>
-      <div class="row">
-        <label>Minute</label>
-        <input type="number" id="minute-input" min="0" max="120" value="73" inputmode="numeric">
-      </div>
-    </div>
+    <!-- PANEL CONTENT (dynamic) -->
+    <div id="panel-content"></div>
 
-    <!-- LOCATION -->
-    <div class="section">
-      <div class="section-label">Lieu du match</div>
-      <div class="toggle-pair">
-        <button id="btn-home" class="on home" onclick="setHomeAway('home')">🏠 Domicile</button>
-        <button id="btn-away" onclick="setHomeAway('away')">✈️ Extérieur</button>
-      </div>
+    <!-- CAPTION (always visible, collapsed by default) -->
+    <div class="panel">
+      <div class="panel-label">Caption auto <span class="b">Copie prête</span></div>
+      <div class="caption-card" id="caption-preview"></div>
     </div>
+  </div>
 
-    <!-- GOAL SECTION (hidden unless goal variant) -->
-    <div class="section" id="goal-section" style="display:none;">
-      <div class="section-label">Buteur</div>
-      <div class="player-grid" id="scorer-grid"></div>
-    </div>
-
-    <!-- MAN OF THE MATCH SECTION -->
-    <div class="section" id="hdm-section" style="display:none;">
-      <div class="section-label">Homme du match</div>
-      <div class="player-grid" id="hdm-grid"></div>
-    </div>
-
-    <!-- CAPTION -->
-    <div class="section">
-      <div class="section-label">
-        Caption sociale
-        <span class="badge" style="background:rgba(34,197,94,0.18); color:#22C55E;">auto</span>
-      </div>
-      <div class="caption-preview" id="caption-preview"></div>
-    </div>
-
-    <!-- ACTIONS -->
-    <div class="action-stack">
-      <button class="action-btn primary" onclick="downloadPoster()">
-        📥 Télécharger le PNG
+  <!-- FIXED ACTIONS BAR -->
+  <div class="actions-bar">
+    <div class="actions">
+      <button class="btn btn-primary" onclick="downloadPoster()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m-5-5l5 5 5-5M5 21h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        PNG
       </button>
-      <button class="action-btn secondary" onclick="copyCaption()">
-        📋 Copier la caption
+      <button class="btn btn-gold" onclick="copyCaption()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>
+        Copier
       </button>
-      <button class="action-btn tertiary" onclick="sharePoster()" id="share-btn" style="display:none;">
-        📱 Partager (Share Sheet iOS)
+      <button class="btn btn-ghost" onclick="sharePoster()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13m-5-8l5-5 5 5M5 21h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Partage
       </button>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
-  <!-- SCRIPTS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script>
   /* ====================================================================
-     FCA MATCH CONTROLLER
-     Mobile-optimized live poster generator for match day.
-     Produces 1080×1920 PNGs of the 7 matchday variants.
+     FCA MATCH CONTROLLER v2 — Complete Package
      ==================================================================== */
 
-  /* ------ ROSTER (source of truth) ------------------------------------ */
+  /* ---------- CONFIG BASE ----------------------------------------- */
+  const CREST_ATL_URL = 'https://fc-atlantic-vevey.ch/images/logo-white.svg';
+
+  /* ---------- ROSTER (22 joueurs officiels FC Atlantic 2025/26) ----- */
   const ROSTER = [
-    { id:'30-T', jerseyDisplay:30, firstName:'Tony', lastName:'Da Costa', position:'G', photoUrl:'https://fc-atlantic-vevey.ch/players/da-costa-tony.png' },
-    { id:'21', jerseyDisplay:21, firstName:'Dardan', lastName:'Fazlijaj', position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/fazlijaj-dardan.png' },
-    { id:'3',  jerseyDisplay:3,  firstName:'Luka', lastName:'Jankulovski', position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/jankulovski-luka.png' },
-    { id:'20', jerseyDisplay:20, firstName:'Jeyson', lastName:'Dias Coelho', position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/dias-coelho-jeyson.png' },
-    { id:'2',  jerseyDisplay:2,  firstName:'Carlos Pedro', lastName:'Fofo das Neves', position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/fofo-das-neves-carlos-pedro.png' },
-    { id:'18', jerseyDisplay:18, firstName:'Pedro Miguel', lastName:'Pinheiro Da Silva', position:'MIL', isCaptain:true, photoUrl:'https://fc-atlantic-vevey.ch/players/pinheiro-da-silva-pedro-miguel.png' },
-    { id:'22', jerseyDisplay:22, firstName:'Haci Ismayl', lastName:'Ucar', position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/ucar-haci-ismayl.png' },
-    { id:'12', jerseyDisplay:12, firstName:'Diego', lastName:'Aira Abalo', position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/aira-abalo-diego.png' },
-    { id:'10', jerseyDisplay:10, firstName:'David', lastName:'Pinheiro da Silva', position:'AT', photoUrl:'https://fc-atlantic-vevey.ch/players/pinheiro-da-silva-david.png' },
-    { id:'11', jerseyDisplay:11, firstName:'Alexander', lastName:'Blagojevic', position:'AT', photoUrl:'https://fc-atlantic-vevey.ch/players/blagojevic-alexander.png' },
-    { id:'19', jerseyDisplay:19, firstName:'Rafael', lastName:'Esteves Teixeira', position:'AT', photoUrl:'https://fc-atlantic-vevey.ch/players/esteves-teixeira-rafael.png' },
-    { id:'1',  jerseyDisplay:1,  firstName:'Tiago', lastName:'Vilas-Boas', position:'G', photoUrl:'https://fc-atlantic-vevey.ch/players/vilas-boas-tiago.png' },
-    { id:'6',  jerseyDisplay:6,  firstName:'Joel', lastName:'Artimo', position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/artimo-joel.png' },
-    { id:'23', jerseyDisplay:23, firstName:'Flamur', lastName:'Salihu', position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/salihu-flamur.png' },
-    { id:'28', jerseyDisplay:28, firstName:'Jose Luis', lastName:'Cardoso Silva', position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/cardoso-silva-jose-luis.png' },
-    { id:'14', jerseyDisplay:14, firstName:'Ismael', lastName:'Sayedna', position:'AT', photoUrl:'https://fc-atlantic-vevey.ch/players/sayedna-ismael.png' },
-    { id:'30-M', jerseyDisplay:30, firstName:'Max', lastName:'Artimo', position:'G', photoUrl:'https://fc-atlantic-vevey.ch/players/artimo-max.png' },
+    { id:'1',   jerseyDisplay:1,  firstName:'Tiago',         lastName:'Vilas-Boas',           position:'G',   photoUrl:'https://fc-atlantic-vevey.ch/players/vilas-boas-tiago.png' },
+    { id:'30-T',jerseyDisplay:30, firstName:'Tony',          lastName:'Da Costa',             position:'G',   photoUrl:'https://fc-atlantic-vevey.ch/players/da-costa-tony.png' },
+    { id:'30-M',jerseyDisplay:30, firstName:'Max',           lastName:'Artimo',               position:'G',   photoUrl:'https://fc-atlantic-vevey.ch/players/artimo-max.png' },
+    { id:'2',   jerseyDisplay:2,  firstName:'Carlos Pedro',  lastName:'Fofo das Neves',       position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/fofo-das-neves-carlos-pedro.png' },
+    { id:'3',   jerseyDisplay:3,  firstName:'Luka',          lastName:'Jankulovski',          position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/jankulovski-luka.png' },
+    { id:'5',   jerseyDisplay:5,  firstName:'Fabio',         lastName:'Duarte Vieira',        position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/duarte-vieira-fabio.png' },
+    { id:'6',   jerseyDisplay:6,  firstName:'Joel',          lastName:'Artimo',               position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/artimo-joel.png' },
+    { id:'20',  jerseyDisplay:20, firstName:'Jeyson',        lastName:'Dias Coelho',          position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/dias-coelho-jeyson.png' },
+    { id:'21',  jerseyDisplay:21, firstName:'Dardan',        lastName:'Fazlijaj',             position:'DEF', photoUrl:'https://fc-atlantic-vevey.ch/players/fazlijaj-dardan.png' },
+    { id:'12',  jerseyDisplay:12, firstName:'Diego',         lastName:'Aira Abalo',           position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/aira-abalo-diego.png' },
+    { id:'13',  jerseyDisplay:13, firstName:'Rafael',        lastName:'Lazarim Xavier',       position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/lazarim-xavier-rafael.png' },
+    { id:'16',  jerseyDisplay:16, firstName:'David',         lastName:'Amato',                position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/amato-david.png' },
+    { id:'18',  jerseyDisplay:18, firstName:'Pedro Miguel',  lastName:'Pinheiro Da Silva',    position:'MIL', isCaptain:true, photoUrl:'https://fc-atlantic-vevey.ch/players/pinheiro-da-silva-pedro-miguel.png' },
+    { id:'22',  jerseyDisplay:22, firstName:'Haci Ismayl',   lastName:'Ucar',                 position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/ucar-haci-ismayl.png' },
+    { id:'23',  jerseyDisplay:23, firstName:'Flamur',        lastName:'Salihu',               position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/salihu-flamur.png' },
+    { id:'28',  jerseyDisplay:28, firstName:'Jose Luis',     lastName:'Cardoso Silva',        position:'MIL', photoUrl:'https://fc-atlantic-vevey.ch/players/cardoso-silva-jose-luis.png' },
+    { id:'7',   jerseyDisplay:7,  firstName:'Alishah',       lastName:'Nazari',               position:'AT',  photoUrl:'https://fc-atlantic-vevey.ch/players/nazari-alishah.png' },
+    { id:'10',  jerseyDisplay:10, firstName:'David',         lastName:'Pinheiro da Silva',    position:'AT',  photoUrl:'https://fc-atlantic-vevey.ch/players/pinheiro-da-silva-david.png' },
+    { id:'11',  jerseyDisplay:11, firstName:'Alexander',     lastName:'Blagojevic',           position:'AT',  photoUrl:'https://fc-atlantic-vevey.ch/players/blagojevic-alexander.png' },
+    { id:'14',  jerseyDisplay:14, firstName:'Ismael',        lastName:'Sayedna',              position:'AT',  photoUrl:'https://fc-atlantic-vevey.ch/players/sayedna-ismael.png' },
+    { id:'17',  jerseyDisplay:17, firstName:'Mamadou',       lastName:'Barry',                position:'AT',  photoUrl:'https://fc-atlantic-vevey.ch/players/barry-mamadou.png' },
+    { id:'19',  jerseyDisplay:19, firstName:'Rafael',        lastName:'Esteves Teixeira',     position:'AT',  photoUrl:'https://fc-atlantic-vevey.ch/players/esteves-teixeira-rafael.png' },
   ];
   const BY_ID = Object.fromEntries(ROSTER.map(p => [p.id, p]));
 
-  /* ------ CONFIG MATCH (éditable) ------------------------------------ */
-  const MATCH = {
-    opponent: { name: 'FC KURDE LAUSANNE', shortName: 'KURDE', crestUrl: 'https://fc-atlantic-vevey.ch/logos/clubs/fc-kurde-ls.png' },
-    kickoff:  { dayName:'DIMANCHE', dateLabel:'26 AVRIL', year:2026, time:'15:00' },
-    venue:    { name:'STADE DE LA VEYRE', city:'ST-LÉGIER' },
-    competition: { line1: 'CHAMPIONNAT', line2: '5E LIGUE · GROUPE 2' },
-  };
+  /* ---------- OPPONENTS (5e ligue Groupe 2 + adversaires récents) --- */
+  const OPPONENTS = [
+    { slug:'fc-kurde-ls',      name:'FC Kurde LS',            shortName:'KURDE',    crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-kurde-ls.png' },
+    { slug:'fc-yvorne-ii',     name:'FC Yvorne II',           shortName:'YVORNE',   crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-yvorne-ii.png' },
+    { slug:'es-malley-ii',     name:'ES Malley II',           shortName:'MALLEY',   crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/es-malley-ii.png' },
+    { slug:'fc-cugy-ib',       name:'FC Cugy IB',             shortName:'CUGY',     crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-cugy-ib.png' },
+    { slug:'fc-concordia-ls-iii', name:'FC Concordia LS III', shortName:'CONCORDIA',crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-concordia-ls-iii.png' },
+    { slug:'fc-lutry',         name:'FC Lutry',               shortName:'LUTRY',    crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-lutry.png' },
+    { slug:'fc-pully',         name:'FC Pully',               shortName:'PULLY',    crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-pully.png' },
+    { slug:'fc-ecublens-ii',   name:'FC Écublens II',         shortName:'ECUBLENS', crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-ecublens-ii.png' },
+    { slug:'fc-st-sulpice',    name:'FC St-Sulpice',          shortName:'ST-SULP',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-st-sulpice.png' },
+    { slug:'fc-renens-iii',    name:'FC Renens III',          shortName:'RENENS',   crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-renens-iii.png' },
+    { slug:'fc-crissier-ii',   name:'FC Crissier II',         shortName:'CRISSIER', crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-crissier-ii.png' },
+    { slug:'fc-la-tour-de-peilz', name:'FC La Tour-de-Peilz', shortName:'TOUR',     crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-la-tour-de-peilz.png' },
+    { slug:'fc-vignoble',      name:'FC Vignoble',            shortName:'VIGNOBLE', crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-vignoble.png' },
+  ];
 
-  /* ------ STATE ------------------------------------------------------- */
+  /* ---------- VARIANTS META ------------------------------------- */
+  const VARIANTS = [
+    { id:'preview-j3',       label:'Preview',    icon:'📣', theme:'light', eyebrow:'PREVIEW · J-3', accent:'#8DB6FF' },
+    { id:'matchday',         label:'Matchday',   icon:'⚽', theme:'',      eyebrow:'MATCHDAY',      accent:'#2E7BFF' },
+    { id:'lineup',           label:'Lineup',     icon:'📋', theme:'',      eyebrow:'COMPOSITION',   accent:'#2E7BFF' },
+    { id:'live-score',       label:'Live',       icon:'🔴', theme:'red',   eyebrow:'EN DIRECT',     accent:'#EF4444' },
+    { id:'goal',             label:'But !',      icon:'🎯', theme:'',      eyebrow:'BUT',           accent:'#2E7BFF' },
+    { id:'halftime',         label:'Mi-temps',   icon:'⏸️', theme:'orange',eyebrow:'MI-TEMPS',      accent:'#F59E0B' },
+    { id:'recap',            label:'Recap',      icon:'🏁', theme:'green', eyebrow:'RÉSULTAT FINAL',accent:'#22C55E' },
+    { id:'man-of-the-match', label:'HDM',        icon:'🏆', theme:'gold',  eyebrow:'HOMME DU MATCH',accent:'#F5B82E' },
+  ];
+
+  /* ---------- STATE --------------------------------------------- */
   const state = {
     variant: 'matchday',
     homeAway: 'home',
+    opponentSlug: 'fc-kurde-ls',
+    kickoff: { dayName:'DIMANCHE', dateLabel:'26 AVRIL', year:2026, time:'15:00' },
     score: { home: 0, away: 0 },
     minute: 73,
     scorerId: '11',
     hdmId: '11',
-    lastEvent: null,
+    formation: '4-3-3',
+    lineupStarters: ['30-T','21','3','20','2','18','22','12','10','11','19'],
+    lineupBench: ['1','6','23','28','14'],
+    homeEvents: [
+      { minute:14, playerId:'11' },
+      { minute:42, playerId:'10' },
+      { minute:78, playerId:'11' },
+    ],
+    awayEvents: [
+      { minute:31, playerLastName:'Shehu' },
+      { minute:66, playerLastName:'Kaya' },
+    ],
+    activeSection: 'variant',
   };
 
-  /* ------ VARIANTS META ----------------------------------------------- */
-  const VARIANTS = [
-    { id: 'preview-j3',       label: 'Preview J-3',   theme: '' },
-    { id: 'matchday',         label: 'Matchday',      theme: '' },
-    { id: 'lineup',           label: 'Lineup',        theme: '' },
-    { id: 'live-score',       label: 'Live Score',    theme: 'red' },
-    { id: 'goal',             label: 'But ⚽',        theme: '' },
-    { id: 'halftime',         label: 'Mi-temps',      theme: 'orange' },
-    { id: 'recap',            label: 'Recap Final',   theme: 'green' },
-    { id: 'man-of-the-match', label: 'HDM 🏆',        theme: 'gold' },
-  ];
+  /* ---------- HELPERS ------------------------------------------- */
+  const getOpp = () => OPPONENTS.find(o => o.slug === state.opponentSlug) || OPPONENTS[0];
+  const getVariant = () => VARIANTS.find(v => v.id === state.variant) || VARIANTS[0];
+  const playerInitials = p => (p.lastName || '?').slice(0,2).toUpperCase();
 
-  /* ------ CHANT HELPER ------------------------------------------------ */
-  function chantForMatch(homeAway) {
-    const homeChants = ["Allez les Blancs ! 🤍","Allez FC Atlantic ! 💪","Tous derrière les Blancs ! 🏟️","Soutien total à nos Blancs ! 💙"];
-    const awayChants = ["Allez les Bleus ! 💙","On suit l'Atlantic en déplacement ! ✈️","Soutien aux Bleus à l'extérieur ! 💪","Les Bleus en route pour la victoire ! 🔥"];
-    const pool = homeAway === 'home' ? homeChants : awayChants;
+  function chantForMatch(ha) {
+    const home = ["Allez les Blancs ! 🤍","Allez FC Atlantic ! 💪","Tous derrière les Blancs ! 🏟️","Soutien total à nos Blancs ! 💙"];
+    const away = ["Allez les Bleus ! 💙","On suit l'Atlantic en déplacement ! ✈️","Soutien aux Bleus à l'extérieur ! 💪","Les Bleus en route pour la victoire ! 🔥"];
+    const pool = ha === 'home' ? home : away;
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  /* ------ CAPTION BUILDER -------------------------------------------- */
+  /* ---------- CAPTION BUILDER ----------------------------------- */
   function buildCaption() {
-    const tags = '#FCAtlanticVevey #AtlanticNoir #5eLigue #FootballSuisse #MatchDay #Vevey #StLegier';
-    const dateLine = `${MATCH.kickoff.dayName} ${MATCH.kickoff.dateLabel} ${MATCH.kickoff.year} — ${MATCH.kickoff.time}`;
-    const chant = chantForMatch(state.homeAway);
     const v = state.variant;
+    const opp = getOpp();
+    const tags = '#FCAtlanticVevey #AtlanticNoir #5eLigue #FootballSuisse #MatchDay #Vevey #StLegier';
+    const dateLine = `${state.kickoff.dayName} ${state.kickoff.dateLabel} ${state.kickoff.year} — ${state.kickoff.time}`;
+    const chant = chantForMatch(state.homeAway);
 
-    if (v === 'preview-j3') return `⚽ J-3 — RENDEZ-VOUS MATCHDAY\n\n📅 ${dateLine}\n🏟️ ${MATCH.venue.name}, ${MATCH.venue.city}\n🆚 ${MATCH.opponent.name}\n🏆 ${MATCH.competition.line2}\n\nOn prépare le terrain. ${chant}\n\n—\n${tags}`;
-
-    if (v === 'matchday') return `⚽ C'EST MATCHDAY\n\n📅 ${dateLine}\n🏟️ ${MATCH.venue.name}, ${MATCH.venue.city}\n🆚 ${MATCH.opponent.name}\n🏆 ${MATCH.competition.line2}\n\nCoup d'envoi dans quelques heures. On joue ensemble. ${chant}\n\n—\n${tags}`;
-
-    if (v === 'lineup') return `📋 LES ONZE DE DÉPART\n\nLa composition est prête. On y va ensemble.\n\n⏰ Coup d'envoi ${MATCH.kickoff.time}\n🏟️ ${MATCH.venue.name}\n\n${chant}\n\n—\n${tags}`;
-
+    if (v === 'preview-j3') return `⚽ J-3 — RENDEZ-VOUS MATCHDAY\n\n📅 ${dateLine}\n🏟️ STADE DE LA VEYRE, ST-LÉGIER\n🆚 ${opp.name}\n🏆 5E LIGUE · GROUPE 2\n\nOn prépare le terrain. ${chant}\n\n—\n${tags}`;
+    if (v === 'matchday') return `⚽ C'EST MATCHDAY\n\n📅 ${dateLine}\n🏟️ STADE DE LA VEYRE, ST-LÉGIER\n🆚 ${opp.name}\n🏆 5E LIGUE · GROUPE 2\n\nCoup d'envoi dans quelques heures. On joue ensemble. ${chant}\n\n—\n${tags}`;
+    if (v === 'lineup') {
+      const starterNames = state.lineupStarters.map(id => BY_ID[id]?.lastName || '?').join(', ');
+      return `📋 LES ONZE DE DÉPART\n\nFormation : ${state.formation}\n${starterNames}\n\n⏰ Coup d'envoi ${state.kickoff.time}\n🆚 ${opp.name}\n\n${chant}\n\n—\n${tags}`;
+    }
     if (v === 'live-score') {
-      const stateMsg = state.score.home > state.score.away ? 'On mène 💪' : (state.score.home < state.score.away ? 'On est mené, mais on lâche rien.' : 'Tout reste à jouer.');
-      return `⚽ ${state.score.home} — ${state.score.away} À LA ${state.minute}'\n\n${stateMsg}\n\n${chant}\n\n—\n${tags}`;
+      const s = state.score.home > state.score.away ? 'On mène 💪' : (state.score.home < state.score.away ? 'On est mené, on lâche rien.' : 'Tout reste à jouer.');
+      return `⚽ ${state.score.home} — ${state.score.away} À LA ${state.minute}'\n\n${s}\n\n${chant}\n\n—\n${tags}`;
     }
-
     if (v === 'goal') {
-      const s = BY_ID[state.scorerId];
-      return `⚽⚽⚽ BUUUUUT ${s.firstName} ${s.lastName.toUpperCase()} (${state.minute}') !\n\nScore : ${state.score.home} — ${state.score.away}\n\n${chant}\n\n—\n${tags} #BUT`;
+      const sc = BY_ID[state.scorerId];
+      return `⚽⚽⚽ BUUUUUT ${sc.firstName} ${sc.lastName.toUpperCase()} (${state.minute}') !\n\nScore : ${state.score.home} — ${state.score.away}\n\n${chant}\n\n—\n${tags} #BUT`;
     }
-
     if (v === 'halftime') return `⏸️ MI-TEMPS — ${state.score.home} / ${state.score.away}\n\n45 minutes encore à jouer. On reste concentré.\n${chant}\n\n—\n${tags}`;
-
     if (v === 'recap') {
       const result = state.score.home > state.score.away ? '🏆 VICTOIRE !' : (state.score.home < state.score.away ? 'Défaite courageuse.' : '🤝 Match nul.');
-      return `🏁 COUP DE SIFFLET FINAL\n\n${state.homeAway === 'home' ? 'FC ATLANTIC' : MATCH.opponent.shortName} ${state.score.home} — ${state.score.away} ${state.homeAway === 'home' ? MATCH.opponent.shortName : 'FC ATLANTIC'}\n\n${result}\n🏟️ ${MATCH.venue.name}, ${MATCH.venue.city}\n🏆 ${MATCH.competition.line2}\n\nMerci à tous les supporters. ${chant}\n\n—\n${tags} #Resultat`;
+      const scorers = state.homeEvents.map(e => `${e.minute}' ${BY_ID[e.playerId]?.lastName || e.playerLastName || ''}`).join(' · ');
+      return `🏁 COUP DE SIFFLET FINAL\n\nFC ATLANTIC ${state.score.home} — ${state.score.away} ${opp.shortName}\n\n${result}\n⚽ Buteurs : ${scorers || '—'}\n🏟️ STADE DE LA VEYRE\n\nMerci aux supporters. ${chant}\n\n—\n${tags} #Resultat`;
     }
-
     if (v === 'man-of-the-match') {
       const h = BY_ID[state.hdmId];
-      return `🏆 HOMME DU MATCH\n\n${h.firstName} ${h.lastName.toUpperCase()} · #${h.jerseyDisplay}\n\nÉlu par le staff après notre match\nFC ATLANTIC ${state.score.home} — ${state.score.away} ${MATCH.opponent.shortName}\n🏆 ${MATCH.competition.line2}\n\nFélicitations à notre joueur de la semaine ! 👏\n${chant}\n\n—\n${tags} #HDM`;
+      return `🏆 HOMME DU MATCH\n\n${h.firstName} ${h.lastName.toUpperCase()} · #${h.jerseyDisplay}\n\nÉlu par le staff après notre match\nFC ATLANTIC ${state.score.home} — ${state.score.away} ${opp.shortName}\n🏆 5E LIGUE · GROUPE 2\n\nFélicitations à notre joueur de la semaine ! 👏\n${chant}\n\n—\n${tags} #HDM`;
     }
-
     return '';
   }
 
-  /* ------ POSTER RENDERING -------------------------------------------- */
-  const CREST_ATL = 'https://fc-atlantic-vevey.ch/images/logo-white.svg';
+  /* ---------- POSTER HTML GENERATORS ---------------------------- */
   const ACCENT = '#2E7BFF';
   const GOLD = '#F5B82E';
 
   function posterHTML() {
-    const v = state.variant;
-    const theme = {
-      'preview-j3': { eyebrow: 'PREVIEW · J-3', accent: '#8DB6FF' },
-      'matchday':   { eyebrow: 'MATCHDAY',      accent: ACCENT },
-      'lineup':     { eyebrow: 'COMPOSITION',   accent: ACCENT },
-      'live-score': { eyebrow: 'EN DIRECT',     accent: '#EF4444' },
-      'goal':       { eyebrow: 'BUT',           accent: ACCENT },
-      'halftime':   { eyebrow: 'MI-TEMPS',      accent: '#F59E0B' },
-      'recap':      { eyebrow: 'RÉSULTAT FINAL',accent: '#22C55E' },
-      'man-of-the-match': { eyebrow: 'HOMME DU MATCH', accent: GOLD },
-    }[v] || { eyebrow: 'MATCHDAY', accent: ACCENT };
-
-    const isBleed = v === 'goal' || v === 'man-of-the-match';
+    const vInfo = getVariant();
+    const opp = getOpp();
+    const isBleed = state.variant === 'goal' || state.variant === 'man-of-the-match';
     const bg = isBleed ? '#04080F' : 'radial-gradient(ellipse 90% 70% at 50% 15%, #0F2240 0%, #04080F 75%), #04080F';
-    const homeAwayLabel = state.homeAway === 'home' ? 'DOMICILE' : 'EXTÉRIEUR';
 
     let inner = '';
-    if (v === 'preview-j3' || v === 'matchday') inner = classicPoster(theme, homeAwayLabel);
-    else if (v === 'lineup')     inner = lineupPoster(theme);
-    else if (v === 'live-score') inner = liveScorePoster(theme);
-    else if (v === 'goal')       inner = goalPoster(theme);
-    else if (v === 'halftime')   inner = halftimePoster(theme);
-    else if (v === 'recap')      inner = recapPoster(theme);
-    else if (v === 'man-of-the-match') inner = hdmPoster(theme);
+    if (state.variant === 'preview-j3' || state.variant === 'matchday') inner = classicPoster(vInfo, opp);
+    else if (state.variant === 'lineup')           inner = lineupPoster(vInfo, opp);
+    else if (state.variant === 'live-score')       inner = liveScorePoster(vInfo, opp);
+    else if (state.variant === 'goal')             inner = goalPoster(vInfo, opp);
+    else if (state.variant === 'halftime')         inner = halftimePoster(vInfo, opp);
+    else if (state.variant === 'recap')            inner = recapPoster(vInfo, opp);
+    else if (state.variant === 'man-of-the-match') inner = hdmPoster(vInfo, opp);
+
+    const atmosphere = !isBleed ? `
+      <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.4) 100%);"></div>
+      <div style="position:absolute; top:380px; right:-200px; width:700px; height:700px; background:radial-gradient(circle, ${vInfo.accent}55, transparent 60%); filter:blur(24px); opacity:0.4; pointer-events:none;"></div>
+    ` : '';
+
+    const watermark = !isBleed ? `<img src="${CREST_ATL_URL}" crossorigin="anonymous" style="position:absolute; width:1400px; height:1400px; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0.04; filter:blur(3px); pointer-events:none; z-index:0;">` : '';
 
     return `<div id="poster-node" style="width:1080px; height:1920px; position:relative; overflow:hidden; background:${bg}; font-family:'Inter', sans-serif; color:#fff;">
-      ${!isBleed ? `
-        <div style="position:absolute; inset:0; pointer-events:none; opacity:0.08; mix-blend-mode:overlay; background-image:url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.8 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")"></div>
-        <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.4) 100%)"></div>
-        <div style="position:absolute; top:380px; right:-200px; width:700px; height:700px; background:radial-gradient(circle, ${theme.accent}55, transparent 60%); filter:blur(24px); opacity:0.4; pointer-events:none"></div>
-      ` : ''}
+      ${atmosphere}
       <div style="position:absolute; inset:40px; border-radius:32px; border:1px solid rgba(255,255,255,0.08); box-shadow:inset 0 1px 0 rgba(255,255,255,0.04); padding:80px; display:flex; flex-direction:column; overflow:hidden;">
-        ${!isBleed ? `<img src="${CREST_ATL}" crossOrigin="anonymous" style="position:absolute; width:1400px; height:1400px; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0.04; filter:blur(3px); pointer-events:none; z-index:0"/>` : ''}
+        ${watermark}
         ${inner}
       </div>
     </div>`;
   }
 
-  function pillEyebrow(theme) {
-    return `<div style="padding:10px 20px; border-radius:999px; border:1px solid ${theme.accent}70; background:${theme.accent}22; color:#fff; font-family:'Inter'; font-weight:700; font-size:18px; letter-spacing:0.22em;">${theme.eyebrow}</div>`;
+  function eyebrowPill(v) {
+    return `<div style="padding:12px 22px; border-radius:999px; border:1px solid ${v.accent}70; background:${v.accent}22; color:#fff; font-family:'Inter', sans-serif; font-weight:700; font-size:18px; letter-spacing:0.22em;">${v.eyebrow}</div>`;
   }
 
   function crestImg(url, size) {
-    return `<img src="${url}" crossOrigin="anonymous" style="width:${size}px; height:${size}px; object-fit:contain; filter:drop-shadow(0 0 16px ${ACCENT}66);"/>`;
+    return `<img src="${url}" crossorigin="anonymous" style="width:${size}px; height:${size}px; object-fit:contain; filter:drop-shadow(0 0 16px ${ACCENT}66);">`;
   }
 
-  function classicPoster(theme, homeAwayLabel) {
+  function venueFooter() {
+    const label = state.homeAway === 'home' ? 'DOMICILE' : 'EXTÉRIEUR';
+    const col = state.homeAway === 'home' ? '34,197,94' : '245,158,11';
+    return `<div style="margin-top:auto; position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:36px; letter-spacing:0.04em; text-transform:uppercase; line-height:1;">STADE DE LA VEYRE</div>
+        <div style="font-family:'Inter', sans-serif; font-size:18px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:6px; font-weight:500;">ST-LÉGIER</div>
+      </div>
+      <div style="padding:16px 28px; border-radius:999px; background:rgba(${col},0.15); border:1px solid rgba(${col},0.5); font-family:'Inter', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.24em;">${label}</div>
+    </div>`;
+  }
+
+  function classicPoster(v, opp) {
     return `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:32px; position:relative; z-index:1;">
-        <div style="font-family:'Inter'; font-weight:600; letter-spacing:0.24em; color:rgba(255,255,255,0.72); text-transform:uppercase; line-height:1.35;">
-          <div style="color:rgba(255,255,255,0.5); font-size:18px; margin-bottom:6px;">${MATCH.competition.line1}</div>
-          <div style="font-size:22px;">${MATCH.competition.line2}</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:600; letter-spacing:0.24em; color:rgba(255,255,255,0.72); text-transform:uppercase; line-height:1.35;">
+          <div style="color:rgba(255,255,255,0.5); font-size:18px; margin-bottom:6px;">CHAMPIONNAT</div>
+          <div style="font-size:22px;">5E LIGUE · GROUPE 2</div>
         </div>
-        ${pillEyebrow(theme)}
+        ${eyebrowPill(v)}
       </div>
       <div style="height:1px; background:rgba(255,255,255,0.1); margin-top:36px; position:relative; z-index:1;"></div>
       <div style="margin-top:60px; display:flex; justify-content:space-between; align-items:flex-end; position:relative; z-index:1;">
         <div>
-          <div style="font-family:'Oswald'; font-weight:700; font-size:110px; line-height:0.92; letter-spacing:0.02em; text-transform:uppercase;">${MATCH.kickoff.dayName}</div>
-          <div style="font-family:'Oswald'; font-weight:500; font-size:78px; line-height:0.92; letter-spacing:0.04em; text-transform:uppercase; color:rgba(255,255,255,0.8); margin-top:12px;">${MATCH.kickoff.dateLabel} <span style="font-size:44px; color:rgba(255,255,255,0.4);">${MATCH.kickoff.year}</span></div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:110px; line-height:0.92; letter-spacing:0.02em; text-transform:uppercase;">${state.kickoff.dayName}</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:78px; line-height:0.92; letter-spacing:0.04em; text-transform:uppercase; color:rgba(255,255,255,0.8); margin-top:12px;">${state.kickoff.dateLabel} <span style="font-size:44px; color:rgba(255,255,255,0.4);">${state.kickoff.year}</span></div>
         </div>
         <div style="text-align:right;">
-          <div style="font-family:'Oswald'; font-weight:500; font-size:28px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:10px;">Coup d'envoi</div>
-          <div style="font-family:'Oswald'; font-weight:700; font-size:130px; line-height:0.9; color:${theme.accent}; text-shadow:0 0 40px ${theme.accent}66;">${MATCH.kickoff.time}</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:28px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:10px;">Coup d'envoi</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:130px; line-height:0.9; color:${v.accent}; text-shadow:0 0 40px ${v.accent}66;">${state.kickoff.time}</div>
         </div>
       </div>
       <div style="flex:1; display:flex; align-items:center; justify-content:center; margin:80px 0; position:relative; z-index:1;">
         <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:48px; width:100%;">
           <div style="display:flex; flex-direction:column; align-items:center; gap:36px;">
             <div style="position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center;">
-              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${theme.accent}33, transparent 65%); filter:blur(40px);"></div>
-              ${crestImg(CREST_ATL, 200)}
+              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(40px);"></div>
+              ${crestImg(CREST_ATL_URL, 200)}
             </div>
-            <div style="font-family:'Oswald'; font-weight:700; font-size:40px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">FC ATLANTIC VEVEY</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:40px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">FC ATLANTIC VEVEY</div>
           </div>
           <div style="display:flex; flex-direction:column; align-items:center; gap:24px;">
-            <div style="width:1px; height:120px; background:linear-gradient(180deg, transparent, ${theme.accent}99, transparent);"></div>
-            <div style="font-family:'Oswald'; font-weight:700; font-size:120px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 40px ${theme.accent}88;">VS</div>
-            <div style="width:1px; height:120px; background:linear-gradient(180deg, transparent, ${theme.accent}99, transparent);"></div>
+            <div style="width:1px; height:120px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:120px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 40px ${v.accent}88;">VS</div>
+            <div style="width:1px; height:120px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
           </div>
           <div style="display:flex; flex-direction:column; align-items:center; gap:36px;">
             <div style="position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center;">
-              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${theme.accent}33, transparent 65%); filter:blur(40px);"></div>
-              ${crestImg(MATCH.opponent.crestUrl, 200)}
+              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(40px);"></div>
+              ${crestImg(opp.crestUrl, 200)}
             </div>
-            <div style="font-family:'Oswald'; font-weight:700; font-size:40px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">${MATCH.opponent.name}</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:40px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">${opp.name.toUpperCase()}</div>
           </div>
         </div>
       </div>
-      <div style="margin-top:auto; position:relative; z-index:1;">
-        <div style="height:1px; background:linear-gradient(90deg, transparent, ${theme.accent}66, transparent); margin-bottom:40px;"></div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <div style="font-family:'Oswald'; font-weight:700; font-size:36px; letter-spacing:0.04em; text-transform:uppercase; line-height:1;">${MATCH.venue.name}</div>
-            <div style="font-family:'Inter'; font-size:18px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:6px; font-weight:500;">${MATCH.venue.city}</div>
-          </div>
-          <div style="padding:16px 28px; border-radius:999px; background:${state.homeAway === 'home' ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)'}; border:1px solid ${state.homeAway === 'home' ? 'rgba(34,197,94,0.5)' : 'rgba(245,158,11,0.5)'}; font-family:'Inter'; font-weight:700; font-size:22px; letter-spacing:0.24em;">${homeAwayLabel}</div>
-        </div>
-      </div>
+      <div style="height:1px; background:linear-gradient(90deg, transparent, ${v.accent}66, transparent); margin-bottom:40px; position:relative; z-index:1;"></div>
+      ${venueFooter()}
     `;
   }
 
-  function scoreRow(theme, home, away, size = 'md') {
-    const cfg = {
-      sm: { crest: 140, score: 160, dashW: 60, nameSize: 22 },
-      md: { crest: 180, score: 200, dashW: 70, nameSize: 26 },
-      lg: { crest: 240, score: 220, dashW: 80, nameSize: 30 },
-    }[size];
+  function scoreRow(v, home, away, size='md') {
+    const cfg = { sm:{crest:140,score:160,gap:24,dashW:60,nameSize:22}, md:{crest:180,score:200,gap:32,dashW:70,nameSize:26}, lg:{crest:240,score:220,gap:40,dashW:80,nameSize:30} }[size];
+    const opp = getOpp();
     return `
-      <div style="display:grid; grid-template-columns:1fr auto auto auto 1fr; align-items:center; gap:32px; width:100%; justify-items:center;">
+      <div style="display:grid; grid-template-columns:1fr auto auto auto 1fr; align-items:center; gap:${cfg.gap}px; width:100%; justify-items:center;">
         <div style="display:flex; flex-direction:column; align-items:center; gap:18px;">
-          ${crestImg(CREST_ATL, cfg.crest)}
-          <div style="font-family:'Oswald'; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05;">FC ATLANTIC</div>
+          ${crestImg(CREST_ATL_URL, cfg.crest)}
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05;">FC ATLANTIC</div>
         </div>
-        <div style="font-family:'Oswald'; font-weight:700; font-size:${cfg.score}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; min-width:${cfg.score*0.55}px; text-align:center; margin-bottom:${cfg.nameSize + 18}px;">${home}</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.score}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${v.accent}88; min-width:${cfg.score*0.55}px; text-align:center; margin-bottom:${cfg.nameSize + 18}px;">${home}</div>
         <div style="width:${cfg.dashW}px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4); margin-bottom:${cfg.nameSize + 18 + cfg.score*0.35}px;"></div>
-        <div style="font-family:'Oswald'; font-weight:700; font-size:${cfg.score}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; min-width:${cfg.score*0.55}px; text-align:center; margin-bottom:${cfg.nameSize + 18}px;">${away}</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.score}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${v.accent}88; min-width:${cfg.score*0.55}px; text-align:center; margin-bottom:${cfg.nameSize + 18}px;">${away}</div>
         <div style="display:flex; flex-direction:column; align-items:center; gap:18px;">
-          ${crestImg(MATCH.opponent.crestUrl, cfg.crest)}
-          <div style="font-family:'Oswald'; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05;">${MATCH.opponent.name}</div>
+          ${crestImg(opp.crestUrl, cfg.crest)}
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05;">${opp.shortName}</div>
         </div>
       </div>
     `;
   }
 
-  function venueFooter(homeAwayLabel) {
-    return `
-      <div style="margin-top:auto; position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <div style="font-family:'Oswald'; font-weight:700; font-size:36px; letter-spacing:0.04em; text-transform:uppercase; line-height:1;">${MATCH.venue.name}</div>
-          <div style="font-family:'Inter'; font-size:18px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:6px; font-weight:500;">${MATCH.venue.city}</div>
-        </div>
-        <div style="padding:16px 28px; border-radius:999px; background:${state.homeAway === 'home' ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)'}; border:1px solid ${state.homeAway === 'home' ? 'rgba(34,197,94,0.5)' : 'rgba(245,158,11,0.5)'}; font-family:'Inter'; font-weight:700; font-size:22px; letter-spacing:0.24em;">${homeAwayLabel}</div>
-      </div>
-    `;
-  }
-
-  function liveScorePoster(theme) {
+  function liveScorePoster(v, opp) {
     const stateMsg = state.score.home > state.score.away ? 'On mène' : (state.score.home < state.score.away ? 'On est mené' : 'Tout reste à jouer');
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
-        ${pillEyebrow(theme)}
+        ${eyebrowPill(v)}
         <div style="text-align:right;">
-          <div style="font-family:'Inter'; font-weight:600; font-size:18px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5);">Minute</div>
-          <div style="font-family:'Oswald'; font-weight:700; font-size:180px; line-height:0.9; color:${theme.accent}; text-shadow:0 0 40px ${theme.accent}88;">${state.minute}'</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5);">Minute</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:180px; line-height:0.9; color:${v.accent}; text-shadow:0 0 40px ${v.accent}88;">${state.minute}'</div>
         </div>
       </div>
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:60px 0; position:relative; z-index:1;">
-        ${scoreRow(theme, state.score.home, state.score.away, 'md')}
-        <div style="margin-top:28px; font-family:'Inter'; font-size:24px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.6); font-weight:500;">${stateMsg}</div>
+        ${scoreRow(v, state.score.home, state.score.away, 'md')}
+        <div style="margin-top:28px; font-family:'Inter', sans-serif; font-size:24px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.6); font-weight:500;">${stateMsg}</div>
       </div>
-      ${venueFooter(state.homeAway === 'home' ? 'DOMICILE' : 'EXTÉRIEUR')}
+      ${venueFooter()}
     `;
   }
 
-  function goalPoster(theme) {
-    const scorer = BY_ID[state.scorerId];
-    return `
-      <div style="position:absolute; inset:-40px; z-index:0; overflow:hidden;">
-        <img src="${scorer.photoUrl}" crossOrigin="anonymous" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center top; filter:brightness(0.85) saturate(0.9) hue-rotate(8deg);"/>
-        <div style="position:absolute; inset:0; background:linear-gradient(180deg, transparent 30%, #04080F 100%);"></div>
-      </div>
-      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
-        <div style="padding:10px 20px; border-radius:999px; background:rgba(4,8,15,0.6); border:1px solid rgba(255,255,255,0.3); font-family:'Inter'; font-weight:700; font-size:16px; letter-spacing:0.2em;">${MATCH.competition.line2}</div>
-        <div style="font-family:'Oswald'; font-weight:700; font-size:88px; color:${theme.accent}; text-shadow:0 0 32px ${theme.accent}aa;">${state.minute}'</div>
-      </div>
-      <div style="flex:1"></div>
-      <div style="position:relative; z-index:1; text-align:center; margin-bottom: 40px;">
-        <div style="font-family:'Oswald'; font-weight:700; font-size:280px; line-height:0.85; color:${theme.accent}; text-shadow:0 0 80px ${theme.accent}cc, 0 0 40px rgba(255,255,255,0.3); letter-spacing:0.04em;">BUT</div>
-        <div style="font-family:'Oswald'; font-weight:700; font-size:140px; line-height:0.9; margin-top:24px; letter-spacing:0.02em;">${state.score.home} — ${state.score.away}</div>
-        <div style="display:flex; align-items:center; justify-content:center; gap:22px; margin-top:48px;">
-          <div style="width:80px; height:80px; border-radius:50%; background:${theme.accent}; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald'; font-weight:700; font-size:42px;">${scorer.jerseyDisplay}</div>
-          <div style="text-align:left;">
-            <div style="font-family:'Inter'; font-weight:500; font-size:32px; color:rgba(255,255,255,0.7);">${scorer.firstName}</div>
-            <div style="font-family:'Oswald'; font-weight:700; font-size:64px; line-height:1; text-transform:uppercase; letter-spacing:0.02em;">${scorer.lastName}</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  function halftimePoster(theme) {
+  function halftimePoster(v, opp) {
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
-        ${pillEyebrow(theme)}
-        <div style="font-family:'Inter'; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${MATCH.competition.line2}</div>
+        ${eyebrowPill(v)}
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">5E LIGUE · GROUPE 2</div>
       </div>
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
-        <div style="font-family:'Inter'; font-weight:600; font-size:22px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-bottom:40px;">Score à la 45'</div>
-        ${scoreRow(theme, state.score.home, state.score.away, 'lg')}
-        <div style="margin-top:60px; font-family:'Oswald'; font-weight:500; font-size:36px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.7);">45 minutes encore à jouer</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:22px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-bottom:40px;">Score à la 45'</div>
+        ${scoreRow(v, state.score.home, state.score.away, 'lg')}
+        <div style="margin-top:60px; font-family:'Oswald', sans-serif; font-weight:500; font-size:36px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.7);">45 minutes encore à jouer</div>
       </div>
-      ${venueFooter(state.homeAway === 'home' ? 'DOMICILE' : 'EXTÉRIEUR')}
+      ${venueFooter()}
     `;
   }
 
-  function recapPoster(theme) {
+  function recapPoster(v, opp) {
     const win = state.score.home > state.score.away;
     const draw = state.score.home === state.score.away;
     const resultMsg = win ? '🏆 VICTOIRE' : (draw ? '🤝 MATCH NUL' : 'DÉFAITE COURAGEUSE');
     const resultColor = win ? '#22C55E' : (draw ? '#F59E0B' : '#EF4444');
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
-        <div style="font-family:'Inter'; font-weight:600; letter-spacing:0.24em; color:rgba(255,255,255,0.72); text-transform:uppercase;">
-          <div style="color:rgba(255,255,255,0.5); font-size:18px; margin-bottom:6px;">${MATCH.competition.line1}</div>
-          <div style="font-size:22px;">${MATCH.competition.line2}</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:600; letter-spacing:0.24em; color:rgba(255,255,255,0.72); text-transform:uppercase;">
+          <div style="color:rgba(255,255,255,0.5); font-size:18px; margin-bottom:6px;">CHAMPIONNAT</div>
+          <div style="font-size:22px;">5E LIGUE · GROUPE 2</div>
         </div>
-        ${pillEyebrow(theme)}
+        ${eyebrowPill(v)}
       </div>
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
-        <div style="font-family:'Oswald'; font-weight:700; font-size:56px; letter-spacing:0.08em; color:${resultColor}; margin-bottom:48px; text-shadow:0 0 32px ${resultColor}88;">${resultMsg}</div>
-        ${scoreRow(theme, state.score.home, state.score.away, 'lg')}
-        <div style="margin-top:60px; font-family:'Inter'; font-weight:500; font-size:24px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.55);">${MATCH.kickoff.dayName} ${MATCH.kickoff.dateLabel} ${MATCH.kickoff.year}</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:56px; letter-spacing:0.08em; color:${resultColor}; margin-bottom:48px; text-shadow:0 0 32px ${resultColor}88;">${resultMsg}</div>
+        ${scoreRow(v, state.score.home, state.score.away, 'lg')}
+        <div style="margin-top:60px; font-family:'Inter', sans-serif; font-weight:500; font-size:24px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.55);">${state.kickoff.dayName} ${state.kickoff.dateLabel} ${state.kickoff.year}</div>
       </div>
-      ${venueFooter(state.homeAway === 'home' ? 'DOMICILE' : 'EXTÉRIEUR')}
+      ${venueFooter()}
     `;
   }
 
-  function hdmPoster(theme) {
-    const h = BY_ID[state.hdmId];
-    const positionLabels = { 'G':'Gardien', 'DEF':'Défenseur', 'MIL':'Milieu', 'AT':'Attaquant' };
+  function goalPoster(v, opp) {
+    const sc = BY_ID[state.scorerId];
+    return `
+      <div style="position:absolute; inset:-40px; z-index:0; overflow:hidden;">
+        <img src="${sc.photoUrl}" crossorigin="anonymous" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center top; filter:brightness(0.85) saturate(0.9) hue-rotate(8deg);">
+        <div style="position:absolute; inset:0; background:linear-gradient(180deg, transparent 30%, #04080F 100%);"></div>
+      </div>
+      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
+        <div style="padding:10px 20px; border-radius:999px; background:rgba(4,8,15,0.6); border:1px solid rgba(255,255,255,0.3); font-family:'Inter', sans-serif; font-weight:700; font-size:16px; letter-spacing:0.2em;">5E LIGUE · GROUPE 2</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:88px; color:${v.accent}; text-shadow:0 0 32px ${v.accent}aa;">${state.minute}'</div>
+      </div>
+      <div style="flex:1;"></div>
+      <div style="position:relative; z-index:1; text-align:center; margin-bottom:40px;">
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:280px; line-height:0.85; color:${v.accent}; text-shadow:0 0 80px ${v.accent}cc, 0 0 40px rgba(255,255,255,0.3); letter-spacing:0.04em;">BUT</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:140px; line-height:0.9; margin-top:24px; letter-spacing:0.02em;">${state.score.home} — ${state.score.away}</div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:22px; margin-top:48px;">
+          <div style="width:80px; height:80px; border-radius:50%; background:${v.accent}; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:42px;">${sc.jerseyDisplay}</div>
+          <div style="text-align:left;">
+            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:32px; color:rgba(255,255,255,0.7);">${sc.firstName}</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:64px; line-height:1; text-transform:uppercase; letter-spacing:0.02em;">${sc.lastName}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function lineupPoster(v, opp) {
+    const starters = state.lineupStarters.map(id => BY_ID[id]).filter(Boolean);
+    const bench = state.lineupBench.map(id => BY_ID[id]).filter(Boolean);
+    const row = (p) => `
+      <div style="display:flex; align-items:center; gap:16px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:12px 16px;">
+        <div style="width:72px; height:72px; border-radius:50%; overflow:hidden; background:linear-gradient(135deg, #1a3058, #04080F); border:1px solid rgba(255,255,255,0.12); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+          ${p.photoUrl ? `<img src="${p.photoUrl}" crossorigin="anonymous" style="width:100%; height:100%; object-fit:cover; object-position:top;">` : `<div style="font-family:'Oswald'; font-weight:700; font-size:28px; color:rgba(255,255,255,0.75);">${playerInitials(p)}</div>`}
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:26px; text-transform:uppercase; line-height:1.05; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.lastName}</div>
+            ${p.isCaptain ? `<div style="width:22px; height:22px; border-radius:50%; background:#F59E0B; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald'; font-weight:700; font-size:12px; flex-shrink:0;">C</div>` : ''}
+          </div>
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-top:2px;">${p.position}</div>
+        </div>
+        <div style="width:46px; height:46px; border-radius:50%; background:${v.accent}; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:22px; box-shadow:0 0 18px ${v.accent}66; flex-shrink:0;">${p.jerseyDisplay}</div>
+      </div>
+    `;
+    const benchRow = (p) => `
+      <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.07); border-radius:14px; padding:6px 12px 6px 6px;">
+        <div style="width:50px; height:50px; border-radius:50%; overflow:hidden; background:linear-gradient(135deg, #1a3058, #04080F); border:1px solid rgba(255,255,255,0.12); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+          ${p.photoUrl ? `<img src="${p.photoUrl}" crossorigin="anonymous" style="width:100%; height:100%; object-fit:cover; object-position:top;">` : `<div style="font-family:'Oswald'; font-weight:700; font-size:18px; color:rgba(255,255,255,0.75);">${playerInitials(p)}</div>`}
+        </div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:600; font-size:19px; text-transform:uppercase;">${p.lastName}</div>
+        <div style="width:30px; height:30px; border-radius:50%; background:${v.accent}; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:14px; flex-shrink:0;">${p.jerseyDisplay}</div>
+      </div>
+    `;
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
-        <div style="font-family:'Inter'; font-weight:600; font-size:20px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">Élu par le staff</div>
-        <div style="padding:10px 20px; border-radius:999px; border:1px solid rgba(245,184,46,0.7); background:rgba(245,184,46,0.22); color:${GOLD}; font-family:'Inter'; font-weight:700; font-size:18px; letter-spacing:0.22em; box-shadow:0 0 24px rgba(245,184,46,0.4);">HDM</div>
+        ${eyebrowPill(v)}
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">5E LIGUE · GROUPE 2</div>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top:36px; position:relative; z-index:1;">
+        <div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:140px; line-height:0.9; color:${v.accent}; text-shadow:0 0 32px ${v.accent}66;">${state.formation}</div>
+          <div style="font-family:'Inter', sans-serif; font-size:20px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:8px; font-weight:500;">Formation</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:48px; letter-spacing:0.04em; text-transform:uppercase;">${state.kickoff.dayName}</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:36px; color:rgba(255,255,255,0.7); margin-top:4px;">${state.kickoff.dateLabel} · ${state.kickoff.time}</div>
+        </div>
       </div>
       <div style="margin-top:40px; position:relative; z-index:1;">
-        <div style="font-family:'Oswald'; font-weight:700; font-size:110px; line-height:0.95; letter-spacing:0.03em; text-transform:uppercase;">Homme du match</div>
-        <div style="font-family:'Oswald'; font-weight:500; font-size:32px; color:${GOLD}; text-shadow:0 0 20px rgba(245,184,46,0.5); margin-top:8px; text-transform:uppercase; letter-spacing:0.05em;">Match ${MATCH.kickoff.dayName.toLowerCase()} ${MATCH.kickoff.dateLabel}</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:14px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:14px;">Onze de départ</div>
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:14px 20px;">
+          ${starters.map(row).join('')}
+        </div>
+      </div>
+      <div style="margin-top:32px; position:relative; z-index:1;">
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:14px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:12px;">Banc</div>
+        <div style="display:flex; flex-wrap:wrap; gap:12px;">
+          ${bench.map(benchRow).join('')}
+        </div>
+      </div>
+      ${venueFooter()}
+    `;
+  }
+
+  function hdmPoster(v, opp) {
+    const h = BY_ID[state.hdmId];
+    const posLabels = { 'G':'Gardien', 'DEF':'Défenseur', 'MIL':'Milieu', 'AT':'Attaquant' };
+    return `
+      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:20px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">Élu par le staff</div>
+        <div style="padding:10px 20px; border-radius:999px; border:1px solid rgba(245,184,46,0.7); background:rgba(245,184,46,0.22); color:${GOLD}; font-family:'Inter', sans-serif; font-weight:700; font-size:18px; letter-spacing:0.22em; box-shadow:0 0 24px rgba(245,184,46,0.4);">HDM</div>
+      </div>
+      <div style="margin-top:40px; position:relative; z-index:1;">
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:110px; line-height:0.95; letter-spacing:0.03em; text-transform:uppercase;">Homme du match</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:32px; color:${GOLD}; text-shadow:0 0 20px rgba(245,184,46,0.5); margin-top:8px; text-transform:uppercase; letter-spacing:0.05em;">Match ${state.kickoff.dayName.toLowerCase()} ${state.kickoff.dateLabel}</div>
       </div>
       <div style="margin-top:50px; display:flex; justify-content:center; position:relative; z-index:1;">
         <div style="position:relative; width:820px; height:800px; border-radius:28px; overflow:hidden; border:2px solid rgba(245,184,46,0.5); box-shadow:0 0 60px rgba(245,184,46,0.3);">
-          <img src="${h.photoUrl}" crossOrigin="anonymous" style="width:100%; height:100%; object-fit:cover; object-position:center top; filter:brightness(0.92) saturate(1.05) contrast(1.05);"/>
+          <img src="${h.photoUrl}" crossorigin="anonymous" style="width:100%; height:100%; object-fit:cover; object-position:center top; filter:brightness(0.92) saturate(1.05) contrast(1.05);">
           <div style="position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg, transparent 65%, rgba(4,8,15,0.8) 100%);"></div>
         </div>
       </div>
       <div style="margin-top:32px; display:flex; align-items:center; gap:24px; position:relative; z-index:1;">
-        <div style="width:80px; height:80px; border-radius:50%; background:${GOLD}; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald'; font-weight:700; font-size:42px; box-shadow:0 0 24px rgba(245,184,46,0.5);">${h.jerseyDisplay}</div>
+        <div style="width:80px; height:80px; border-radius:50%; background:${GOLD}; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:42px; box-shadow:0 0 24px rgba(245,184,46,0.5);">${h.jerseyDisplay}</div>
         <div style="flex:1; min-width:0;">
-          <div style="font-family:'Inter'; font-weight:500; font-size:32px; color:rgba(255,255,255,0.7);">${h.firstName}</div>
-          <div style="font-family:'Oswald'; font-weight:700; font-size:68px; line-height:1; letter-spacing:0.03em; text-transform:uppercase;">${h.lastName}</div>
-          <div style="font-family:'Inter'; font-weight:500; font-size:20px; color:rgba(255,255,255,0.4); letter-spacing:0.18em; text-transform:uppercase; margin-top:4px;">${(positionLabels[h.position] || '').toUpperCase()}</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:32px; color:rgba(255,255,255,0.7);">${h.firstName}</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:68px; line-height:1; letter-spacing:0.03em; text-transform:uppercase;">${h.lastName}</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:20px; color:rgba(255,255,255,0.4); letter-spacing:0.18em; text-transform:uppercase; margin-top:4px;">${(posLabels[h.position] || '').toUpperCase()}</div>
         </div>
       </div>
       <div style="margin-top:28px; position:relative; z-index:1;">
         <div style="height:1px; background:linear-gradient(90deg, transparent, ${GOLD}, transparent); margin-bottom:24px;"></div>
-        <div style="font-family:'Oswald'; font-weight:700; font-size:48px; text-align:center; letter-spacing:0.02em;">FC ATLANTIC ${state.score.home} — ${state.score.away} ${MATCH.opponent.shortName}</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:48px; text-align:center; letter-spacing:0.02em;">FC ATLANTIC ${state.score.home} — ${state.score.away} ${opp.shortName}</div>
       </div>
     `;
   }
 
-  function lineupPoster(theme) {
-    return `
-      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
-        ${pillEyebrow(theme)}
-        <div style="font-family:'Inter'; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${MATCH.competition.line2}</div>
-      </div>
-      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
-        <div style="font-family:'Oswald'; font-weight:700; font-size:220px; line-height:0.9; color:${theme.accent}; text-shadow:0 0 40px ${theme.accent}aa; letter-spacing:0.02em;">4-3-3</div>
-        <div style="font-family:'Inter'; font-weight:500; font-size:32px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:20px;">Formation</div>
-        <div style="margin-top:80px; font-family:'Oswald'; font-weight:700; font-size:72px; text-align:center; letter-spacing:0.04em; text-transform:uppercase;">Les onze<br/>de départ</div>
-        <div style="margin-top:60px; font-family:'Oswald'; font-weight:500; font-size:44px; color:${theme.accent}; letter-spacing:0.06em;">Coup d'envoi ${MATCH.kickoff.time}</div>
-      </div>
-      ${venueFooter(state.homeAway === 'home' ? 'DOMICILE' : 'EXTÉRIEUR')}
-    `;
-  }
-
-  /* ------ UI RENDERING ------------------------------------------------ */
-  const SCALE_MOBILE = 0.35; // 1080 * 0.35 = 378px, fits mobile column
-
+  /* ---------- UI RENDERING -------------------------------------- */
   function updatePreview() {
     const container = document.getElementById('poster-root');
-    const wrapW = container.parentElement.clientWidth;
+    const wrap = container.closest('.preview-inner');
+    const wrapW = wrap.clientWidth;
     const scale = wrapW / 1080;
     container.innerHTML = posterHTML();
     container.style.transform = `scale(${scale})`;
     container.style.width = '1080px';
     container.style.height = '1920px';
   }
-
   function updateCaption() {
     document.getElementById('caption-preview').textContent = buildCaption();
   }
+  function updateAppbar() {
+    document.getElementById('match-opp').textContent = 'vs ' + getOpp().name;
+    document.getElementById('match-date').textContent = `Dim ${state.kickoff.dateLabel.toLowerCase()} · ${state.kickoff.time}`;
+  }
 
+  /* SECTION TABS */
+  function sectionsForVariant() {
+    const base = ['variant','match','location'];
+    const v = state.variant;
+    if (v === 'lineup') return [...base, 'lineup'];
+    if (v === 'goal') return [...base, 'goal'];
+    if (v === 'man-of-the-match') return [...base, 'hdm', 'score'];
+    if (['live-score','halftime','recap'].includes(v)) return [...base, 'score'];
+    return base;
+  }
+  const SECTION_LABELS = {
+    variant:'Variant', match:'Match', location:'Lieu', lineup:'Compo',
+    goal:'Buteur', hdm:'HDM', score:'Score'
+  };
+  function renderSectionTabs() {
+    const tabs = sectionsForVariant();
+    if (!tabs.includes(state.activeSection)) state.activeSection = tabs[0];
+    const el = document.getElementById('section-tabs');
+    el.innerHTML = tabs.map(t => `<div class="tab ${state.activeSection===t?'on':''}" data-s="${t}">${SECTION_LABELS[t]}</div>`).join('');
+    el.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+      state.activeSection = b.dataset.s;
+      renderAll();
+    }));
+  }
+
+  /* PANELS */
+  function renderPanel() {
+    const el = document.getElementById('panel-content');
+    const s = state.activeSection;
+    if (s === 'variant') el.innerHTML = panelVariant();
+    else if (s === 'match') el.innerHTML = panelMatch();
+    else if (s === 'location') el.innerHTML = panelLocation();
+    else if (s === 'lineup') el.innerHTML = panelLineup();
+    else if (s === 'goal') el.innerHTML = panelGoal();
+    else if (s === 'hdm') el.innerHTML = panelHdm();
+    else if (s === 'score') el.innerHTML = panelScore();
+    bindPanelEvents();
+  }
+
+  function panelVariant() {
+    return `<div class="panel">
+      <div class="panel-label">Type de publication</div>
+      <div class="variant-grid">
+        ${VARIANTS.map(v => `<div class="variant-card ${state.variant===v.id?'on '+v.theme:''}" data-v="${v.id}">
+          <div class="ico">${v.icon}</div>
+          <div class="lbl">${v.label}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+  function panelMatch() {
+    return `<div class="panel">
+      <div class="panel-label">Match</div>
+      <div class="row"><label>Adversaire</label>
+        <select id="opp-select">
+          ${OPPONENTS.map(o => `<option value="${o.slug}" ${state.opponentSlug===o.slug?'selected':''}>${o.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="row"><label>Date</label>
+        <input type="text" id="date-input" value="${state.kickoff.dateLabel}" placeholder="26 AVRIL">
+      </div>
+      <div class="row"><label>Heure</label>
+        <input type="text" id="time-input" value="${state.kickoff.time}" placeholder="15:00">
+      </div>
+      <div class="row"><label>Jour</label>
+        <select id="dayname-select">
+          ${['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI','DIMANCHE'].map(d =>
+            `<option value="${d}" ${state.kickoff.dayName===d?'selected':''}>${d}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+  }
+  function panelLocation() {
+    return `<div class="panel">
+      <div class="panel-label">Lieu du match</div>
+      <div class="toggle-pair">
+        <button id="btn-home" class="${state.homeAway==='home'?'on home':''}">🏠 Domicile</button>
+        <button id="btn-away" class="${state.homeAway==='away'?'on away':''}">✈️ Extérieur</button>
+      </div>
+    </div>`;
+  }
+  function panelScore() {
+    const isLive = ['live-score','goal','halftime'].includes(state.variant);
+    return `<div class="panel">
+      <div class="panel-label">Score ${isLive ? `<span class="b">En cours</span>` : `<span class="b">Final</span>`}</div>
+      <div class="score-row">
+        <input type="number" id="score-home" min="0" max="30" value="${state.score.home}" inputmode="numeric">
+        <span class="score-dash">—</span>
+        <input type="number" id="score-away" min="0" max="30" value="${state.score.away}" inputmode="numeric">
+      </div>
+      ${isLive ? `<div class="row" style="margin-top:14px;"><label>Minute</label>
+        <input type="number" id="minute-input" min="0" max="120" value="${state.minute}" inputmode="numeric">
+      </div>` : ''}
+    </div>`;
+  }
+  function panelGoal() {
+    return `<div class="panel">
+      <div class="panel-label">Buteur <span class="b">${state.minute}'</span></div>
+      <div class="player-grid" id="scorer-grid">
+        ${ROSTER.map(p => `<div class="player-mini ${state.scorerId===p.id?'on':''}" data-id="${p.id}">
+          <div class="pimg-wrap">
+            ${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy" onerror="this.style.display='none'; this.parentElement.querySelector('.pinit').style.display='flex'">` : ''}
+            <div class="pinit" style="${p.photoUrl?'display:none':''}">${playerInitials(p)}</div>
+          </div>
+          <div class="pjer">${p.jerseyDisplay}</div>
+          <div class="pname">${p.lastName}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+  function panelHdm() {
+    return `<div class="panel">
+      <div class="panel-label">Homme du match</div>
+      <div class="player-grid" id="hdm-grid">
+        ${ROSTER.map(p => `<div class="player-mini ${state.hdmId===p.id?'on gold':''}" data-id="${p.id}">
+          <div class="pimg-wrap">
+            ${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy" onerror="this.style.display='none'; this.parentElement.querySelector('.pinit').style.display='flex'">` : ''}
+            <div class="pinit" style="${p.photoUrl?'display:none':''}">${playerInitials(p)}</div>
+          </div>
+          <div class="pjer" style="background:#F5B82E">${p.jerseyDisplay}</div>
+          <div class="pname">${p.lastName}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+  function panelLineup() {
+    const starterCount = state.lineupStarters.length;
+    const benchCount = state.lineupBench.length;
+    return `<div class="panel">
+      <div class="panel-label">Formation
+        <select id="formation-select" style="background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.12); padding:5px 10px; border-radius:8px; font-family:'Inter'; font-size:12px; font-weight:700; -webkit-appearance:none;">
+          ${['4-3-3','4-4-2','4-2-3-1','3-5-2','5-3-2','3-4-3'].map(f => `<option value="${f}" ${state.formation===f?'selected':''}>${f}</option>`).join('')}
+        </select>
+      </div>
+      <div class="panel-label" style="margin-top:4px;">Titulaires <span class="lineup-counter ${starterCount===11?'ok':''}">${starterCount}/11</span></div>
+      <div class="player-grid" id="starters-grid">
+        ${ROSTER.map(p => `<div class="player-mini ${state.lineupStarters.includes(p.id)?'on':''}" data-id="${p.id}" data-list="starters">
+          <div class="pcheck">✓</div>
+          <div class="pimg-wrap">
+            ${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy" onerror="this.style.display='none'; this.parentElement.querySelector('.pinit').style.display='flex'">` : ''}
+            <div class="pinit" style="${p.photoUrl?'display:none':''}">${playerInitials(p)}</div>
+          </div>
+          <div class="pjer">${p.jerseyDisplay}</div>
+          <div class="pname">${p.lastName}</div>
+        </div>`).join('')}
+      </div>
+      <div class="panel-label" style="margin-top:14px;">Banc <span class="lineup-counter ${benchCount>=5?'ok':''}">${benchCount}/5+</span></div>
+      <div class="player-grid" id="bench-grid">
+        ${ROSTER.filter(p => !state.lineupStarters.includes(p.id)).map(p => `<div class="player-mini ${state.lineupBench.includes(p.id)?'on':''}" data-id="${p.id}" data-list="bench">
+          <div class="pcheck">✓</div>
+          <div class="pimg-wrap">
+            ${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy" onerror="this.style.display='none'; this.parentElement.querySelector('.pinit').style.display='flex'">` : ''}
+            <div class="pinit" style="${p.photoUrl?'display:none':''}">${playerInitials(p)}</div>
+          </div>
+          <div class="pjer">${p.jerseyDisplay}</div>
+          <div class="pname">${p.lastName}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  function bindPanelEvents() {
+    // Variant picker
+    document.querySelectorAll('.variant-card').forEach(c => c.addEventListener('click', () => {
+      state.variant = c.dataset.v;
+      renderAll();
+    }));
+    // Match
+    const oppSel = document.getElementById('opp-select');
+    if (oppSel) oppSel.addEventListener('change', e => { state.opponentSlug = e.target.value; renderAll(); });
+    const dInput = document.getElementById('date-input');
+    if (dInput) dInput.addEventListener('input', e => { state.kickoff.dateLabel = e.target.value.toUpperCase(); refresh(); });
+    const tInput = document.getElementById('time-input');
+    if (tInput) tInput.addEventListener('input', e => { state.kickoff.time = e.target.value; refresh(); });
+    const daySel = document.getElementById('dayname-select');
+    if (daySel) daySel.addEventListener('change', e => { state.kickoff.dayName = e.target.value; refresh(); });
+    // Location
+    const btnH = document.getElementById('btn-home');
+    const btnA = document.getElementById('btn-away');
+    if (btnH) btnH.addEventListener('click', () => { state.homeAway='home'; renderAll(); });
+    if (btnA) btnA.addEventListener('click', () => { state.homeAway='away'; renderAll(); });
+    // Score
+    const sh = document.getElementById('score-home');
+    const sa = document.getElementById('score-away');
+    const mn = document.getElementById('minute-input');
+    if (sh) sh.addEventListener('input', e => { state.score.home = parseInt(e.target.value)||0; refresh(); });
+    if (sa) sa.addEventListener('input', e => { state.score.away = parseInt(e.target.value)||0; refresh(); });
+    if (mn) mn.addEventListener('input', e => { state.minute = parseInt(e.target.value)||0; refresh(); });
+    // Scorer grid
+    document.querySelectorAll('#scorer-grid .player-mini').forEach(el => el.addEventListener('click', () => {
+      state.scorerId = el.dataset.id; renderPanel(); refresh();
+    }));
+    // HDM grid
+    document.querySelectorAll('#hdm-grid .player-mini').forEach(el => el.addEventListener('click', () => {
+      state.hdmId = el.dataset.id; renderPanel(); refresh();
+    }));
+    // Formation
+    const fSel = document.getElementById('formation-select');
+    if (fSel) fSel.addEventListener('change', e => { state.formation = e.target.value; refresh(); });
+    // Lineup starters
+    document.querySelectorAll('#starters-grid .player-mini').forEach(el => el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      const idx = state.lineupStarters.indexOf(id);
+      if (idx >= 0) {
+        state.lineupStarters.splice(idx, 1);
+      } else {
+        if (state.lineupStarters.length >= 11) {
+          toast('11 titulaires max', 'red'); return;
+        }
+        state.lineupStarters.push(id);
+        // auto-remove from bench if present
+        const bIdx = state.lineupBench.indexOf(id);
+        if (bIdx >= 0) state.lineupBench.splice(bIdx, 1);
+      }
+      renderPanel(); refresh();
+    }));
+    // Bench
+    document.querySelectorAll('#bench-grid .player-mini').forEach(el => el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      const idx = state.lineupBench.indexOf(id);
+      if (idx >= 0) state.lineupBench.splice(idx, 1);
+      else state.lineupBench.push(id);
+      renderPanel(); refresh();
+    }));
+  }
+
+  /* ---------- MAIN REFRESH -------------------------------------- */
   function refresh() {
-    document.getElementById('variant-badge').textContent = state.variant;
     updatePreview();
     updateCaption();
-    updateSectionsVisibility();
+    updateAppbar();
   }
-
-  function updateSectionsVisibility() {
-    const v = state.variant;
-    const liveSection = document.getElementById('live-section');
-    const goalSection = document.getElementById('goal-section');
-    const hdmSection = document.getElementById('hdm-section');
-    const liveNeeded = ['live-score','goal','halftime','recap','man-of-the-match'].includes(v);
-    liveSection.style.display = liveNeeded ? '' : 'none';
-    goalSection.style.display = v === 'goal' ? '' : 'none';
-    hdmSection.style.display = v === 'man-of-the-match' ? '' : 'none';
-  }
-
-  function renderVariantChips() {
-    const wrap = document.getElementById('variants-scroll');
-    wrap.innerHTML = VARIANTS.map(v => `<button class="variant-chip ${state.variant === v.id ? 'on ' + (v.theme || '') : ''}" data-v="${v.id}">${v.label}</button>`).join('');
-    wrap.querySelectorAll('.variant-chip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        state.variant = btn.dataset.v;
-        renderVariantChips();
-        refresh();
-      });
-    });
-  }
-
-  function renderPlayerGrid(containerId, selectedId, onPick) {
-    const c = document.getElementById(containerId);
-    c.innerHTML = ROSTER.map(p => `
-      <div class="player-mini ${p.id === selectedId ? 'on' : ''}" data-id="${p.id}">
-        <div class="pjer">${p.jerseyDisplay}</div>
-        <img src="${p.photoUrl}" alt="" loading="lazy" onerror="this.style.background='#0F2240'">
-        <div class="pname">${p.lastName}</div>
-      </div>
-    `).join('');
-    c.querySelectorAll('.player-mini').forEach(el => {
-      el.addEventListener('click', () => {
-        onPick(el.dataset.id);
-      });
-    });
-  }
-
-  function setHomeAway(ha) {
-    state.homeAway = ha;
-    document.getElementById('btn-home').classList.toggle('on', ha === 'home');
-    document.getElementById('btn-away').classList.toggle('on', ha === 'away');
-    document.getElementById('btn-home').classList.toggle('home', ha === 'home');
-    document.getElementById('btn-away').classList.toggle('away', ha === 'away');
+  function renderAll() {
+    renderSectionTabs();
+    renderPanel();
     refresh();
   }
 
-  /* ------ EVENT BINDINGS --------------------------------------------- */
-  document.getElementById('score-home').addEventListener('input', e => {
-    state.score.home = parseInt(e.target.value) || 0;
-    refresh();
-  });
-  document.getElementById('score-away').addEventListener('input', e => {
-    state.score.away = parseInt(e.target.value) || 0;
-    refresh();
-  });
-  document.getElementById('minute-input').addEventListener('input', e => {
-    state.minute = parseInt(e.target.value) || 0;
-    refresh();
-  });
-
-  /* ------ TOAST ------------------------------------------------------- */
-  function toast(msg, duration = 2000) {
+  /* ---------- TOAST --------------------------------------------- */
+  function toast(msg, kind='') {
     const t = document.getElementById('toast');
     t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), duration);
+    t.className = 'toast show ' + kind;
+    clearTimeout(window.__toastT);
+    window.__toastT = setTimeout(() => t.classList.remove('show'), 1800);
   }
 
-  /* ------ ACTIONS ----------------------------------------------------- */
-  async function renderFullResPoster() {
+  /* ---------- ACTIONS ------------------------------------------- */
+  async function renderFullRes() {
     const off = document.createElement('div');
     off.style.cssText = 'position:fixed; left:-99999px; top:0; width:1080px; height:1920px;';
     off.innerHTML = posterHTML();
     document.body.appendChild(off);
-    
-    const images = off.querySelectorAll('img');
-    await Promise.all([...images].map(img => {
-      if (img.complete) return Promise.resolve();
+    const imgs = off.querySelectorAll('img');
+    await Promise.all([...imgs].map(img => {
+      if (img.complete && img.naturalWidth > 0) return;
       return new Promise(res => {
-        img.onload = res;
-        img.onerror = res;
-        setTimeout(res, 3000);
+        img.onload = res; img.onerror = res;
+        setTimeout(res, 4000);
       });
     }));
-    
+    await new Promise(r => setTimeout(r, 300)); // let fonts settle
     const canvas = await html2canvas(off.querySelector('#poster-node'), {
-      width: 1080, height: 1920, scale: 1, backgroundColor: null,
-      useCORS: true, allowTaint: false, logging: false,
+      width:1080, height:1920, scale:1, backgroundColor:null,
+      useCORS:true, allowTaint:false, logging:false,
     });
     document.body.removeChild(off);
     return canvas;
   }
-
   async function downloadPoster() {
-    toast('Génération en cours...', 5000);
+    toast('Génération...', 'blue');
     try {
-      const canvas = await renderFullResPoster();
+      const canvas = await renderFullRes();
       const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 0.95));
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `FCA_${state.variant}_${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      a.href = url; a.download = `FCA_${state.variant}_${Date.now()}.png`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast('✅ PNG téléchargé');
-    } catch (e) {
-      console.error(e);
-      toast('❌ Erreur, réessaie');
-    }
+    } catch (e) { console.error(e); toast('❌ Erreur', 'red'); }
   }
-
   async function sharePoster() {
-    toast('Génération en cours...', 5000);
+    toast('Génération...', 'blue');
     try {
-      const canvas = await renderFullResPoster();
+      const canvas = await renderFullRes();
       const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 0.95));
-      const file = new File([blob], `FCA_${state.variant}.png`, { type: 'image/png' });
+      const file = new File([blob], `FCA_${state.variant}.png`, { type:'image/png' });
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'FC Atlantic Vevey', text: buildCaption() });
+        await navigator.share({ files:[file], title:'FC Atlantic Vevey', text: buildCaption() });
         toast('✅ Partagé');
       } else {
-        toast('Partage non dispo, télécharge-le');
+        toast('Partage non dispo', 'red');
       }
-    } catch (e) {
-      console.error(e);
-      toast('❌ Erreur de partage');
-    }
+    } catch (e) { console.error(e); toast('❌ Erreur', 'red'); }
   }
-
   async function copyCaption() {
     try {
       await navigator.clipboard.writeText(buildCaption());
       toast('✅ Caption copiée');
-    } catch (e) {
-      toast('❌ Copie impossible');
+    } catch (e) { toast('❌ Copie impossible', 'red'); }
+  }
+  window.downloadPoster = downloadPoster;
+  window.sharePoster = sharePoster;
+  window.copyCaption = copyCaption;
+
+  /* ---------- INIT ---------------------------------------------- */
+  window.addEventListener('load', () => {
+    // wait for fonts to be ready before first render
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => { renderAll(); });
+    } else {
+      setTimeout(renderAll, 300);
     }
-  }
-
-  /* ------ INIT -------------------------------------------------------- */
-  renderVariantChips();
-  renderPlayerGrid('scorer-grid', state.scorerId, id => {
-    state.scorerId = id;
-    renderPlayerGrid('scorer-grid', id, arguments.callee);
-    refresh();
   });
-  renderPlayerGrid('hdm-grid', state.hdmId, id => {
-    state.hdmId = id;
-    renderPlayerGrid('hdm-grid', id, arguments.callee);
-    refresh();
-  });
-  
-  // Show share button if Web Share API supports files
-  if (navigator.canShare && navigator.canShare({ files: [new File([new Blob()], 'x.png', { type: 'image/png' })] })) {
-    document.getElementById('share-btn').style.display = '';
-  }
-
-  refresh();
-
-  // Hide install tip after 20s
-  setTimeout(() => { document.getElementById('install-tip').style.display = 'none'; }, 20000);
-
   window.addEventListener('resize', () => updatePreview());
+
+  // Initial render (without waiting for fonts, in case load event already fired)
+  renderAll();
   </script>
 </body>
 </html>
