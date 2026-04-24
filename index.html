@@ -527,7 +527,7 @@
       <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.4) 100%);"></div>
       <div style="position:absolute; top:380px; right:-200px; width:700px; height:700px; background:radial-gradient(circle, ${vInfo.accent}55, transparent 60%); filter:blur(24px); opacity:0.4; pointer-events:none;"></div>
     ` : '';
-    const watermark = !bleed ? `<img src="${CREST_ATL_DATAURL}" style="position:absolute; width:1400px; height:1400px; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0.04; filter:blur(3px); pointer-events:none; z-index:0;">` : '';
+    const watermark = !bleed ? `<img src="${CREST_ATL_DATAURL}" style="position:absolute; width:1200px; height:1200px; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0.022; filter:blur(5px); pointer-events:none; z-index:0;">` : '';
     return `<div id="poster-node" style="width:1080px; height:1920px; position:relative; overflow:hidden; background:${bg}; font-family:'Inter', sans-serif; color:#fff;">
       ${atmosphere}
       <div style="position:absolute; inset:40px; border-radius:32px; border:1px solid rgba(255,255,255,0.08); box-shadow:inset 0 1px 0 rgba(255,255,255,0.04); padding:80px; display:flex; flex-direction:column; overflow:hidden;">
@@ -592,52 +592,64 @@
     `;
   }
 
-  /* ---- Variant: Kickoff (M-15, imminent kickoff) ---- */
+  /* ---- Variant: Kickoff (M-15, imminent kickoff) — refactored v5 ---- */
   function kickoffPoster() {
     const v = getVariant();
     const opp = getOpp();
     const oppCrest = getCachedCrest(opp);
     const capt = ROSTER.find(p => p.isCaptain);
+    // Build captain display — fit name on one line; shorter "lastName" only if too long
+    let captainLine = '';
+    if (capt) {
+      const full = `${capt.firstName} ${capt.lastName}`;
+      // If full name fits under 22 chars, use full; else lastName only
+      const display = full.length <= 22 ? full.toUpperCase() : capt.lastName.toUpperCase();
+      captainLine = `
+        <div style="display:flex; align-items:center; gap:20px; justify-content:center;">
+          <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:22px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); white-space:nowrap;">Capitaine</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:48px; color:#fff; white-space:nowrap;">${display} · #${capt.jerseyDisplay}</div>
+        </div>
+      `;
+    }
     return `
-      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
+      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
         ${eyebrowPill(v)}
         <div style="text-align:right; font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">5E LIGUE · GROUPE 2</div>
       </div>
+      <!-- Logos + VS strip -->
       <div style="margin-top:50px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:40px; position:relative; z-index:1;">
-        <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:14px;">
           <div style="position:relative; width:200px; height:200px; display:flex; align-items:center; justify-content:center;">
             <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(32px);"></div>
             <img src="${CREST_ATL_DATAURL}" style="width:170px; height:170px; object-fit:contain; filter:drop-shadow(0 0 14px ${v.accent}55);">
           </div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:26px; letter-spacing:0.04em; text-transform:uppercase; color:#fff;">FC ATLANTIC</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:28px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
         </div>
         <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:80px; line-height:1; color:#fff; text-shadow:0 0 28px ${v.accent}88;">VS</div>
-        <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:14px;">
           <div style="position:relative; width:200px; height:200px; display:flex; align-items:center; justify-content:center;">
             <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(32px);"></div>
             <img src="${oppCrest}" style="width:170px; height:170px; object-fit:contain; filter:drop-shadow(0 0 14px ${v.accent}55);">
           </div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:26px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; text-align:center;">${opp.shortName}</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:28px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; text-align:center; white-space:nowrap;">${opp.shortName}</div>
         </div>
       </div>
-      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1; gap:24px; margin-top:40px;">
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:140px; line-height:0.9; color:${v.accent}; text-shadow:0 0 40px ${v.accent}aa; text-align:center; letter-spacing:0.02em;">COUP D'ENVOI</div>
-        <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:46px; letter-spacing:0.14em; color:rgba(255,255,255,0.75); text-transform:uppercase; text-align:center;">Dans quelques instants</div>
-        <div style="display:flex; gap:50px; margin-top:40px; justify-content:center;">
-          <div style="text-align:center;">
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:80px; line-height:1; color:#fff;">${state.formation}</div>
-            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:6px;">Formation</div>
+      <!-- Center: COUP D'ENVOI + info block -->
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1; gap:22px; margin-top:40px;">
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:140px; line-height:0.9; color:${v.accent}; text-shadow:0 0 50px ${v.accent}cc; text-align:center; letter-spacing:0.02em; white-space:nowrap;">COUP D'ENVOI</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:42px; letter-spacing:0.14em; color:rgba(255,255,255,0.75); text-transform:uppercase; text-align:center; white-space:nowrap;">Dans quelques instants</div>
+        <!-- Single centered info card -->
+        <div style="margin-top:36px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); border-radius:28px; padding:36px 64px; display:flex; flex-direction:column; gap:22px; align-items:center;">
+          <div style="display:flex; align-items:center; gap:20px; justify-content:center;">
+            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:22px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); white-space:nowrap;">Formation</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:64px; color:${v.accent}; line-height:1; white-space:nowrap;">${state.formation}</div>
           </div>
-          <div style="width:2px; background:rgba(255,255,255,0.15);"></div>
-          <div style="text-align:center;">
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:80px; line-height:1; color:#fff;">${state.kickoff.time}</div>
-            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:6px;">Horaire</div>
+          <div style="width:200px; height:1px; background:rgba(255,255,255,0.12);"></div>
+          <div style="display:flex; align-items:center; gap:20px; justify-content:center;">
+            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:22px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); white-space:nowrap;">Coup d'envoi</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:64px; color:#fff; line-height:1; white-space:nowrap;">${state.kickoff.time}</div>
           </div>
-          ${capt ? `<div style="width:2px; background:rgba(255,255,255,0.15);"></div>
-            <div style="text-align:center;">
-              <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:50px; line-height:1; color:#fff;">${capt.lastName.toUpperCase()}</div>
-              <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:6px;">Capitaine · #${capt.jerseyDisplay}</div>
-            </div>` : ''}
+          ${capt ? `<div style="width:200px; height:1px; background:rgba(255,255,255,0.12);"></div>${captainLine}` : ''}
         </div>
         ${customMessageBlock('Allez les Bleus ! 🔥')}
       </div>
@@ -665,16 +677,16 @@
     `;
   }
 
-  /* ---- Variant: Goal (Panini card — photo never deformed) ---- */
+  /* ---- Variant: Goal (Panini card — hierarchy B) ---- */
   function goalPoster() {
     const v = getVariant();
     if (state.scorerSide === 'away') {
       return `
-        <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
+        <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
           ${pill('BUT ENCAISSÉ', '#EF4444', 'rgba(239,68,68,0.22)', 'rgba(239,68,68,0.6)')}
           <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:140px; line-height:0.9; color:#EF4444; text-shadow:0 0 32px rgba(239,68,68,0.6);">${state.minute}'</div>
         </div>
-        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:40px 0; position:relative; z-index:1;">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
           ${unifiedScoreRow()}
           ${customMessageBlock('On relève la tête — on y retourne')}
         </div>
@@ -683,36 +695,40 @@
     }
     const sc = BY_ID[state.scorerId];
     const photo = getCachedPhoto(sc);
+    // Lastname responsive — if very long, reduce font size
+    const lastNameLen = sc.lastName.length;
+    const lastNameFS = lastNameLen > 14 ? 44 : (lastNameLen > 10 ? 50 : 56);
     return `
-      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
-        ${pill('⚽ BUT', GOLD, 'rgba(245,184,46,0.22)', 'rgba(245,184,46,0.6)')}
+      <!-- Top: Minute only, right-aligned -->
+      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">5E LIGUE · GROUPE 2</div>
         <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:140px; line-height:0.9; color:${GOLD}; text-shadow:0 0 32px rgba(245,184,46,0.6);">${state.minute}'</div>
       </div>
-      <div style="margin-top:30px; position:relative; z-index:1;">
+      <!-- Score row unified -->
+      <div style="margin-top:24px; position:relative; z-index:1;">
         ${unifiedScoreRow()}
       </div>
-      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top:40px; gap:28px; position:relative; z-index:1;">
-        <!-- PANINI CARD — 3:4 ratio, photo never deformed -->
-        <div style="position:relative; width:540px; height:720px; border-radius:24px; overflow:hidden; background:linear-gradient(180deg, #0F2240 0%, #04080F 100%); border:4px solid ${GOLD}; box-shadow:0 0 60px rgba(245,184,46,0.4), inset 0 0 40px rgba(245,184,46,0.1);">
-          <!-- Top corner ribbon -->
+      <!-- Panini card centered -->
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top:30px; gap:24px; position:relative; z-index:1;">
+        <div style="position:relative; width:520px; height:700px; border-radius:24px; overflow:hidden; background:linear-gradient(180deg, #0F2240 0%, #04080F 100%); border:4px solid ${GOLD}; box-shadow:0 0 60px rgba(245,184,46,0.4), inset 0 0 40px rgba(245,184,46,0.1);">
           <div style="position:absolute; top:0; left:0; right:0; background:linear-gradient(180deg, rgba(245,184,46,0.85), rgba(245,184,46,0.15) 80%, transparent); padding:20px 24px 60px; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <div style="width:64px; height:64px; border-radius:50%; background:#04080F; border:3px solid ${GOLD}; color:${GOLD}; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:32px;">${sc.jerseyDisplay}</div>
               <div style="text-align:right; font-family:'Oswald', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.12em; text-transform:uppercase; color:#04080F;">FC ATLANTIC</div>
             </div>
           </div>
-          <!-- Photo area — contain to never deform -->
           <div style="position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; background:radial-gradient(ellipse at 50% 60%, rgba(245,184,46,0.15), transparent 70%);">
             ${photo ? `<img src="${photo}" style="width:100%; height:95%; object-fit:cover; object-position:center 18%;">` : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:180px; color:rgba(255,255,255,0.3);">${playerInitials(sc)}</div>`}
           </div>
-          <!-- Bottom name panel -->
-          <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.92) 30%, #04080F); padding:120px 24px 24px; z-index:2;">
-            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:26px; color:${GOLD}; letter-spacing:0.08em; text-transform:uppercase;">${sc.firstName}</div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:56px; line-height:1; text-transform:uppercase; letter-spacing:0.02em; color:#fff;">${sc.lastName}</div>
+          <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.92) 30%, #04080F); padding:120px 24px 20px; z-index:2;">
+            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:24px; color:${GOLD}; letter-spacing:0.08em; text-transform:uppercase;">${sc.firstName}</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${lastNameFS}px; line-height:1; text-transform:uppercase; letter-spacing:0.02em; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.lastName}</div>
           </div>
         </div>
-        <!-- BUT caption under the card -->
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:110px; line-height:0.95; color:${GOLD}; text-shadow:0 0 40px rgba(245,184,46,0.6); letter-spacing:0.06em; text-align:center;">BUUUT ${sc.lastName.toUpperCase()} !</div>
+        <!-- BUT big gold -->
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:200px; line-height:0.95; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.7), 0 0 20px rgba(255,255,255,0.2); letter-spacing:0.06em; text-align:center; margin-top:8px;">BUT !</div>
+        <!-- Player name in white, smaller -->
+        <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:50px; line-height:1; color:#fff; letter-spacing:0.05em; text-align:center; text-transform:uppercase; margin-top:-16px;">${sc.firstName} <span style="font-weight:700;">${sc.lastName}</span></div>
         ${customMessageBlock('')}
       </div>
       ${venueFooter()}
