@@ -462,47 +462,59 @@
   }
   function eyebrowPill(v) { return pill(v.eyebrow, v.accent); }
 
-  /* Score digit count → adaptive sizing */
+  /* Score sizing — adaptive based on score digit count */
   function scoreSizing() {
     const h = String(state.score.home), a = String(state.score.away);
     const maxD = Math.max(h.length, a.length);
-    if (maxD === 1) return { scoreFS: 220, crestSize: 240, nameSize: 30, dashW: 70 };
-    if (maxD === 2) return { scoreFS: 170, crestSize: 220, nameSize: 28, dashW: 60 };
-    return { scoreFS: 140, crestSize: 200, nameSize: 26, dashW: 50 };
+    if (maxD === 1) return { scoreFS: 200, crestSize: 200, nameSize: 28, dashW: 60 };
+    if (maxD === 2) return { scoreFS: 160, crestSize: 180, nameSize: 26, dashW: 55 };
+    return { scoreFS: 130, crestSize: 160, nameSize: 24, dashW: 50 };
   }
 
-  /* Unified score row — v7 definitive: fixed grid with explicit columns
-     Structure: 5 columns with exact widths — no overlap possible
-     [ATL crest+name | score1 | dash | score2 | OPP crest+name]
+  /* Unified score row — v9 GUARANTEED CENTERED
+     Strategy: build a flex row with EXPLICIT total width, then wrap it in
+     a flex container with justify-content:center. This forces the entire
+     row to be perfectly centered regardless of inner content widths.
   */
   function unifiedScoreRow() {
     const opp = getOpp();
     const oppCrest = getCachedCrest(opp);
     const cfg = scoreSizing();
-    const scoreColW = Math.max(Math.round(cfg.scoreFS * 0.65), 120);
+    // Calculate fixed widths for each piece
+    const sideBlockW = 220;     // crest + name fixed width
+    const scoreNumW = 100;      // each score number
+    const dashGap = 30;
+    const innerGap = 30;
+    const totalW = sideBlockW + innerGap + scoreNumW + dashGap + cfg.dashW + dashGap + scoreNumW + innerGap + sideBlockW;
     return `
-      <div style="display:grid; grid-template-columns:1fr ${scoreColW}px auto ${scoreColW}px 1fr; align-items:center; justify-items:center; gap:30px; width:100%; position:relative; z-index:1;">
-        <!-- Col 1: ATL crest + name (left side) -->
-        <div style="display:flex; flex-direction:column; align-items:center; gap:18px; justify-self:end;">
-          <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
-            <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
-            <img src="${CREST_ATL_DATAURL}" style="width:${Math.round(cfg.crestSize*0.85)}px; height:${Math.round(cfg.crestSize*0.85)}px; object-fit:contain; filter:drop-shadow(0 0 14px ${ACCENT}55); display:block;">
+      <div style="display:flex; justify-content:center; align-items:flex-start; width:100%; position:relative; z-index:1;">
+        <div style="display:flex; align-items:flex-start; width:${totalW}px; max-width:100%;">
+          <!-- ATL block -->
+          <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
+            <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
+              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
+              <img src="${CREST_ATL_DATAURL}" style="width:${Math.round(cfg.crestSize*0.85)}px; height:${Math.round(cfg.crestSize*0.85)}px; object-fit:contain; filter:drop-shadow(0 0 14px ${ACCENT}55); display:block;">
+            </div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
           </div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
-        </div>
-        <!-- Col 2: home score -->
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center; align-self:start; margin-top:${Math.round(cfg.crestSize*0.2)}px;">${state.score.home}</div>
-        <!-- Col 3: dash -->
-        <div style="width:${cfg.dashW}px; height:6px; border-radius:3px; background:rgba(255,255,255,0.55); align-self:start; margin-top:${Math.round(cfg.crestSize*0.2 + cfg.scoreFS*0.4)}px;"></div>
-        <!-- Col 4: away score -->
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center; align-self:start; margin-top:${Math.round(cfg.crestSize*0.2)}px;">${state.score.away}</div>
-        <!-- Col 5: OPP crest + name (right side) -->
-        <div style="display:flex; flex-direction:column; align-items:center; gap:18px; justify-self:start;">
-          <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
-            <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
-            <img src="${oppCrest}" style="max-width:${Math.round(cfg.crestSize*0.85)}px; max-height:${Math.round(cfg.crestSize*0.85)}px; width:auto; height:auto; object-fit:contain; filter:drop-shadow(0 0 14px ${ACCENT}55); display:block;">
+          <!-- gap -->
+          <div style="width:${innerGap}px; flex-shrink:0;"></div>
+          <!-- Score block: home — dash — away (perfectly symmetric) -->
+          <div style="flex-shrink:0; display:flex; align-items:center; gap:${dashGap}px; padding-top:${Math.round(cfg.crestSize*0.15)}px;">
+            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center;">${state.score.home}</div>
+            <div style="width:${cfg.dashW}px; height:6px; border-radius:3px; background:rgba(255,255,255,0.55); flex-shrink:0;"></div>
+            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center;">${state.score.away}</div>
           </div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">${opp.shortName}</div>
+          <!-- gap -->
+          <div style="width:${innerGap}px; flex-shrink:0;"></div>
+          <!-- OPP block (same fixed width as ATL block) -->
+          <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
+            <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
+              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
+              <img src="${oppCrest}" style="max-width:${Math.round(cfg.crestSize*0.85)}px; max-height:${Math.round(cfg.crestSize*0.85)}px; width:auto; height:auto; object-fit:contain; filter:drop-shadow(0 0 14px ${ACCENT}55); display:block;">
+            </div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">${opp.shortName}</div>
+          </div>
         </div>
       </div>
     `;
