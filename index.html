@@ -30,18 +30,25 @@
   html, body { background:#04080F; color:#fff; min-height:100vh; overscroll-behavior: none; font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-weight:400; }
 
   /* APP BAR */
-  .appbar { position:sticky; top:0; z-index:50; background:rgba(4,8,15,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid rgba(255,255,255,0.08); padding-top: calc(env(safe-area-inset-top) + 10px); padding-left:14px; padding-right:14px; padding-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
-  .appbar .sub { font-family:'Inter', sans-serif; font-weight:600; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.45); }
-  .appbar .title { font-family:'Oswald', sans-serif; font-weight:700; font-size:18px; letter-spacing:0.06em; text-transform:uppercase; margin-top:2px; }
-  .appbar .right { text-align:right; max-width:60%; }
-  .appbar .right strong { display:block; font-family:'Oswald', sans-serif; font-weight:600; font-size:12px; letter-spacing:0.04em; line-height:1.15; }
-  .appbar .right small { display:block; font-family:'Inter', sans-serif; font-weight:500; font-size:10px; color:#F5B82E; letter-spacing:0.14em; text-transform:uppercase; margin-top:3px; }
+  .appbar { position:sticky; top:0; z-index:50; background:rgba(4,8,15,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid rgba(255,255,255,0.08); padding-top: calc(env(safe-area-inset-top) + 8px); padding-left:12px; padding-right:12px; padding-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .appbar .sub { font-family:'Inter', sans-serif; font-weight:600; font-size:9px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.45); }
+  .appbar .title { font-family:'Oswald', sans-serif; font-weight:700; font-size:16px; letter-spacing:0.06em; text-transform:uppercase; margin-top:1px; }
+  .appbar .right { text-align:right; max-width:38%; }
+  .appbar .right strong { display:block; font-family:'Oswald', sans-serif; font-weight:600; font-size:11px; letter-spacing:0.04em; line-height:1.15; }
+  .appbar .right small { display:block; font-family:'Inter', sans-serif; font-weight:500; font-size:9px; color:#F5B82E; letter-spacing:0.12em; text-transform:uppercase; margin-top:2px; }
+
+  /* FORMAT TOGGLE */
+  .format-toggle { display:flex; gap:0; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); border-radius:999px; padding:3px; flex-shrink:0; }
+  .ft-btn { background:transparent; color:rgba(255,255,255,0.65); border:0; padding:6px 12px; border-radius:999px; font-family:'Inter', sans-serif; font-weight:600; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; transition:all .15s; white-space:nowrap; }
+  .ft-btn.on { background:#2E7BFF; color:#fff; box-shadow:0 2px 8px rgba(46,123,255,0.3); }
+  .ft-btn:active { transform:scale(0.96); }
 
   .container { max-width:540px; margin:0 auto; padding:12px 12px calc(90px + env(safe-area-inset-bottom)); }
 
   /* PREVIEW */
   .preview-wrap { position:relative; margin:0 auto 12px; background:#000; border-radius:18px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06); max-width:320px; }
-  .preview-ratio { position:relative; width:100%; padding-top:177.78%; }
+  .preview-ratio { position:relative; width:100%; padding-top:177.78%; transition:padding-top 0.3s ease; }
+  .preview-ratio.fmt-post { padding-top:125%; max-width:280px; margin:0 auto; }
   .preview-inner { position:absolute; inset:0; overflow:hidden; }
   .preview-scaled { position:absolute; top:0; left:0; transform-origin:top left; }
   .preview-loader { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.5); font-family:'Inter', sans-serif; font-size:12px; }
@@ -168,6 +175,10 @@
       <div class="sub">Match Controller</div>
       <div class="title">FC Atlantic</div>
     </div>
+    <div class="format-toggle" id="format-toggle">
+      <button class="ft-btn on" data-fmt="story" onclick="setFormat('story')">📱 Story</button>
+      <button class="ft-btn" data-fmt="post" onclick="setFormat('post')">⊞ Post</button>
+    </div>
     <div class="right">
       <strong id="match-opp">vs FC Kurde LS</strong>
       <small id="match-date">Dim 26 avril · 15:00</small>
@@ -286,6 +297,7 @@
 
   const state = {
     variant: 'matchday',
+    format: 'story',  // 'story' (1080x1920, 9:16) or 'post' (1080x1350, 4:5)
     homeAway: 'home',
     opponentSlug: 'fc-kurde-ls',
     kickoff: { dayName:'DIMANCHE', dateLabel:'26 AVRIL', year:2026, time:'15:00' },
@@ -462,10 +474,18 @@
   }
   function eyebrowPill(v) { return pill(v.eyebrow, v.accent); }
 
-  /* Score sizing — adaptive based on score digit count */
+  /* Format-aware value picker: pf(storyVal, postVal) returns the right one */
+  const pf = (storyVal, postVal) => state.format === 'post' ? postVal : storyVal;
+
+  /* Score sizing — adaptive based on score digit count AND format */
   function scoreSizing() {
     const h = String(state.score.home), a = String(state.score.away);
     const maxD = Math.max(h.length, a.length);
+    if (state.format === 'post') {
+      if (maxD === 1) return { scoreFS: 170, crestSize: 170, nameSize: 24, dashW: 50 };
+      if (maxD === 2) return { scoreFS: 140, crestSize: 160, nameSize: 22, dashW: 45 };
+      return { scoreFS: 115, crestSize: 140, nameSize: 20, dashW: 40 };
+    }
     if (maxD === 1) return { scoreFS: 200, crestSize: 200, nameSize: 28, dashW: 60 };
     if (maxD === 2) return { scoreFS: 160, crestSize: 180, nameSize: 26, dashW: 55 };
     return { scoreFS: 130, crestSize: 160, nameSize: 24, dashW: 50 };
@@ -480,11 +500,10 @@
     const opp = getOpp();
     const oppCrest = getCachedCrest(opp);
     const cfg = scoreSizing();
-    // Calculate fixed widths for each piece
-    const sideBlockW = 220;     // crest + name fixed width
-    const scoreNumW = 100;      // each score number
-    const dashGap = 30;
-    const innerGap = 30;
+    const sideBlockW = pf(220, 190);
+    const scoreNumW = pf(100, 80);
+    const dashGap = pf(30, 22);
+    const innerGap = pf(30, 20);
     const totalW = sideBlockW + innerGap + scoreNumW + dashGap + cfg.dashW + dashGap + scoreNumW + innerGap + sideBlockW;
     return `
       <div style="display:flex; justify-content:center; align-items:flex-start; width:100%; position:relative; z-index:1;">
@@ -538,21 +557,56 @@
     return `<div style="position:relative; z-index:1; font-family:'Inter', sans-serif; font-weight:500; font-size:26px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.72); text-align:center; margin-top:28px; max-width:80%; margin-left:auto; margin-right:auto; line-height:1.35;">${msg}</div>`;
   }
 
-  /* Shared shell — used by all poster variants */
+  /* Format dimensions and padding values
+     STORY = 1080x1920 (9:16) — locked, never modified
+     POST  = 1080x1350 (4:5)  — Instagram feed format
+  */
+  const FORMATS = {
+    story: { w: 1080, h: 1920, padOuter: 40, padInner: 80, ratio: '177.78%' },
+    post:  { w: 1080, h: 1350, padOuter: 36, padInner: 72, ratio: '125%' },
+  };
+  const FMT = () => FORMATS[state.format] || FORMATS.story;
+
+  /* Shared shell — used by all poster variants
+     STORY: rendered natively at 1080x1920, no scaling
+     POST: same content rendered then visually scaled to fit 1080x1350 (4:5)
+  */
   function shellWrap(innerHTML, opts = {}) {
     const vInfo = getVariant();
+    const f = FMT();
     const bleed = opts.bleed || false;
     const bg = bleed ? '#04080F' : 'radial-gradient(ellipse 90% 70% at 50% 15%, #0F2240 0%, #04080F 75%), #04080F';
+    const isPost = state.format === 'post';
+    const wmSize = isPost ? 950 : 1200;
     const atmosphere = !bleed ? `
       <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.4) 100%);"></div>
-      <div style="position:absolute; top:380px; right:-200px; width:700px; height:700px; background:radial-gradient(circle, ${vInfo.accent}55, transparent 60%); filter:blur(24px); opacity:0.4; pointer-events:none;"></div>
+      <div style="position:absolute; top:${isPost ? '240' : '380'}px; right:-200px; width:${isPost ? '550' : '700'}px; height:${isPost ? '550' : '700'}px; background:radial-gradient(circle, ${vInfo.accent}55, transparent 60%); filter:blur(24px); opacity:0.4; pointer-events:none;"></div>
     ` : '';
-    const watermark = !bleed ? `<img src="${CREST_ATL_DATAURL}" style="position:absolute; width:1200px; height:1200px; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0.022; filter:blur(5px); pointer-events:none; z-index:0;">` : '';
-    return `<div id="poster-node" style="width:1080px; height:1920px; position:relative; overflow:hidden; background:${bg}; font-family:'Inter', sans-serif; color:#fff;">
+    const watermark = !bleed ? `<img src="${CREST_ATL_DATAURL}" style="position:absolute; width:${wmSize}px; height:${wmSize}px; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0.022; filter:blur(5px); pointer-events:none; z-index:0;">` : '';
+    
+    if (!isPost) {
+      // STORY: untouched — exact same rendering as v9
+      return `<div id="poster-node" style="width:${f.w}px; height:${f.h}px; position:relative; overflow:hidden; background:${bg}; font-family:'Inter', sans-serif; color:#fff;">
+        ${atmosphere}
+        <div style="position:absolute; inset:${f.padOuter}px; border-radius:32px; border:1px solid rgba(255,255,255,0.08); box-shadow:inset 0 1px 0 rgba(255,255,255,0.04); padding:${f.padInner}px; display:flex; flex-direction:column; overflow:hidden;">
+          ${watermark}
+          ${innerHTML}
+        </div>
+      </div>`;
+    }
+    
+    // POST 4:5: render content at story height (1920) then scale to fit 1350
+    // Visual scale: 1350/1920 = 0.7031. Width keeps 1080 since both formats are 1080 wide.
+    const innerScale = (f.h - 2*f.padOuter) / (1920 - 2*40);
+    const innerVirtualW = Math.round((f.w - 2*f.padOuter) / innerScale);
+    const innerVirtualH = 1920 - 2*40;  // story inner height
+    return `<div id="poster-node" style="width:${f.w}px; height:${f.h}px; position:relative; overflow:hidden; background:${bg}; font-family:'Inter', sans-serif; color:#fff;">
       ${atmosphere}
-      <div style="position:absolute; inset:40px; border-radius:32px; border:1px solid rgba(255,255,255,0.08); box-shadow:inset 0 1px 0 rgba(255,255,255,0.04); padding:80px; display:flex; flex-direction:column; overflow:hidden;">
+      <div style="position:absolute; inset:${f.padOuter}px; border-radius:28px; border:1px solid rgba(255,255,255,0.08); box-shadow:inset 0 1px 0 rgba(255,255,255,0.04); overflow:hidden;">
         ${watermark}
-        ${innerHTML}
+        <div style="width:${innerVirtualW}px; height:${innerVirtualH}px; padding:80px; transform:scale(${innerScale}); transform-origin:top left; display:flex; flex-direction:column; box-sizing:border-box;">
+          ${innerHTML}
+        </div>
       </div>
     </div>`;
   }
@@ -565,48 +619,48 @@
     return `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:32px; position:relative; z-index:1;">
         <div style="font-family:'Inter', sans-serif; font-weight:600; letter-spacing:0.24em; color:rgba(255,255,255,0.72); text-transform:uppercase; line-height:1.35;">
-          <div style="color:rgba(255,255,255,0.5); font-size:18px; margin-bottom:6px;">CHAMPIONNAT</div>
-          <div style="font-size:22px;">5E LIGUE · GROUPE 2</div>
+          <div style="color:rgba(255,255,255,0.5); font-size:${pf(18,15)}px; margin-bottom:6px;">CHAMPIONNAT</div>
+          <div style="font-size:${pf(22,18)}px;">5E LIGUE · GROUPE 2</div>
         </div>
         ${eyebrowPill(v)}
       </div>
-      <div style="height:1px; background:rgba(255,255,255,0.1); margin-top:36px; position:relative; z-index:1;"></div>
-      <div style="margin-top:60px; display:flex; justify-content:space-between; align-items:flex-end; position:relative; z-index:1;">
+      <div style="height:1px; background:rgba(255,255,255,0.1); margin-top:${pf(36,24)}px; position:relative; z-index:1;"></div>
+      <div style="margin-top:${pf(60,40)}px; display:flex; justify-content:space-between; align-items:flex-end; position:relative; z-index:1;">
         <div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:110px; line-height:0.92; letter-spacing:0.02em; text-transform:uppercase; color:#fff;">${state.kickoff.dayName}</div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:78px; line-height:0.92; letter-spacing:0.04em; text-transform:uppercase; color:rgba(255,255,255,0.8); margin-top:12px;">${state.kickoff.dateLabel} <span style="font-size:44px; color:rgba(255,255,255,0.4);">${state.kickoff.year}</span></div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(110,82)}px; line-height:0.92; letter-spacing:0.02em; text-transform:uppercase; color:#fff;">${state.kickoff.dayName}</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(78,58)}px; line-height:0.92; letter-spacing:0.04em; text-transform:uppercase; color:rgba(255,255,255,0.8); margin-top:12px;">${state.kickoff.dateLabel} <span style="font-size:${pf(44,34)}px; color:rgba(255,255,255,0.4);">${state.kickoff.year}</span></div>
         </div>
         <div style="text-align:right;">
-          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:28px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:10px;">Coup d'envoi</div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:130px; line-height:0.9; color:${v.accent}; text-shadow:0 0 40px ${v.accent}66;">${state.kickoff.time}</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(28,22)}px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:10px;">Coup d'envoi</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(130,96)}px; line-height:0.9; color:${v.accent}; text-shadow:0 0 40px ${v.accent}66;">${state.kickoff.time}</div>
         </div>
       </div>
-      <div style="flex:1; display:flex; align-items:center; justify-content:center; margin:60px 0; position:relative; z-index:1;">
-        <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:48px; width:100%;">
-          <div style="display:flex; flex-direction:column; align-items:center; gap:32px;">
-            <div style="position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center;">
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; margin:${pf(60,32)}px 0; position:relative; z-index:1;">
+        <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:${pf(48,32)}px; width:100%;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(32,20)}px;">
+            <div style="position:relative; width:${pf(280,210)}px; height:${pf(280,210)}px; display:flex; align-items:center; justify-content:center;">
               <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(40px);"></div>
-              <img src="${CREST_ATL_DATAURL}" style="width:220px; height:220px; object-fit:contain; filter:drop-shadow(0 0 16px ${ACCENT}66);">
+              <img src="${CREST_ATL_DATAURL}" style="width:${pf(220,170)}px; height:${pf(220,170)}px; object-fit:contain; filter:drop-shadow(0 0 16px ${ACCENT}66);">
             </div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:38px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">FC ATLANTIC VEVEY</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(38,30)}px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">FC ATLANTIC VEVEY</div>
           </div>
-          <div style="display:flex; flex-direction:column; align-items:center; gap:24px;">
-            <div style="width:1px; height:120px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:120px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 40px ${v.accent}88;">VS</div>
-            <div style="width:1px; height:120px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(24,16)}px;">
+            <div style="width:1px; height:${pf(120,80)}px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(120,90)}px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 40px ${v.accent}88;">VS</div>
+            <div style="width:1px; height:${pf(120,80)}px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
           </div>
-          <div style="display:flex; flex-direction:column; align-items:center; gap:32px;">
-            <div style="position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(32,20)}px;">
+            <div style="position:relative; width:${pf(280,210)}px; height:${pf(280,210)}px; display:flex; align-items:center; justify-content:center;">
               <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(40px);"></div>
-              <img src="${oppCrest}" style="width:220px; height:220px; object-fit:contain; filter:drop-shadow(0 0 16px ${ACCENT}66);">
+              <img src="${oppCrest}" style="max-width:${pf(220,170)}px; max-height:${pf(220,170)}px; width:auto; height:auto; object-fit:contain; filter:drop-shadow(0 0 16px ${ACCENT}66);">
             </div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:38px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">${opp.name.toUpperCase()}</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(38,30)}px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">${opp.name.toUpperCase()}</div>
           </div>
         </div>
       </div>
       ${customMessageBlock('')}
       <div style="margin-top:auto;">
-        <div style="height:1px; background:linear-gradient(90deg, transparent, ${v.accent}66, transparent); margin-bottom:40px; position:relative; z-index:1;"></div>
+        <div style="height:1px; background:linear-gradient(90deg, transparent, ${v.accent}66, transparent); margin-bottom:${pf(40,24)}px; position:relative; z-index:1;"></div>
         ${venueFooter()}
       </div>
     `;
@@ -691,7 +745,7 @@
       return `
         <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
           ${pill('BUT ENCAISSÉ', '#EF4444', 'rgba(239,68,68,0.22)', 'rgba(239,68,68,0.6)')}
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:140px; line-height:0.9; color:#EF4444; text-shadow:0 0 32px rgba(239,68,68,0.6);">${state.minute}'</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(140,100)}px; line-height:0.9; color:#EF4444; text-shadow:0 0 32px rgba(239,68,68,0.6);">${state.minute}'</div>
         </div>
         <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
           ${unifiedScoreRow()}
@@ -702,40 +756,38 @@
     }
     const sc = BY_ID[state.scorerId];
     const photo = getCachedPhoto(sc);
-    // Lastname responsive — if very long, reduce font size
     const lastNameLen = sc.lastName.length;
-    const lastNameFS = lastNameLen > 14 ? 44 : (lastNameLen > 10 ? 50 : 56);
+    const lastNameFS = state.format === 'post'
+      ? (lastNameLen > 14 ? 36 : (lastNameLen > 10 ? 42 : 48))
+      : (lastNameLen > 14 ? 44 : (lastNameLen > 10 ? 50 : 56));
+    const paniniW = pf(520, 380);
+    const paniniH = pf(700, 510);
     return `
-      <!-- Top: Minute only, right-aligned -->
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
-        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">5E LIGUE · GROUPE 2</div>
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:140px; line-height:0.9; color:${GOLD}; text-shadow:0 0 32px rgba(245,184,46,0.6);">${state.minute}'</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(18,15)}px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">5E LIGUE · GROUPE 2</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(140,100)}px; line-height:0.9; color:${GOLD}; text-shadow:0 0 32px rgba(245,184,46,0.6);">${state.minute}'</div>
       </div>
-      <!-- Score row unified -->
-      <div style="margin-top:24px; position:relative; z-index:1;">
+      <div style="margin-top:${pf(24,16)}px; position:relative; z-index:1;">
         ${unifiedScoreRow()}
       </div>
-      <!-- Panini card centered -->
-      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top:30px; gap:24px; position:relative; z-index:1;">
-        <div style="position:relative; width:520px; height:700px; border-radius:24px; overflow:hidden; background:linear-gradient(180deg, #0F2240 0%, #04080F 100%); border:4px solid ${GOLD}; box-shadow:0 0 60px rgba(245,184,46,0.4), inset 0 0 40px rgba(245,184,46,0.1);">
-          <div style="position:absolute; top:0; left:0; right:0; background:linear-gradient(180deg, rgba(245,184,46,0.85), rgba(245,184,46,0.15) 80%, transparent); padding:20px 24px 60px; z-index:2;">
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top:${pf(30,16)}px; gap:${pf(24,14)}px; position:relative; z-index:1;">
+        <div style="position:relative; width:${paniniW}px; height:${paniniH}px; border-radius:24px; overflow:hidden; background:linear-gradient(180deg, #0F2240 0%, #04080F 100%); border:4px solid ${GOLD}; box-shadow:0 0 60px rgba(245,184,46,0.4), inset 0 0 40px rgba(245,184,46,0.1);">
+          <div style="position:absolute; top:0; left:0; right:0; background:linear-gradient(180deg, rgba(245,184,46,0.85), rgba(245,184,46,0.15) 80%, transparent); padding:${pf(20,16)}px ${pf(24,18)}px ${pf(60,40)}px; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div style="width:64px; height:64px; border-radius:50%; background:#04080F; border:3px solid ${GOLD}; color:${GOLD}; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:32px;">${sc.jerseyDisplay}</div>
-              <div style="text-align:right; font-family:'Oswald', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.12em; text-transform:uppercase; color:#04080F;">FC ATLANTIC</div>
+              <div style="width:${pf(64,52)}px; height:${pf(64,52)}px; border-radius:50%; background:#04080F; border:3px solid ${GOLD}; color:${GOLD}; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(32,26)}px;">${sc.jerseyDisplay}</div>
+              <div style="text-align:right; font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(22,18)}px; letter-spacing:0.12em; text-transform:uppercase; color:#04080F;">FC ATLANTIC</div>
             </div>
           </div>
           <div style="position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; background:radial-gradient(ellipse at 50% 60%, rgba(245,184,46,0.15), transparent 70%);">
-            ${photo ? `<img src="${photo}" style="width:100%; height:95%; object-fit:cover; object-position:center 18%;">` : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:180px; color:rgba(255,255,255,0.3);">${playerInitials(sc)}</div>`}
+            ${photo ? `<img src="${photo}" style="width:100%; height:95%; object-fit:cover; object-position:center 18%;">` : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(180,140)}px; color:rgba(255,255,255,0.3);">${playerInitials(sc)}</div>`}
           </div>
-          <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.92) 30%, #04080F); padding:120px 24px 20px; z-index:2;">
-            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:24px; color:${GOLD}; letter-spacing:0.08em; text-transform:uppercase;">${sc.firstName}</div>
+          <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.92) 30%, #04080F); padding:${pf(120,90)}px ${pf(24,18)}px ${pf(20,14)}px; z-index:2;">
+            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:${pf(24,20)}px; color:${GOLD}; letter-spacing:0.08em; text-transform:uppercase;">${sc.firstName}</div>
             <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${lastNameFS}px; line-height:1; text-transform:uppercase; letter-spacing:0.02em; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.lastName}</div>
           </div>
         </div>
-        <!-- BUT big gold -->
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:200px; line-height:0.95; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.7), 0 0 20px rgba(255,255,255,0.2); letter-spacing:0.06em; text-align:center; margin-top:8px;">BUT !</div>
-        <!-- Player name in white, smaller -->
-        <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:50px; line-height:1; color:#fff; letter-spacing:0.05em; text-align:center; text-transform:uppercase; margin-top:-16px;">${sc.firstName} <span style="font-weight:700;">${sc.lastName}</span></div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(200,140)}px; line-height:0.95; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.7), 0 0 20px rgba(255,255,255,0.2); letter-spacing:0.06em; text-align:center; margin-top:${pf(8,4)}px;">BUT !</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(50,38)}px; line-height:1; color:#fff; letter-spacing:0.05em; text-align:center; text-transform:uppercase; margin-top:${pf(-16,-10)}px;">${sc.firstName} <span style="font-weight:700;">${sc.lastName}</span></div>
         ${customMessageBlock('')}
       </div>
       ${venueFooter()}
@@ -895,6 +947,12 @@
   /* Master dispatcher */
   function posterHTML() {
     const v = state.variant;
+    // Lineup is too dense for 4:5 → force story format for this variant only
+    let savedFormat = null;
+    if (v === 'lineup' && state.format === 'post') {
+      savedFormat = state.format;
+      state.format = 'story';
+    }
     let inner, opts = {};
     if (v === 'preview-j3' || v === 'matchday') inner = classicPoster();
     else if (v === 'lineup') inner = lineupPoster();
@@ -904,7 +962,9 @@
     else if (v === 'halftime') inner = halftimePoster();
     else if (v === 'recap') inner = recapPoster();
     else if (v === 'man-of-the-match') inner = hdmPoster();
-    return shellWrap(inner, opts);
+    const html = shellWrap(inner, opts);
+    if (savedFormat) state.format = savedFormat;  // restore for caller
+    return html;
   }
 
   /* ==================================================================
@@ -914,12 +974,21 @@
   function updatePreview() {
     const container = document.getElementById('poster-root');
     const wrap = container.closest('.preview-inner');
+    const ratio = container.closest('.preview-ratio');
+    // Lineup variant always renders as story regardless of toggle
+    const effectiveFormat = (state.variant === 'lineup') ? 'story' : state.format;
+    if (effectiveFormat === 'post') {
+      ratio.classList.add('fmt-post');
+    } else {
+      ratio.classList.remove('fmt-post');
+    }
     const wrapW = wrap.clientWidth;
-    const scale = wrapW / 1080;
+    const f = FORMATS[effectiveFormat];
+    const scale = wrapW / f.w;
     container.innerHTML = posterHTML();
     container.style.transform = `scale(${scale})`;
-    container.style.width = '1080px';
-    container.style.height = '1920px';
+    container.style.width = f.w + 'px';
+    container.style.height = f.h + 'px';
   }
   function updateAppbar() {
     document.getElementById('match-opp').textContent = 'vs ' + getOpp().name;
@@ -1271,10 +1340,21 @@
     window.__toastT = setTimeout(() => t.classList.remove('show'), 1800);
   }
 
+  window.setFormat = function(fmt) {
+    if (fmt !== 'story' && fmt !== 'post') return;
+    state.format = fmt;
+    // Update toggle UI
+    document.querySelectorAll('#format-toggle .ft-btn').forEach(b => {
+      b.classList.toggle('on', b.dataset.fmt === fmt);
+    });
+    refresh();
+  };
+
   /* ---------- PNG GENERATION ---------------------------------- */
   async function renderFullRes() {
+    const f = FMT();
     const off = document.createElement('div');
-    off.style.cssText = 'position:fixed; left:-99999px; top:0; width:1080px; height:1920px; z-index:-1;';
+    off.style.cssText = `position:fixed; left:-99999px; top:0; width:${f.w}px; height:${f.h}px; z-index:-1;`;
     off.innerHTML = posterHTML();
     document.body.appendChild(off);
     const imgs = off.querySelectorAll('img');
@@ -1285,7 +1365,7 @@
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
     await new Promise(r => setTimeout(r, 200));
     const canvas = await html2canvas(off.querySelector('#poster-node'), {
-      width:1080, height:1920, scale:1, backgroundColor:null,
+      width: f.w, height: f.h, scale:1, backgroundColor:null,
       useCORS:true, allowTaint:false, logging:false, imageTimeout:5000,
       onclone: (cDoc) => {
         const style = cDoc.createElement('style');
@@ -1310,7 +1390,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `FCA_${state.variant}_${Date.now()}.png`;
+      a.download = `FCA_${state.variant}_${state.format}_${Date.now()}.png`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast('✅ PNG téléchargé');
