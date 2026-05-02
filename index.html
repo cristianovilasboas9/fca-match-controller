@@ -352,6 +352,38 @@
   function getCachedPhoto(p) { return p && p.photoUrl ? (PHOTO_CACHE[p.photoUrl] || null) : null; }
   function getCachedCrest(opp) { return opp ? (CREST_CACHE[opp.slug] || null) : null; }
 
+  /* SVG → raster PNG conversion. html2canvas 1.4.1 mis-renders SVG <img>
+     (transforms ignored, drop-shadow filter clips the image). Rendering once
+     to a canvas at high resolution gives a clean PNG that always exports
+     correctly. */
+  let CREST_ATL_PNG = CREST_ATL_DATAURL;          // fallback to SVG until raster ready
+  let CREST_ATL_PNG_READY = false;
+  function svgToPngDataUrl(svgDataUrl, size) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = size; c.height = size;
+          const ctx = c.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.clearRect(0, 0, size, size);
+          ctx.drawImage(img, 0, 0, size, size);
+          resolve(c.toDataURL('image/png'));
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = svgDataUrl;
+    });
+  }
+  async function ensureAtlCrestPng() {
+    if (CREST_ATL_PNG_READY) return;
+    const png = await svgToPngDataUrl(CREST_ATL_DATAURL, 2048);
+    if (png) { CREST_ATL_PNG = png; CREST_ATL_PNG_READY = true; }
+  }
+  function getAtlCrest() { return CREST_ATL_PNG; }
+
   async function preloadAllAssets() {
     const urls = [];
     ROSTER.forEach(p => { if (p.photoUrl && !PHOTO_CACHE[p.photoUrl]) urls.push({ url: p.photoUrl, target: 'photo' }); });
@@ -494,9 +526,9 @@
     const h = String(state.score.home), a = String(state.score.away);
     const maxD = Math.max(h.length, a.length);
     if (state.format === 'post') {
-      if (maxD === 1) return { scoreFS: 170, crestSize: 170, nameSize: 24, dashW: 50 };
-      if (maxD === 2) return { scoreFS: 140, crestSize: 160, nameSize: 22, dashW: 45 };
-      return { scoreFS: 115, crestSize: 140, nameSize: 20, dashW: 40 };
+      if (maxD === 1) return { scoreFS: 230, crestSize: 230, nameSize: 32, dashW: 64 };
+      if (maxD === 2) return { scoreFS: 190, crestSize: 215, nameSize: 30, dashW: 58 };
+      return { scoreFS: 155, crestSize: 195, nameSize: 28, dashW: 52 };
     }
     if (maxD === 1) return { scoreFS: 200, crestSize: 200, nameSize: 28, dashW: 60 };
     if (maxD === 2) return { scoreFS: 160, crestSize: 180, nameSize: 26, dashW: 55 };
@@ -509,10 +541,13 @@
      row to be perfectly centered regardless of inner content widths.
   */
   /* Crest renderer with abbr-badge fallback when image not cached.
-     innerSize = pixel size of the rendered crest (image or fallback badge). */
+     innerSize = pixel size of the rendered crest (image or fallback badge).
+     We avoid CSS `filter: drop-shadow(...)` on <img> — html2canvas 1.4.1
+     mis-applies it (image clipped or offset). The subtle radial glow behind
+     the crest in each renderer already provides the desired depth. */
   function crestNode(src, abbr, innerSize, glowColor) {
     if (src) {
-      return `<img crossorigin="anonymous" src="${src}" style="width:${innerSize}px; height:${innerSize}px; object-fit:contain; filter:drop-shadow(0 0 16px ${glowColor}); display:block;" alt="">`;
+      return `<img crossorigin="anonymous" src="${src}" style="width:${innerSize}px; height:${innerSize}px; object-fit:contain; display:block;" alt="">`;
     }
     const fs = Math.round(innerSize * 0.32);
     return `<div style="width:${innerSize}px; height:${innerSize}px; border-radius:50%; background:linear-gradient(135deg, #1a3058, #04080F); border:3px solid rgba(255,255,255,0.3); display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:${fs}px; letter-spacing:0.04em; color:#fff; box-shadow:0 0 16px ${glowColor};">${abbr || '?'}</div>`;
@@ -531,40 +566,46 @@
     const opp = getOpp();
     const oppCrest = getCachedCrest(opp);
     const cfg = scoreSizing();
-    const sideBlockW = pf(220, 190);
-    const scoreNumW = pf(100, 80);
-    const dashGap = pf(30, 22);
-    const innerGap = pf(30, 20);
+    const sideBlockW = pf(220, 220);
+    const scoreNumW = pf(100, 90);
+    const dashGap = pf(30, 24);
+    const innerGap = pf(30, 22);
     const totalW = sideBlockW + innerGap + scoreNumW + dashGap + cfg.dashW + dashGap + scoreNumW + innerGap + sideBlockW;
+    const isAway = state.homeAway === 'away';
+    const atlBlock = `
+      <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
+        <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
+          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
+          ${crestNode(getAtlCrest(), 'FCA', Math.round(cfg.crestSize*0.88), ACCENT+'55')}
+        </div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
+      </div>`;
+    const oppBlock = `
+      <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
+        <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
+          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
+          ${crestNode(oppCrest, opp.abbr, Math.round(cfg.crestSize*0.88), ACCENT+'55')}
+        </div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">${opp.shortName}</div>
+      </div>`;
+    // Home team always on the LEFT in football scoreboards.
+    // state.score.home = FCA score; state.score.away = opp score.
+    const leftBlock  = isAway ? oppBlock : atlBlock;
+    const rightBlock = isAway ? atlBlock : oppBlock;
+    const leftScore  = isAway ? state.score.away : state.score.home;
+    const rightScore = isAway ? state.score.home : state.score.away;
     return `
       <div style="display:flex; justify-content:center; align-items:flex-start; width:100%; position:relative; z-index:1;">
         <div style="display:flex; align-items:flex-start; width:${totalW}px; max-width:100%;">
-          <!-- ATL block -->
-          <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
-            <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
-              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
-              ${crestNode(CREST_ATL_DATAURL, 'FCA', Math.round(cfg.crestSize*0.85), ACCENT+'55')}
-            </div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
-          </div>
-          <!-- gap -->
+          ${leftBlock}
           <div style="width:${innerGap}px; flex-shrink:0;"></div>
-          <!-- Score block: home — dash — away (perfectly symmetric) -->
           <div style="flex-shrink:0; display:flex; align-items:center; gap:${dashGap}px; padding-top:${Math.round(cfg.crestSize*0.15)}px;">
-            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center;">${state.score.home}</div>
+            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center;">${leftScore}</div>
             <div style="width:${cfg.dashW}px; height:6px; border-radius:3px; background:rgba(255,255,255,0.55); flex-shrink:0;"></div>
-            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center;">${state.score.away}</div>
+            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center;">${rightScore}</div>
           </div>
-          <!-- gap -->
           <div style="width:${innerGap}px; flex-shrink:0;"></div>
-          <!-- OPP block (same fixed width as ATL block) -->
-          <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
-            <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
-              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
-              ${crestNode(oppCrest, opp.abbr, Math.round(cfg.crestSize*0.85), ACCENT+'55')}
-            </div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">${opp.shortName}</div>
-          </div>
+          ${rightBlock}
         </div>
       </div>
     `;
@@ -577,12 +618,15 @@
     // Default venue depends on home/away
     const venueName = (state.venue && state.venue.trim()) || (isHome ? 'STADE DE LA VEYRE' : '');
     const venueCity = (state.venueCity && state.venueCity.trim()) || (isHome ? 'ST-LÉGIER' : '');
-    return `<div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
-      <div>
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:36px; letter-spacing:0.04em; text-transform:uppercase; line-height:1; color:#fff;">${venueName.toUpperCase()}</div>
-        ${venueCity ? `<div style="font-family:'Inter', sans-serif; font-size:18px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:6px; font-weight:500;">${venueCity.toUpperCase()}</div>` : ''}
+    const fsName = pf(36, 38);
+    const fsCity = pf(18, 20);
+    const fsLabel = pf(22, 22);
+    return `<div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center; gap:16px;">
+      <div style="min-width:0; flex:1;">
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${fsName}px; letter-spacing:0.04em; text-transform:uppercase; line-height:1; color:#fff;">${venueName.toUpperCase()}</div>
+        ${venueCity ? `<div style="font-family:'Inter', sans-serif; font-size:${fsCity}px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-top:6px; font-weight:500;">${venueCity.toUpperCase()}</div>` : ''}
       </div>
-      <div style="padding:16px 28px; border-radius:999px; background:rgba(${col},0.15); border:1px solid rgba(${col},0.5); font-family:'Inter', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.24em; color:#fff;">${label}</div>
+      <div style="padding:16px 28px; border-radius:999px; background:rgba(${col},0.15); border:1px solid rgba(${col},0.5); font-family:'Inter', sans-serif; font-weight:700; font-size:${fsLabel}px; letter-spacing:0.24em; color:#fff; flex-shrink:0;">${label}</div>
     </div>`;
   }
 
@@ -617,7 +661,14 @@
       <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.4) 100%);"></div>
       <div style="position:absolute; top:${isPost ? '240' : '380'}px; right:-200px; width:${isPost ? '550' : '700'}px; height:${isPost ? '550' : '700'}px; background:radial-gradient(circle, ${vInfo.accent}55, transparent 60%); filter:blur(24px); opacity:0.4; pointer-events:none;"></div>
     ` : '';
-    const watermark = !bleed ? `<img crossorigin="anonymous" alt="" src="${CREST_ATL_DATAURL}" style="position:absolute; width:${wmSize}px; height:${wmSize}px; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0.022; filter:blur(5px); pointer-events:none; z-index:0;">` : '';
+    // Watermark: positioned explicitly in pixels. Avoid `top:50%; left:50%; transform:translate(-50%,-50%)`
+    // because html2canvas 1.4.1 drops that transform when the image overflows its parent,
+    // which clipped the FCA logo to the top-left in PNG exports.
+    const pbW = f.w - 2 * f.padOuter;
+    const pbH = f.h - 2 * f.padOuter;
+    const wmLeft = Math.round((pbW - wmSize) / 2);
+    const wmTop  = Math.round((pbH - wmSize) / 2);
+    const watermark = !bleed ? `<img crossorigin="anonymous" alt="" src="${getAtlCrest()}" style="position:absolute; width:${wmSize}px; height:${wmSize}px; left:${wmLeft}px; top:${wmTop}px; opacity:0.04; filter:blur(4px); pointer-events:none; z-index:0;">` : '';
     
     if (!isPost) {
       // STORY: untouched — exact same rendering as v9
@@ -654,21 +705,21 @@
     const isAway = state.homeAway === 'away';
     // Block "Atlantic" (logo + name)
     const atlanticBlock = `
-          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(32,20)}px;">
-            <div style="position:relative; width:${pf(280,210)}px; height:${pf(280,210)}px; display:flex; align-items:center; justify-content:center;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(32,28)}px;">
+            <div style="position:relative; width:${pf(280,300)}px; height:${pf(280,300)}px; display:flex; align-items:center; justify-content:center;">
               <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(40px);"></div>
-              ${crestNode(CREST_ATL_DATAURL, 'FCA', pf(220,170), ACCENT+'66')}
+              ${crestNode(getAtlCrest(), 'FCA', pf(220,250), ACCENT+'66')}
             </div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(38,30)}px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">FC ATLANTIC VEVEY</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(38,40)}px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:420px;">FC ATLANTIC VEVEY</div>
           </div>`;
     // Block "Opponent" (logo + name) — fallback abbr badge if crest missing
     const oppBlock = `
-          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(32,20)}px;">
-            <div style="position:relative; width:${pf(280,210)}px; height:${pf(280,210)}px; display:flex; align-items:center; justify-content:center;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(32,28)}px;">
+            <div style="position:relative; width:${pf(280,300)}px; height:${pf(280,300)}px; display:flex; align-items:center; justify-content:center;">
               <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(40px);"></div>
-              ${crestNode(oppCrest, opp.abbr, pf(220,170), ACCENT+'66')}
+              ${crestNode(oppCrest, opp.abbr, pf(220,250), ACCENT+'66')}
             </div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(38,30)}px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:380px;">${opp.name.toUpperCase()}</div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(38,40)}px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:420px;">${opp.name.toUpperCase()}</div>
           </div>`;
     // Home team always on the LEFT — if we are away, opponent is the home team
     const leftBlock  = isAway ? oppBlock      : atlanticBlock;
@@ -682,23 +733,23 @@
         ${eyebrowPill(v)}
       </div>
       <div style="height:1px; background:rgba(255,255,255,0.1); margin-top:${pf(36,24)}px; position:relative; z-index:1;"></div>
-      <div style="margin-top:${pf(60,40)}px; display:flex; justify-content:space-between; align-items:flex-end; position:relative; z-index:1;">
+      <div style="margin-top:${pf(60,48)}px; display:flex; justify-content:space-between; align-items:flex-end; position:relative; z-index:1;">
         <div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(110,82)}px; line-height:0.92; letter-spacing:0.02em; text-transform:uppercase; color:#fff;">${state.kickoff.dayName}</div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(78,58)}px; line-height:0.92; letter-spacing:0.04em; text-transform:uppercase; color:rgba(255,255,255,0.8); margin-top:12px;">${state.kickoff.dateLabel} <span style="font-size:${pf(44,34)}px; color:rgba(255,255,255,0.4);">${state.kickoff.year}</span></div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(110,104)}px; line-height:0.92; letter-spacing:0.02em; text-transform:uppercase; color:#fff;">${state.kickoff.dayName}</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(78,72)}px; line-height:0.92; letter-spacing:0.04em; text-transform:uppercase; color:rgba(255,255,255,0.8); margin-top:12px;">${state.kickoff.dateLabel} <span style="font-size:${pf(44,42)}px; color:rgba(255,255,255,0.4);">${state.kickoff.year}</span></div>
         </div>
         <div style="text-align:right;">
-          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(28,22)}px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:10px;">Coup d'envoi</div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(130,96)}px; line-height:0.9; color:${v.accent}; text-shadow:0 0 40px ${v.accent}66;">${state.kickoff.time}</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(28,26)}px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:10px;">Coup d'envoi</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(130,124)}px; line-height:0.9; color:${v.accent}; text-shadow:0 0 40px ${v.accent}66;">${state.kickoff.time}</div>
         </div>
       </div>
-      <div style="flex:1; display:flex; align-items:center; justify-content:center; margin:${pf(60,32)}px 0; position:relative; z-index:1;">
-        <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:${pf(48,32)}px; width:100%;">
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; margin:${pf(60,48)}px 0; position:relative; z-index:1;">
+        <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:${pf(48,40)}px; width:100%;">
           ${leftBlock}
-          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(24,16)}px;">
-            <div style="width:1px; height:${pf(120,80)}px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(120,90)}px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 40px ${v.accent}88;">VS</div>
-            <div style="width:1px; height:${pf(120,80)}px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(24,22)}px;">
+            <div style="width:1px; height:${pf(120,110)}px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(120,128)}px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 40px ${v.accent}88;">VS</div>
+            <div style="width:1px; height:${pf(120,110)}px; background:linear-gradient(180deg, transparent, ${v.accent}99, transparent);"></div>
           </div>
           ${rightBlock}
         </div>
@@ -727,7 +778,7 @@
         <div style="flex:1; max-width:340px; display:flex; flex-direction:column; align-items:center; gap:20px;">
           <div style="position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center;">
             <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}44, transparent 65%); filter:blur(40px);"></div>
-            ${crestNode(CREST_ATL_DATAURL, 'FCA', 240, v.accent+'66')}
+            ${crestNode(getAtlCrest(), 'FCA', 240, v.accent+'66')}
           </div>
           <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:34px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
         </div>`;
@@ -810,36 +861,36 @@
     const photo = getCachedPhoto(sc);
     const lastNameLen = sc.lastName.length;
     const lastNameFS = state.format === 'post'
-      ? (lastNameLen > 14 ? 36 : (lastNameLen > 10 ? 42 : 48))
+      ? (lastNameLen > 14 ? 48 : (lastNameLen > 10 ? 54 : 60))
       : (lastNameLen > 14 ? 44 : (lastNameLen > 10 ? 50 : 56));
-    const paniniW = pf(520, 380);
-    const paniniH = pf(700, 510);
+    const paniniW = pf(520, 500);
+    const paniniH = pf(700, 680);
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
-        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(18,15)}px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">5E LIGUE · GROUPE 2</div>
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(140,100)}px; line-height:0.9; color:${GOLD}; text-shadow:0 0 32px rgba(245,184,46,0.6);">${state.minute}'</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(18,18)}px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">5E LIGUE · GROUPE 2</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(140,130)}px; line-height:0.9; color:${GOLD}; text-shadow:0 0 32px rgba(245,184,46,0.6);">${state.minute}'</div>
       </div>
-      <div style="margin-top:${pf(24,16)}px; position:relative; z-index:1;">
+      <div style="margin-top:${pf(24,20)}px; position:relative; z-index:1;">
         ${unifiedScoreRow()}
       </div>
-      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top:${pf(30,16)}px; gap:${pf(24,14)}px; position:relative; z-index:1;">
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top:${pf(30,22)}px; gap:${pf(24,18)}px; position:relative; z-index:1;">
         <div style="position:relative; width:${paniniW}px; height:${paniniH}px; border-radius:24px; overflow:hidden; background:linear-gradient(180deg, #0F2240 0%, #04080F 100%); border:4px solid ${GOLD}; box-shadow:0 0 60px rgba(245,184,46,0.4), inset 0 0 40px rgba(245,184,46,0.1);">
-          <div style="position:absolute; top:0; left:0; right:0; background:linear-gradient(180deg, rgba(245,184,46,0.85), rgba(245,184,46,0.15) 80%, transparent); padding:${pf(20,16)}px ${pf(24,18)}px ${pf(60,40)}px; z-index:2;">
+          <div style="position:absolute; top:0; left:0; right:0; background:linear-gradient(180deg, rgba(245,184,46,0.85), rgba(245,184,46,0.15) 80%, transparent); padding:${pf(20,22)}px ${pf(24,24)}px ${pf(60,56)}px; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div style="width:${pf(64,52)}px; height:${pf(64,52)}px; border-radius:50%; background:#04080F; border:3px solid ${GOLD}; color:${GOLD}; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(32,26)}px;">${sc.jerseyDisplay}</div>
-              <div style="text-align:right; font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(22,18)}px; letter-spacing:0.12em; text-transform:uppercase; color:#04080F;">FC ATLANTIC</div>
+              <div style="width:${pf(64,68)}px; height:${pf(64,68)}px; border-radius:50%; background:#04080F; border:3px solid ${GOLD}; color:${GOLD}; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(32,34)}px;">${sc.jerseyDisplay}</div>
+              <div style="text-align:right; font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(22,24)}px; letter-spacing:0.12em; text-transform:uppercase; color:#04080F;">FC ATLANTIC</div>
             </div>
           </div>
           <div style="position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; background:radial-gradient(ellipse at 50% 60%, rgba(245,184,46,0.15), transparent 70%);">
-            ${photo ? `<img crossorigin="anonymous" alt="" src="${photo}" style="width:100%; height:95%; object-fit:cover; object-position:center 18%;">` : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(180,140)}px; color:rgba(255,255,255,0.3);">${playerInitials(sc)}</div>`}
+            ${photo ? `<img crossorigin="anonymous" alt="" src="${photo}" style="width:100%; height:95%; object-fit:cover; object-position:center 18%;">` : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(180,170)}px; color:rgba(255,255,255,0.3);">${playerInitials(sc)}</div>`}
           </div>
-          <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.92) 30%, #04080F); padding:${pf(120,90)}px ${pf(24,18)}px ${pf(20,14)}px; z-index:2;">
-            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:${pf(24,20)}px; color:${GOLD}; letter-spacing:0.08em; text-transform:uppercase;">${sc.firstName}</div>
+          <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.92) 30%, #04080F); padding:${pf(120,120)}px ${pf(24,24)}px ${pf(20,22)}px; z-index:2;">
+            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:${pf(24,26)}px; color:${GOLD}; letter-spacing:0.08em; text-transform:uppercase;">${sc.firstName}</div>
             <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${lastNameFS}px; line-height:1; text-transform:uppercase; letter-spacing:0.02em; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.lastName}</div>
           </div>
         </div>
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(200,140)}px; line-height:0.95; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.7), 0 0 20px rgba(255,255,255,0.2); letter-spacing:0.06em; text-align:center; margin-top:${pf(8,4)}px;">BUT !</div>
-        <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(50,38)}px; line-height:1; color:#fff; letter-spacing:0.05em; text-align:center; text-transform:uppercase; margin-top:${pf(-16,-10)}px;">${sc.firstName} <span style="font-weight:700;">${sc.lastName}</span></div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(200,180)}px; line-height:0.95; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.7), 0 0 20px rgba(255,255,255,0.2); letter-spacing:0.06em; text-align:center; margin-top:${pf(8,6)}px;">BUT !</div>
+        <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(50,48)}px; line-height:1; color:#fff; letter-spacing:0.05em; text-align:center; text-transform:uppercase; margin-top:${pf(-16,-14)}px;">${sc.firstName} <span style="font-weight:700;">${sc.lastName}</span></div>
         ${customMessageBlock('')}
       </div>
       ${venueFooter()}
@@ -943,10 +994,10 @@
       const isCaptain = p.id === state.captainId;
       return `
         <div style="position:absolute; left:${xPct}%; top:${yPct}%; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; gap:8px; width:150px; pointer-events:none;">
-          <div style="position:relative; width:110px; height:110px; border-radius:50%; overflow:hidden; background:linear-gradient(135deg, #1a3058, #04080F); border:3px solid ${v.accent}; box-shadow:0 6px 16px rgba(0,0,0,0.55);">
+          <div style="position:relative; width:110px; height:110px; border-radius:50%; overflow:hidden; background:linear-gradient(135deg, #1a3058, #04080F); border:3px solid ${v.accent}; box-shadow:0 6px 16px rgba(0,0,0,0.55), 0 0 18px rgba(46,123,255,0.35);">
             ${photoNode(p, 110, 110, 36, 'center top')}
-            <div style="position:absolute; bottom:-4px; right:-6px; width:36px; height:36px; border-radius:50%; background:${v.accent}; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:17px; border:3px solid #0F2D1A; box-shadow:0 2px 6px rgba(0,0,0,0.4);">${p.jerseyDisplay}</div>
-            ${isCaptain ? `<div style="position:absolute; top:-4px; left:-6px; width:30px; height:30px; border-radius:50%; background:#F5B82E; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:15px; border:3px solid #0F2D1A; box-shadow:0 2px 6px rgba(0,0,0,0.4);">C</div>` : ''}
+            <div style="position:absolute; bottom:-4px; right:-6px; width:36px; height:36px; border-radius:50%; background:${v.accent}; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:17px; border:3px solid #04080F; box-shadow:0 2px 6px rgba(0,0,0,0.4);">${p.jerseyDisplay}</div>
+            ${isCaptain ? `<div style="position:absolute; top:-4px; left:-6px; width:30px; height:30px; border-radius:50%; background:#F5B82E; color:#04080F; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:15px; border:3px solid #04080F; box-shadow:0 2px 6px rgba(0,0,0,0.4);">C</div>` : ''}
           </div>
           <div style="background:rgba(0,0,0,0.78); padding:4px 10px; border-radius:8px; font-family:'Oswald', sans-serif; font-weight:700; font-size:18px; text-transform:uppercase; color:#fff; letter-spacing:0.04em; white-space:nowrap; max-width:160px; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">${p.lastName}</div>
         </div>
@@ -998,29 +1049,34 @@
         </div>
       </div>
 
-      <!-- PITCH -->
+      <!-- TACTICAL BOARD (style FCA site: dark navy + thin blue lines, no green pitch) -->
       <div style="position:relative; z-index:1; margin-top:22px; flex-shrink:0;">
         <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:13px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-bottom:12px;">Onze de départ</div>
-        <div style="position:relative; width:100%; height:920px; background:linear-gradient(180deg, #166534 0%, #14532d 50%, #166534 100%); border-radius:24px; overflow:hidden; box-shadow:0 16px 40px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08);">
-          <!-- Striped grass -->
-          <div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 92px, transparent 92px 184px); pointer-events:none;"></div>
-          <!-- Pitch lines (SVG, scaled to fill) -->
-          <svg viewBox="0 0 100 120" preserveAspectRatio="none" style="position:absolute; inset:24px; width:calc(100% - 48px); height:calc(100% - 48px); stroke:rgba(255,255,255,0.5); fill:none; stroke-width:0.32; pointer-events:none;">
+        <div style="position:relative; width:100%; height:920px; background:radial-gradient(ellipse 90% 80% at 50% 50%, #0A1628 0%, #04080F 75%); border-radius:24px; overflow:hidden; box-shadow:0 16px 40px rgba(0,0,0,0.5), inset 0 0 80px rgba(46,123,255,0.08); border:1px solid rgba(46,123,255,0.18);">
+          <!-- Tactical lines (thin accent-blue, no fill) -->
+          <svg viewBox="0 0 100 120" preserveAspectRatio="none" style="position:absolute; inset:28px; width:calc(100% - 56px); height:calc(100% - 56px); stroke:rgba(46,123,255,0.42); fill:none; stroke-width:0.22; pointer-events:none;">
             <rect x="0.5" y="0.5" width="99" height="119"/>
             <line x1="0.5" y1="60" x2="99.5" y2="60"/>
             <circle cx="50" cy="60" r="9"/>
-            <circle cx="50" cy="60" r="0.8" fill="rgba(255,255,255,0.6)" stroke="none"/>
+            <circle cx="50" cy="60" r="0.7" fill="rgba(46,123,255,0.55)" stroke="none"/>
             <!-- Top penalty area (G side) -->
             <rect x="22" y="0.5" width="56" height="13"/>
             <rect x="36" y="0.5" width="28" height="5"/>
-            <circle cx="50" cy="9" r="0.7" fill="rgba(255,255,255,0.6)" stroke="none"/>
+            <circle cx="50" cy="9" r="0.6" fill="rgba(46,123,255,0.55)" stroke="none"/>
             <path d="M 38 13 A 12 12 0 0 0 62 13"/>
             <!-- Bottom penalty area (AT side) -->
             <rect x="22" y="106.5" width="56" height="13"/>
             <rect x="36" y="114.5" width="28" height="5"/>
-            <circle cx="50" cy="111" r="0.7" fill="rgba(255,255,255,0.6)" stroke="none"/>
+            <circle cx="50" cy="111" r="0.6" fill="rgba(46,123,255,0.55)" stroke="none"/>
             <path d="M 38 106.5 A 12 12 0 0 1 62 106.5"/>
+            <!-- Corner arcs (subtle detail) -->
+            <path d="M 0.5 2 A 1.5 1.5 0 0 0 2 0.5"/>
+            <path d="M 98 0.5 A 1.5 1.5 0 0 0 99.5 2"/>
+            <path d="M 99.5 118 A 1.5 1.5 0 0 0 98 119.5"/>
+            <path d="M 2 119.5 A 1.5 1.5 0 0 0 0.5 118"/>
           </svg>
+          <!-- Subtle blue glow -->
+          <div style="position:absolute; inset:0; background:radial-gradient(ellipse 60% 50% at 50% 50%, rgba(46,123,255,0.06), transparent 70%); pointer-events:none;"></div>
           <!-- Players -->
           ${playerNodes}
         </div>
@@ -1504,6 +1560,8 @@
   async function renderFullRes() {
     const f = FMT();
 
+    // STEP 0 — Rasterize the FCA SVG crest to PNG for reliable html2canvas export
+    await ensureAtlCrestPng();
     // STEP 1 — Make sure all external assets are pre-cached as data URLs
     await preloadAllAssets();
 
@@ -1539,13 +1597,18 @@
 
     // STEP 5 — Wait for fonts
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    // STEP 5b — Decode every <img> so html2canvas sees fully-rasterized bitmaps
+    await Promise.all([...imgs].map(img => {
+      if (typeof img.decode === 'function') return img.decode().catch(() => {});
+      return Promise.resolve();
+    }));
     // STEP 6 — Layout settle delay (forces browser to compute final styles)
-    await new Promise(r => setTimeout(r, 250));
+    await new Promise(r => setTimeout(r, 350));
 
-    // STEP 7 — Capture (no onclone needed: fonts already loaded in main doc + we waited for fonts.ready)
+    // STEP 7 — Capture
     const canvas = await html2canvas(off.querySelector('#poster-node'), {
       width: f.w, height: f.h, scale:1, backgroundColor:null,
-      useCORS:true, allowTaint:false, logging:false, imageTimeout:8000,
+      useCORS:true, allowTaint:false, logging:false, imageTimeout:12000,
     });
     document.body.removeChild(off);
     return canvas;
@@ -1588,10 +1651,14 @@
   window.copyCaption = copyCaption;
 
   /* ---------- INIT -------------------------------------------- */
+  let _initRan = false;
   async function init() {
+    if (_initRan) return;
+    _initRan = true;
     if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(e) {} }
     renderAll();
-    preloadAllAssets().then(() => refresh());
+    // Rasterize SVG crest + preload external assets in parallel, then re-render.
+    Promise.all([ensureAtlCrestPng(), preloadAllAssets()]).then(() => refresh());
   }
   window.addEventListener('load', init);
   window.addEventListener('resize', () => updatePreview());
