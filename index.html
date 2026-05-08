@@ -180,8 +180,8 @@
       <button class="ft-btn" data-fmt="post" onclick="setFormat('post')">⊞ Post</button>
     </div>
     <div class="right">
-      <strong id="match-opp">vs FC Kurde LS</strong>
-      <small id="match-date">Dim 26 avril · 15:00</small>
+      <strong id="match-opp">vs FC Cugy IB</strong>
+      <small id="match-date">Dim 10 mai · 10:30</small>
     </div>
   </div>
 
@@ -297,10 +297,10 @@
     variant: 'matchday',
     format: 'story',  // 'story' (1080x1920, 9:16) or 'post' (1080x1350, 4:5)
     homeAway: 'away',
-    opponentSlug: 'fc-dardania-lausanne-iii',
-    venue: 'Centre sportif de Chavannes',
-    venueCity: 'CHAVANNES',
-    kickoff: { dayName:'DIMANCHE', dateLabel:'3 MAI', year:2026, time:'13:00' },
+    opponentSlug: 'fc-cugy-ib',
+    venue: 'Place du Billard - Terrain principal',
+    venueCity: 'CUGY',
+    kickoff: { dayName:'DIMANCHE', dateLabel:'10 MAI', year:2026, time:'10:30' },
     score: { home: 0, away: 0 },
     minute: 73,
     scorerId: '11',
@@ -566,6 +566,7 @@
     const opp = getOpp();
     const oppCrest = getCachedCrest(opp);
     const cfg = scoreSizing();
+    const accent = getVariant().accent || ACCENT;
     const sideBlockW = pf(220, 220);
     const scoreNumW = pf(100, 90);
     const dashGap = pf(30, 24);
@@ -575,16 +576,16 @@
     const atlBlock = `
       <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
         <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
-          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
-          ${crestNode(getAtlCrest(), 'FCA', Math.round(cfg.crestSize*0.88), ACCENT+'55')}
+          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${accent}33, transparent 65%); filter:blur(40px);"></div>
+          ${crestNode(getAtlCrest(), 'FCA', Math.round(cfg.crestSize*0.88), accent+'55')}
         </div>
         <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
       </div>`;
     const oppBlock = `
       <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
         <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
-          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${ACCENT}33, transparent 65%); filter:blur(40px);"></div>
-          ${crestNode(oppCrest, opp.abbr, Math.round(cfg.crestSize*0.88), ACCENT+'55')}
+          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${accent}33, transparent 65%); filter:blur(40px);"></div>
+          ${crestNode(oppCrest, opp.abbr, Math.round(cfg.crestSize*0.88), accent+'55')}
         </div>
         <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">${opp.shortName}</div>
       </div>`;
@@ -600,9 +601,9 @@
           ${leftBlock}
           <div style="width:${innerGap}px; flex-shrink:0;"></div>
           <div style="flex-shrink:0; display:flex; align-items:center; gap:${dashGap}px; padding-top:${Math.round(cfg.crestSize*0.15)}px;">
-            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center;">${leftScore}</div>
+            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${accent}88; text-align:center;">${leftScore}</div>
             <div style="width:${cfg.dashW}px; height:6px; border-radius:3px; background:rgba(255,255,255,0.55); flex-shrink:0;"></div>
-            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${ACCENT}88; text-align:center;">${rightScore}</div>
+            <div style="width:${scoreNumW}px; font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.scoreFS}px; line-height:0.9; color:#fff; text-shadow:0 0 32px ${accent}88; text-align:center;">${rightScore}</div>
           </div>
           <div style="width:${innerGap}px; flex-shrink:0;"></div>
           ${rightBlock}
@@ -806,7 +807,7 @@
       <!-- Center: COUP D'ENVOI + captain only -->
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1; gap:36px; margin-top:40px;">
         <div style="text-align:center;">
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:150px; line-height:0.9; color:${v.accent}; text-shadow:0 0 60px ${v.accent}cc; letter-spacing:0.02em; white-space:nowrap;">COUP D'ENVOI</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:120px; line-height:0.9; color:${v.accent}; text-shadow:0 0 60px ${v.accent}cc; letter-spacing:0.02em; white-space:nowrap;">COUP D'ENVOI</div>
           <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:42px; letter-spacing:0.14em; color:rgba(255,255,255,0.75); text-transform:uppercase; margin-top:16px; white-space:nowrap;">Dans quelques instants</div>
         </div>
         ${capt ? `
@@ -1346,11 +1347,40 @@
       </div>
     </div>`;
   }
+  function parseFormationCounts(f) {
+    const parts = (f || '4-3-3').split('-').map(n => parseInt(n, 10) || 0);
+    return {
+      G: 1,
+      DEF: parts[0] || 0,
+      MIL: parts.slice(1, -1).reduce((a,b) => a+b, 0),
+      AT: parts[parts.length - 1] || 0,
+    };
+  }
+  function countStartersByPosition(ids) {
+    const c = { G:0, DEF:0, MIL:0, AT:0 };
+    ids.forEach(id => { const p = BY_ID[id]; if (p && c[p.position] != null) c[p.position]++; });
+    return c;
+  }
+  function posPill(label, have, need) {
+    const ok = have === need;
+    const tooMany = have > need;
+    const fg = ok ? '#22C55E' : (tooMany ? '#EF4444' : '#F59E0B');
+    const bg = ok ? 'rgba(34,197,94,0.14)' : (tooMany ? 'rgba(239,68,68,0.18)' : 'rgba(245,158,11,0.14)');
+    const bd = ok ? 'rgba(34,197,94,0.45)' : (tooMany ? 'rgba(239,68,68,0.55)' : 'rgba(245,158,11,0.45)');
+    return `<span style="display:inline-flex; align-items:center; gap:4px; padding:4px 9px; border-radius:6px; background:${bg}; border:1px solid ${bd}; color:${fg}; font-family:'Inter'; font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; line-height:1;">${label} ${have}/${need}</span>`;
+  }
   function panelLineup() {
     const sCount = state.lineupStarters.length;
     const bCount = state.lineupBench.length;
-    const sKlass = sCount===11 ? 'ok' : (sCount>11 ? 'warn' : '');
+    const need = parseFormationCounts(state.formation);
+    const have = countStartersByPosition(state.lineupStarters);
+    const allOk = sCount === 11 && ['G','DEF','MIL','AT'].every(k => have[k] === need[k]);
+    const sKlass = allOk ? 'ok' : (sCount>11 ? 'warn' : '');
     const bKlass = bCount>=5 ? 'ok' : '';
+    const breakdown = ['G','DEF','MIL','AT'].map(k => posPill(k, have[k], need[k])).join(' ');
+    const hint = allOk
+      ? ''
+      : `<div style="margin-top:8px; padding:8px 12px; border-radius:8px; background:rgba(245,158,11,0.10); border:1px solid rgba(245,158,11,0.32); font-family:'Inter'; font-size:11px; color:rgba(255,255,255,0.85); line-height:1.4;">⚠️ La compo ne correspond pas à la formation <b>${state.formation}</b>. Les joueurs en surplus seront placés dans les rangs vides — risque qu'un défenseur finisse ailier.</div>`;
     return `<div class="panel">
       <div class="panel-label">Formation
         <select id="formation-select" style="background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.12); padding:5px 10px; border-radius:8px; font-family:'Inter'; font-size:12px; font-weight:700; -webkit-appearance:none;">
@@ -1358,6 +1388,8 @@
         </select>
       </div>
       <div class="panel-label" style="margin-top:4px;">Titulaires <span class="lineup-counter ${sKlass}">${sCount}/11</span></div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 6px;">${breakdown}</div>
+      ${hint}
       <div class="player-grid" id="starters-grid">
         ${ROSTER.map(p => `<div class="player-mini ${state.lineupStarters.includes(p.id)?'on':''}" data-id="${p.id}" data-list="starters">
           <div class="pcheck">✓</div>
