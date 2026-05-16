@@ -655,7 +655,9 @@
     return `<div style="width:${w}px; height:${h}px; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:${fontSize}px; color:rgba(255,255,255,0.85); background:linear-gradient(135deg, #1a3058, #04080F);">${playerInitials(p)}</div>`;
   }
 
-  function unifiedScoreRow() {
+  function unifiedScoreRow(opts) {
+    opts = opts || {};
+    const atlSubBlock = opts.atlSubBlock || '';
     const opp = getOpp();
     const oppCrest = getCachedCrest(opp);
     const cfg = scoreSizing();
@@ -673,6 +675,7 @@
           ${crestNode(getAtlCrest(), 'FCA', Math.round(cfg.crestSize*0.88), accent+'55')}
         </div>
         <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
+        ${atlSubBlock}
       </div>`;
     const oppBlock = `
       <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
@@ -1009,46 +1012,6 @@
     `;
   }
 
-  /* Goal timeline block — shared by recapPoster (and could be reused) */
-  function goalTimelineBlock() {
-    if (!state.goals || state.goals.length === 0) return '';
-    const fcaGoals = state.goals.filter(g => g.side === 'home');
-    const sorted = [...state.goals].sort((a,b) => (a.minute - b.minute) || (a.ts - b.ts));
-    // 2 columns if more than 4 goals total to keep things readable
-    const twoCol = sorted.length > 4;
-    const rows = sorted.map(g => {
-      if (g.side === 'home') {
-        const p = BY_ID[g.playerId];
-        const name = p ? p.lastName.toUpperCase() : 'FC ATLANTIC';
-        const jersey = p ? `#${p.jerseyDisplay}` : '';
-        return `<div style="display:flex; align-items:center; gap:14px; padding:14px 18px; background:rgba(245,184,46,0.10); border:1px solid rgba(245,184,46,0.35); border-radius:14px;">
-          <span style="font-family:'Oswald',sans-serif; font-weight:700; font-size:32px; color:#F5B82E; min-width:64px;">${g.minute}'</span>
-          <span style="font-size:30px;">⚽</span>
-          <span style="font-family:'Oswald',sans-serif; font-weight:700; font-size:26px; color:#fff; flex:1; text-transform:uppercase; letter-spacing:0.02em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</span>
-          ${jersey ? `<span style="font-family:'Oswald',sans-serif; font-weight:700; font-size:22px; color:#F5B82E; background:rgba(245,184,46,0.18); padding:4px 12px; border-radius:8px;">${jersey}</span>` : ''}
-        </div>`;
-      }
-      // Away goal
-      return `<div style="display:flex; align-items:center; gap:14px; padding:14px 18px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.28); border-radius:14px;">
-        <span style="font-family:'Oswald',sans-serif; font-weight:700; font-size:32px; color:#EF4444; min-width:64px;">${g.minute}'</span>
-        <span style="font-size:30px;">😐</span>
-        <span style="font-family:'Oswald',sans-serif; font-weight:600; font-size:24px; color:rgba(255,255,255,0.85); flex:1; text-transform:uppercase; letter-spacing:0.02em;">But adverse</span>
-      </div>`;
-    }).join('');
-    return `
-      <div style="margin-top:40px; position:relative; z-index:1;">
-        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-bottom:18px; display:flex; align-items:center; gap:10px;">
-          <span>⚽ Buts du match</span>
-          <span style="height:1px; flex:1; background:linear-gradient(90deg, rgba(245,184,46,0.5), transparent);"></span>
-          <span style="font-family:'Oswald',sans-serif; font-weight:700; font-size:18px; color:#F5B82E;">${fcaGoals.length} FCA</span>
-        </div>
-        <div style="display:${twoCol?'grid':'flex'}; ${twoCol?'grid-template-columns:1fr 1fr; gap:10px;':'flex-direction:column; gap:10px;'}">
-          ${rows}
-        </div>
-      </div>
-    `;
-  }
-
   /* ---- Variant: Recap ---- */
   function recapPoster() {
     const v = getVariant();
@@ -1056,7 +1019,20 @@
     const draw = state.score.home === state.score.away;
     const resultMsg = win ? '🏆 VICTOIRE' : (draw ? '🤝 MATCH NUL' : 'DÉFAITE COURAGEUSE');
     const resultColor = win ? '#22C55E' : (draw ? '#F59E0B' : '#EF4444');
-    const hasGoals = state.goals && state.goals.length > 0;
+    // FCA goal list — plain text under the Atlantic crest block, no border/bg.
+    // Sorted by minute. Only FCA scorers; opponent goals never shown.
+    const fcaGoals = (state.goals || [])
+      .filter(g => g.side === 'home' && g.playerId)
+      .sort((a, b) => (a.minute - b.minute) || (a.ts - b.ts));
+    const atlSubBlock = fcaGoals.length === 0 ? '' : `
+      <div style="margin-top:4px; display:flex; flex-direction:column; align-items:center; gap:6px;">
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:14px; letter-spacing:0.24em; color:rgba(245,184,46,0.9); text-transform:uppercase;">⚽ Buteur${fcaGoals.length>1?'s':''}</div>
+        ${fcaGoals.map(g => {
+          const p = BY_ID[g.playerId];
+          if (!p) return '';
+          return `<div style="font-family:'Oswald',sans-serif; font-weight:700; font-size:22px; line-height:1.15; letter-spacing:0.03em; text-transform:uppercase; color:#fff; white-space:nowrap;"><span style="color:rgba(255,255,255,0.55); font-weight:500; margin-right:6px;">${g.minute}'</span>${p.lastName}</div>`;
+        }).join('')}
+      </div>`;
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="font-family:'Inter', sans-serif; font-weight:600; letter-spacing:0.24em; color:rgba(255,255,255,0.72); text-transform:uppercase;">
@@ -1066,13 +1042,12 @@
         </div>
         ${eyebrowPill(v)}
       </div>
-      <div style="flex:${hasGoals?'0 0 auto':'1'}; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1; ${hasGoals?'margin-top:32px;':''}">
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:56px; letter-spacing:0.08em; color:${resultColor}; margin-bottom:${hasGoals?'28':'48'}px; text-shadow:0 0 32px ${resultColor}88;">${resultMsg}</div>
-        ${unifiedScoreRow()}
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
+        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:56px; letter-spacing:0.08em; color:${resultColor}; margin-bottom:48px; text-shadow:0 0 32px ${resultColor}88;">${resultMsg}</div>
+        ${unifiedScoreRow({ atlSubBlock })}
         ${customMessageBlock(`${state.kickoff.dayName} ${state.kickoff.dateLabel} ${state.kickoff.year}`)}
       </div>
-      ${goalTimelineBlock()}
-      <div style="margin-top:${hasGoals?'24':'auto'}px;">${venueFooter()}</div>
+      ${venueFooter()}
     `;
   }
 
