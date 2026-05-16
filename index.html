@@ -352,7 +352,6 @@
   ];
 
   const VARIANTS = [
-    { id:'preview-j3',       label:'Preview',   icon:'📣', theme:'light',  eyebrow:'PREVIEW · J-3',      accent:'#8DB6FF' },
     { id:'matchday',         label:'Matchday',  icon:'⚽', theme:'',       eyebrow:'MATCHDAY',           accent:'#2E7BFF' },
     { id:'lineup',           label:'Lineup',    icon:'📋', theme:'',       eyebrow:'COMPOSITION',        accent:'#2E7BFF' },
     { id:'kickoff',          label:'Kickoff',   icon:'🚀', theme:'purple', eyebrow:'COUP D\'ENVOI IMMINENT', accent:'#A855F7' },
@@ -360,7 +359,6 @@
     { id:'goal',             label:'But !',     icon:'🎯', theme:'gold',   eyebrow:'BUT',                accent:'#F5B82E' },
     { id:'halftime',         label:'Mi-temps',  icon:'⏸️', theme:'orange', eyebrow:'MI-TEMPS',           accent:'#F59E0B' },
     { id:'recap',            label:'Recap',     icon:'🏁', theme:'green',  eyebrow:'RÉSULTAT FINAL',     accent:'#22C55E' },
-    { id:'man-of-the-match', label:'HDM',       icon:'🏆', theme:'gold',   eyebrow:'HOMME DU MATCH',     accent:'#F5B82E' },
   ];
 
   /* Formation row layout — index 0 = G, last index = AT, between = DEF then MIL.
@@ -402,7 +400,6 @@
     minute: 0,
     scorerId: '',
     scorerSide: 'home',
-    hdmId: '11',
     formation: '4-3-3',
     captainId: '18',  // Default captain = Pinheiro Da Silva Pedro Miguel
     // lineupStarters: 11 slots ordered to match buildSlotPositions(formation).
@@ -512,11 +509,6 @@
     const sh = h, sa = a;
     const tagsBase = `#FCAtlanticVevey #FCAvs${abbr} #5eLigue #FootballSuisse #Vevey`;
 
-    if (v === 'preview-j3') return {
-      hook: `J-3 · RENDEZ-VOUS MATCHDAY`,
-      body: `On reçoit ${oppName} au Stade de la Veyre, ${dateLine}.\n\nLa 5e ligue Groupe 2 continue. On prépare le match, on se concentre — chaque point compte. 💪`,
-      tags: `${tagsBase} #MatchDay`,
-    };
     if (v === 'matchday') return {
       hook: `C'EST MATCHDAY ⚽`,
       body: `${dateLine}. Stade de la Veyre, St-Légier.\n\nFace à ${oppName}, les Bleus sont prêts. Rendez-vous dans les tribunes — on joue ensemble. 🏟️`,
@@ -570,18 +562,18 @@
       const bodyWin = win ? `Les Bleus s'imposent ${sh}—${sa}. Match solide, trois points dans la poche.` :
                      draw ? `Match partagé, ${sh}—${sa}. Un point à prendre, on continue sur cette dynamique.` :
                      `Défaite ${sh}—${sa}. On apprend, on relève la tête, on repart au boulot.`;
+      // Append goal scorers if any FCA goal logged
+      const fcaGoals = (state.goals || []).filter(g => g.side === 'home');
+      const scorersLine = fcaGoals.length > 0
+        ? '\n\nButeur' + (fcaGoals.length > 1 ? 's' : '') + ' : ' + fcaGoals.map(g => {
+            const p = BY_ID[g.playerId];
+            return p ? `${p.firstName} ${p.lastName.toUpperCase()} (${g.minute}')` : '';
+          }).filter(Boolean).join(', ')
+        : '';
       return {
         hook: `${hookPrefix} · ${sh} — ${sa}`,
-        body: `${bodyWin}\n\nFC Atlantic ${sh} — ${sa} ${opp.shortName}\nStade de la Veyre · ${state.kickoff.dayName.toLowerCase()} ${state.kickoff.dateLabel}\n\nMerci aux supporters. 💙`,
+        body: `${bodyWin}${scorersLine}\n\nFC Atlantic ${sh} — ${sa} ${opp.shortName}\n${state.kickoff.dayName.toLowerCase()} ${state.kickoff.dateLabel}\n\nMerci aux supporters. 💙`,
         tags: `${tagsBase} #Resultat`,
-      };
-    }
-    if (v === 'man-of-the-match') {
-      const hdm = BY_ID[state.hdmId];
-      return {
-        hook: `🏆 HOMME DU MATCH`,
-        body: `${hdm.firstName} ${hdm.lastName.toUpperCase()}, n°${hdm.jerseyDisplay}. Élu par le staff après notre match face à ${opp.name}.\n\nFélicitations, Bleu ! 👏`,
-        tags: `${tagsBase} #HDM`,
       };
     }
     return { hook:'', body:'', tags: tagsBase };
@@ -1229,49 +1221,6 @@
     `;
   }
 
-  /* ---- Variant: Man of the Match ---- */
-  function hdmPoster() {
-    const v = getVariant();
-    const opp = getOpp();
-    const h = BY_ID[state.hdmId];
-    const photo = getCachedPhoto(h);
-    const posLabels = { 'G':'Gardien', 'DEF':'Défenseur', 'MIL':'Milieu', 'AT':'Attaquant' };
-    return `
-      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
-        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:20px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">Élu par le staff</div>
-        ${pill('HDM', GOLD, 'rgba(245,184,46,0.22)', 'rgba(245,184,46,0.7)')}
-      </div>
-      <div style="margin-top:40px; position:relative; z-index:1;">
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:100px; line-height:0.95; letter-spacing:0.03em; text-transform:uppercase; color:#fff;">Homme du match</div>
-        <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:30px; color:${GOLD}; text-shadow:0 0 20px rgba(245,184,46,0.5); margin-top:8px; text-transform:uppercase; letter-spacing:0.05em;">Match ${state.kickoff.dayName.toLowerCase()} ${state.kickoff.dateLabel}</div>
-      </div>
-      <!-- Panini card HDM -->
-      <div style="margin-top:40px; display:flex; justify-content:center; position:relative; z-index:1;">
-        <div style="position:relative; width:640px; height:820px; border-radius:28px; overflow:hidden; background:linear-gradient(180deg, #0F2240 0%, #04080F 100%); border:4px solid ${GOLD}; box-shadow:0 0 60px rgba(245,184,46,0.4), inset 0 0 40px rgba(245,184,46,0.1);">
-          <div style="position:absolute; top:0; left:0; right:0; background:linear-gradient(180deg, rgba(245,184,46,0.85), rgba(245,184,46,0.15) 80%, transparent); padding:24px 28px 70px; z-index:2;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div style="width:72px; height:72px; border-radius:50%; background:#04080F; border:3px solid ${GOLD}; color:${GOLD}; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:36px;">${h.jerseyDisplay}</div>
-              <div style="text-align:right; font-family:'Oswald', sans-serif; font-weight:700; font-size:24px; letter-spacing:0.12em; text-transform:uppercase; color:#04080F;">FC ATLANTIC</div>
-            </div>
-          </div>
-          <div style="position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center;">
-            ${photo ? `<img crossorigin="anonymous" alt="" src="${photo}" style="width:100%; height:95%; object-fit:cover; object-position:center 18%;">` : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:220px; color:rgba(255,255,255,0.3);">${playerInitials(h)}</div>`}
-          </div>
-          <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.92) 30%, #04080F); padding:130px 28px 28px; z-index:2;">
-            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:28px; color:${GOLD}; letter-spacing:0.08em; text-transform:uppercase;">${h.firstName}</div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:62px; line-height:1; text-transform:uppercase; letter-spacing:0.02em; color:#fff;">${h.lastName}</div>
-            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:18px; color:rgba(255,255,255,0.5); letter-spacing:0.18em; text-transform:uppercase; margin-top:6px;">${(posLabels[h.position] || '').toUpperCase()}</div>
-          </div>
-        </div>
-      </div>
-      <div style="margin-top:32px; position:relative; z-index:1;">
-        <div style="height:1px; background:linear-gradient(90deg, transparent, ${GOLD}, transparent); margin-bottom:20px;"></div>
-        <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:44px; text-align:center; letter-spacing:0.02em; color:#fff;">FC ATLANTIC ${state.score.home} — ${state.score.away} ${opp.shortName}</div>
-      </div>
-      ${customMessageBlock('')}
-    `;
-  }
-
   /* Master dispatcher */
   function posterHTML() {
     const v = state.variant;
@@ -1282,14 +1231,13 @@
       state.format = 'story';
     }
     let inner, opts = {};
-    if (v === 'preview-j3' || v === 'matchday') inner = classicPoster();
+    if (v === 'matchday') inner = classicPoster();
     else if (v === 'lineup') inner = lineupPoster();
     else if (v === 'kickoff') inner = kickoffPoster();
     else if (v === 'live-score') inner = liveScorePoster();
     else if (v === 'goal') inner = goalPoster();
     else if (v === 'halftime') inner = halftimePoster();
     else if (v === 'recap') inner = recapPoster();
-    else if (v === 'man-of-the-match') inner = hdmPoster();
     const html = shellWrap(inner, opts);
     if (savedFormat) state.format = savedFormat;  // restore for caller
     return html;
@@ -1325,19 +1273,18 @@
   }
 
   function sectionsForVariant() {
-    const base = ['variant','match','location','customize','caption'];
     const v = state.variant;
     let extra = [];
     if (v === 'lineup' || v === 'kickoff') extra = ['lineup'];
     else if (v === 'goal') extra = ['goal','score'];
-    else if (v === 'man-of-the-match') extra = ['hdm','score'];
-    else if (['live-score','halftime','recap'].includes(v)) extra = ['score'];
+    else if (v === 'recap') extra = ['score','goal'];          // recap can edit goal timeline
+    else if (['live-score','halftime'].includes(v)) extra = ['score','goal'];
     // Insert extras before customize
     return ['variant','match','location', ...extra, 'customize','caption'];
   }
   const SECTION_LABELS = {
     variant:'Variant', match:'Match', location:'Lieu', lineup:'Compo',
-    goal:'Buteur', hdm:'HDM', score:'Score',
+    goal:'Buts ⚽', score:'Score',
     customize:'Personnaliser', caption:'Caption'
   };
   function renderSectionTabs() {
@@ -1359,7 +1306,6 @@
     else if (s === 'location') el.innerHTML = panelLocation();
     else if (s === 'lineup') el.innerHTML = panelLineup();
     else if (s === 'goal') el.innerHTML = panelGoal();
-    else if (s === 'hdm') el.innerHTML = panelHdm();
     else if (s === 'score') el.innerHTML = panelScore();
     else if (s === 'customize') el.innerHTML = panelCustomize();
     else if (s === 'caption') el.innerHTML = panelCaption();
@@ -1488,21 +1434,6 @@
         ${state.goals.length > 0 ? `<button onclick="undoGoal()" style="background:rgba(46,123,255,0.15); color:#2E7BFF; border:1px solid rgba(46,123,255,0.4); padding:4px 10px; border-radius:999px; font-family:'Inter',sans-serif; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer;">↩ Annuler dernier</button>` : ''}
       </div>
       <div class="goal-list">${goalsHtml}</div>
-    </div>`;
-  }
-  function panelHdm() {
-    return `<div class="panel">
-      <div class="panel-label">Homme du match</div>
-      <div class="player-grid" id="hdm-grid">
-        ${ROSTER.map(p => `<div class="player-mini ${state.hdmId===p.id?'on gold':''}" data-id="${p.id}">
-          <div class="pimg-wrap">
-            ${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy" onerror="this.style.display='none'; this.parentElement.querySelector('.pinit').style.display='flex'">` : ''}
-            <div class="pinit" style="${p.photoUrl?'display:none':''}">${playerInitials(p)}</div>
-          </div>
-          <div class="pjer" style="background:#F5B82E">${p.jerseyDisplay}</div>
-          <div class="pname">${p.lastName}</div>
-        </div>`).join('')}
-      </div>
     </div>`;
   }
   function parseFormationCounts(f) {
@@ -1660,7 +1591,6 @@
       const vid = c.dataset.v;
       if (vid === 'goal') state.activeSection = 'goal';
       else if (vid === 'lineup' || vid === 'kickoff') state.activeSection = 'lineup';
-      else if (vid === 'man-of-the-match') state.activeSection = 'hdm';
       else if (['live-score','halftime','recap'].includes(vid)) state.activeSection = 'score';
       renderAll();
     }));
@@ -1695,9 +1625,6 @@
       const p = BY_ID[pid];
       toast(`⚽ ${state.minute || 0}' · ${p.lastName.toUpperCase()} #${p.jerseyDisplay} · ${state.score.home}—${state.score.away}`);
       renderPanel(); refresh();
-    }));
-    document.querySelectorAll('#hdm-grid .player-mini').forEach(el => el.addEventListener('click', () => {
-      state.hdmId = el.dataset.id; renderPanel(); refresh();
     }));
     const fSel = document.getElementById('formation-select');
     if (fSel) fSel.addEventListener('change', e => { state.formation = e.target.value; renderPanel(); refresh(); });
