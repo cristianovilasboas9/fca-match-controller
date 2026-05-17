@@ -229,8 +229,8 @@
       <button class="ft-btn" data-fmt="post" onclick="setFormat('post')">⊞ Post</button>
     </div>
     <div class="right">
-      <strong id="match-opp">vs FC Azzurri 90 LS II</strong>
-      <small id="match-date">Dim 17 mai · 10:30</small>
+      <strong id="match-opp">vs FC Concordia LS III</strong>
+      <small id="match-date">Dim 24 mai · 10:30</small>
     </div>
   </div>
 
@@ -390,12 +390,12 @@
   const state = {
     variant: 'matchday',
     format: 'story',  // 'story' (1080x1920, 9:16) or 'post' (1080x1350, 4:5)
-    homeAway: 'away',
-    opponentSlug: 'fc-azzurri-90-ls-ii',
-    matchNumber: '138117',                            // ACVF match number (5e Ligue Groupe 2)
-    venue: 'Centre sportif de Chavannes',
-    venueCity: 'CHAVANNES VD',
-    kickoff: { dayName:'DIMANCHE', dateLabel:'17 MAI', year:2026, time:'10:30' },
+    homeAway: 'home',
+    opponentSlug: 'fc-concordia-ls-iii',
+    matchNumber: '',                                  // ACVF match number — à remplir dans le panel Match
+    venue: '',                                        // empty → defaults to STADE DE LA VEYRE (set by venueFooter)
+    venueCity: '',                                    // empty → defaults to ST-LÉGIER
+    kickoff: { dayName:'DIMANCHE', dateLabel:'24 MAI', year:2026, time:'10:30' },
     score: { home: 0, away: 0 },
     minute: 0,
     scorerId: '',
