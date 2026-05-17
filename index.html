@@ -230,7 +230,7 @@
     </div>
     <div class="right">
       <strong id="match-opp">vs FC Concordia LS III</strong>
-      <small id="match-date">Dim 24 mai · 10:30</small>
+      <small id="match-date">Dim 24 mai · 15:00</small>
     </div>
   </div>
 
@@ -392,10 +392,10 @@
     format: 'story',  // 'story' (1080x1920, 9:16) or 'post' (1080x1350, 4:5)
     homeAway: 'home',
     opponentSlug: 'fc-concordia-ls-iii',
-    matchNumber: '',                                  // ACVF match number — à remplir dans le panel Match
-    venue: '',                                        // empty → defaults to STADE DE LA VEYRE (set by venueFooter)
-    venueCity: '',                                    // empty → defaults to ST-LÉGIER
-    kickoff: { dayName:'DIMANCHE', dateLabel:'24 MAI', year:2026, time:'10:30' },
+    matchNumber: '138124',
+    venue: 'Terrain de La Veyre N° 1',
+    venueCity: 'ST-LÉGIER',
+    kickoff: { dayName:'DIMANCHE', dateLabel:'24 MAI', year:2026, time:'15:00' },
     score: { home: 0, away: 0 },
     minute: 0,
     scorerId: '',
@@ -1899,34 +1899,99 @@
     document.body.removeChild(off);
     return canvas;
   }
+  /* Detect iOS (iPhone, iPad including iPadOS-Safari-as-desktop) — used to
+     pick the export path. iOS Safari does not honor <a download> as a true
+     download; opening the blob in a new tab gives the user the long-press
+     "Save to Photos" gesture, which is what we actually want for stories. */
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  async function buildPosterBlob() {
+    const canvas = await renderFullRes();
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 0.95));
+    // Log the actual rendered dimensions so Boss can verify in DevTools if needed
+    console.info(`[FCA] Poster exported: ${canvas.width}×${canvas.height}px · ${(blob.size/1024).toFixed(0)} KB · ${state.format}/${state.variant}`);
+    return { canvas, blob };
+  }
+
+  function posterFileName() {
+    const date = (state.kickoff.dateLabel || '').replace(/\s+/g, '-').toLowerCase();
+    return `FCA_${state.variant}_${date}_${state.format}.png`;
+  }
+
   async function downloadPoster() {
     const btn = document.getElementById('download-btn');
     const lbl = document.getElementById('download-label');
     btn.disabled = true;
     lbl.innerHTML = '<span class="spinner"></span>';
     try {
-      const canvas = await renderFullRes();
-      const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 0.95));
+      const { blob } = await buildPosterBlob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `FCA_${state.variant}_${state.format}_${Date.now()}.png`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast('✅ PNG téléchargé');
-    } catch (e) { console.error(e); toast('❌ Erreur PNG','red'); }
+      const fileName = posterFileName();
+      if (isIOS()) {
+        // iOS: open in new tab so user can long-press → Save to Photos.
+        // <a download> on iOS Safari triggers a viewer that hides the image.
+        const win = window.open(url, '_blank');
+        if (win) {
+          toast('📷 Long-press l\'image → Enregistrer');
+        } else {
+          // Popup blocked (rare) — fall back to classic download.
+          const a = document.createElement('a');
+          a.href = url; a.download = fileName;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          toast('✅ PNG ouvert');
+        }
+      } else {
+        const a = document.createElement('a');
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        toast('✅ PNG téléchargé');
+      }
+      // Delay revoke so the new tab has time to load the blob
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { console.error(e); toast('❌ Erreur PNG', 'red'); }
     finally { btn.disabled = false; lbl.textContent = 'PNG'; }
   }
+
   async function sharePoster() {
+    const btn = document.querySelector('.btn-ghost');
+    const original = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
     try {
-      const canvas = await renderFullRes();
-      const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 0.95));
-      const file = new File([blob], `FCA_${state.variant}.png`, { type:'image/png' });
+      const { blob } = await buildPosterBlob();
+      const file = new File([blob], posterFileName(), { type:'image/png' });
+      // Path 1 — native share with file ONLY. iOS sometimes fails silently
+      // when title+text are present alongside a file; we keep it minimal.
       if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
-        await navigator.share({ files:[file], title:'FC Atlantic Vevey', text: captionToString() });
-        toast('✅ Partagé');
-      } else { toast('Partage non dispo','red'); }
-    } catch (e) { console.error(e); toast('❌ Erreur','red'); }
+        try {
+          await navigator.share({ files:[file] });
+          toast('✅ Partagé');
+          return;
+        } catch (shareErr) {
+          // User cancelled the share sheet — that's fine, no fallback.
+          if (shareErr && shareErr.name === 'AbortError') { return; }
+          console.warn('[FCA] navigator.share failed, falling back to open-in-tab', shareErr);
+          // Fall through to Path 2.
+        }
+      }
+      // Path 2 — open blob in a new tab so user can long-press to save.
+      // Works everywhere (iOS Safari, Android Chrome, desktop browsers).
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (win) {
+        toast(isIOS() ? '📷 Long-press → Enregistrer' : '✅ Ouvert dans un onglet');
+      } else {
+        // Popup blocked — last resort: classic download.
+        const a = document.createElement('a');
+        a.href = url; a.download = posterFileName();
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        toast('✅ Téléchargé');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { console.error(e); toast('❌ Erreur partage', 'red'); }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = original; } }
   }
   async function copyCaption() {
     try { await navigator.clipboard.writeText(captionToString()); toast('✅ Caption copiée'); }
