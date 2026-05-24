@@ -393,7 +393,7 @@
     homeAway: 'home',
     opponentSlug: 'fc-concordia-ls-iii',
     matchNumber: '138124',
-    venue: 'Terrain de La Veyre N° 1',
+    venue: 'Terrain de La Veyre',
     venueCity: 'ST-LÉGIER',
     kickoff: { dayName:'DIMANCHE', dateLabel:'24 MAI', year:2026, time:'15:00' },
     score: { home: 0, away: 0 },
@@ -511,7 +511,7 @@
 
     if (v === 'matchday') return {
       hook: `C'EST MATCHDAY ⚽`,
-      body: `${dateLine}. Stade de la Veyre, St-Légier.\n\nFace à ${oppName}, les Bleus sont prêts. Rendez-vous dans les tribunes — on joue ensemble. 🏟️`,
+      body: `${dateLine}. Terrain de La Veyre, St-Légier.\n\nFace à ${oppName}, les Bleus sont prêts. Rendez-vous dans les tribunes — on joue ensemble. 🏟️`,
       tags: `${tagsBase} #MatchDay`,
     };
     if (v === 'lineup') {
@@ -713,7 +713,7 @@
     const label = isHome ? 'DOMICILE' : 'EXTÉRIEUR';
     const col = isHome ? '34,197,94' : '245,158,11';
     // Default venue depends on home/away
-    const venueName = (state.venue && state.venue.trim()) || (isHome ? 'STADE DE LA VEYRE' : '');
+    const venueName = (state.venue && state.venue.trim()) || (isHome ? 'TERRAIN DE LA VEYRE' : '');
     const venueCity = (state.venueCity && state.venueCity.trim()) || (isHome ? 'ST-LÉGIER' : '');
     const fsName = pf(36, 38);
     const fsCity = pf(18, 20);
