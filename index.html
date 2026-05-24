@@ -123,6 +123,27 @@
   .lineup-counter.ok { background:rgba(34,197,94,0.18); color:#22C55E; }
   .lineup-counter.warn { background:rgba(239,68,68,0.18); color:#EF4444; }
 
+  /* GUEST PLAYERS — joueurs invités (groupements / autres équipes) */
+  .player-mini.is-guest { border-color:rgba(245,184,46,0.45); background:rgba(245,184,46,0.06); }
+  .player-mini.is-guest.on { background:rgba(245,184,46,0.22); border-color:#F5B82E; }
+  .pguest-tag { position:absolute; top:3px; left:3px; background:#F5B82E; color:#04080F; font-family:'Inter', sans-serif; font-weight:800; font-size:7px; letter-spacing:0.1em; padding:2px 5px; border-radius:4px; z-index:2; line-height:1; }
+  .player-mini.is-guest .pcheck { display:none; }
+  .guest-list { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+  .guest-row { display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(245,184,46,0.08); border:1px solid rgba(245,184,46,0.30); border-radius:10px; }
+  .guest-row .guest-pos { font-family:'Inter', sans-serif; font-weight:800; font-size:9px; letter-spacing:0.08em; color:#F5B82E; background:rgba(245,184,46,0.18); padding:3px 7px; border-radius:5px; min-width:34px; text-align:center; }
+  .guest-row .guest-jer { font-family:'Oswald', sans-serif; font-weight:700; font-size:13px; color:#F5B82E; min-width:28px; }
+  .guest-row .guest-name { flex:1; font-family:'Oswald', sans-serif; font-weight:600; font-size:13px; color:#fff; text-transform:uppercase; letter-spacing:0.02em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .guest-row .guest-rm { background:rgba(239,68,68,0.18); color:#EF4444; border:1px solid rgba(239,68,68,0.40); width:24px; height:24px; border-radius:50%; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; line-height:1; }
+  .guest-row .guest-rm:active { transform:scale(0.92); }
+  .guest-form { margin-top:10px; padding:10px; background:rgba(0,0,0,0.25); border:1px dashed rgba(245,184,46,0.30); border-radius:10px; display:flex; flex-direction:column; gap:8px; }
+  .guest-form-row { display:flex; gap:6px; align-items:center; }
+  .guest-form input, .guest-form select { background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.10); border-radius:8px; padding:8px 10px; font-family:'Inter', sans-serif; font-size:12px; flex:1; min-width:0; }
+  .guest-form input:focus, .guest-form select:focus { outline:none; border-color:#F5B82E; background:rgba(245,184,46,0.06); }
+  .guest-form input::placeholder { color:rgba(255,255,255,0.35); }
+  .guest-form .guest-add-btn { background:#F5B82E; color:#04080F; border:0; padding:8px 12px; border-radius:8px; font-family:'Inter', sans-serif; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; flex:0 0 auto; white-space:nowrap; }
+  .guest-form .guest-add-btn:active { transform:scale(0.96); }
+  .guest-form small { font-family:'Inter', sans-serif; font-size:10px; color:rgba(255,255,255,0.45); line-height:1.4; }
+
   /* ACTIONS BAR — plus fine & transparente */
   .actions-bar { position:fixed; bottom:0; left:0; right:0; z-index:60; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.75) 50%); padding:10px 12px calc(8px + env(safe-area-inset-bottom)); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
   .actions { max-width:540px; margin:0 auto; display:grid; grid-template-columns:2fr 1fr 1fr; gap:6px; }
@@ -406,6 +427,10 @@
     // Empty string = slot vide. Boss fills slot-by-slot via the pitch UI.
     lineupStarters: ['','','','','','','','','','',''],
     lineupBench: [],
+    // Joueurs invités (groupements, prêts d'autres équipes seniors).
+    // Pas dans le ROSTER officiel mais peuvent être placés sur le terrain / banc.
+    // Forme : { id: 'guest-<ts>', jerseyDisplay: <num>, firstName, lastName, position: 'G'|'DEF'|'MIL'|'AT', isGuest: true }
+    guests: [],
     goals: [],          // [{ minute, playerId, side: 'home'|'away', ts }]
     pickerSlot: null,   // index of slot currently being picked, or null
     activeSection: 'variant',
@@ -417,6 +442,8 @@
   const getOpp = () => OPPONENTS.find(o => o.slug === state.opponentSlug) || OPPONENTS[0];
   const getVariant = () => VARIANTS.find(v => v.id === state.variant) || VARIANTS[0];
   const playerInitials = p => (p.lastName || '?').slice(0,2).toUpperCase();
+  // Liste unifiée roster + invités pour les grilles de sélection (scorer, bench, picker).
+  const allPlayers = () => [...ROSTER, ...state.guests];
 
   /* Photos & crests cache (base64 data URLs) */
   const PHOTO_CACHE = {};
@@ -1390,7 +1417,8 @@
       ${state.scorerSide === 'home' ? `
         <div class="panel-label" style="margin-top:4px;">Tape sur le buteur <span class="b green">auto +1 + log</span></div>
         <div class="player-grid" id="scorer-grid">
-          ${ROSTER.map(p => `<div class="player-mini ${state.scorerId===p.id?'on':''}" data-id="${p.id}">
+          ${allPlayers().map(p => `<div class="player-mini ${state.scorerId===p.id?'on':''}${p.isGuest?' is-guest':''}" data-id="${p.id}">
+            ${p.isGuest ? '<div class="pguest-tag">INVITÉ</div>' : ''}
             <div class="pimg-wrap">
               ${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy" onerror="this.style.display='none'; this.parentElement.querySelector('.pinit').style.display='flex'">` : ''}
               <div class="pinit" style="${p.photoUrl?'display:none':''}">${playerInitials(p)}</div>
@@ -1489,9 +1517,9 @@
       cursor += n;
     }
 
-    // Unplaced players for bench
+    // Unplaced players for bench — inclut les invités
     const placed = new Set(state.lineupStarters.filter(Boolean));
-    const benchCandidates = ROSTER.filter(p => !placed.has(p.id));
+    const benchCandidates = allPlayers().filter(p => !placed.has(p.id));
 
     return `<div class="panel">
       <div class="panel-label">Formation <span class="lineup-counter ${sKlass}">${filled}/11 placés</span></div>
@@ -1518,8 +1546,9 @@
       </div>
       <div class="panel-label" style="margin-top:14px;">Banc <span class="lineup-counter ${bKlass}">${bCount}</span></div>
       <div class="player-grid" id="bench-grid">
-        ${benchCandidates.map(p => `<div class="player-mini ${state.lineupBench.includes(p.id)?'on':''}" data-id="${p.id}">
+        ${benchCandidates.map(p => `<div class="player-mini ${state.lineupBench.includes(p.id)?'on':''}${p.isGuest?' is-guest':''}" data-id="${p.id}">
           <div class="pcheck">✓</div>
+          ${p.isGuest ? '<div class="pguest-tag">INVITÉ</div>' : ''}
           <div class="pimg-wrap">
             ${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy" onerror="this.style.display='none'; this.parentElement.querySelector('.pinit').style.display='flex'">` : ''}
             <div class="pinit" style="${p.photoUrl?'display:none':''}">${playerInitials(p)}</div>
@@ -1529,6 +1558,38 @@
         </div>`).join('')}
       </div>
       ${benchCandidates.length === 0 ? '<div style="font-size:11px; color:rgba(255,255,255,0.4); text-align:center; padding:8px; font-style:italic;">Tous les joueurs sont sur le terrain</div>' : ''}
+
+      <!-- JOUEURS INVITÉS — groupements / prêts d'autres équipes seniors -->
+      <div class="panel-label" style="margin-top:18px;">Joueurs invités <span class="b">${state.guests.length}</span></div>
+      ${state.guests.length > 0 ? `
+        <div class="guest-list">
+          ${state.guests.map(g => `
+            <div class="guest-row">
+              <span class="guest-pos">${g.position}</span>
+              <span class="guest-jer">#${g.jerseyDisplay}</span>
+              <span class="guest-name">${g.firstName ? g.firstName + ' ' : ''}${g.lastName}</span>
+              <button class="guest-rm" onclick="removeGuest('${g.id}')" aria-label="Retirer ${g.lastName}">×</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div class="guest-form">
+        <div class="guest-form-row">
+          <input type="text" id="guest-first" placeholder="Prénom" autocomplete="off">
+          <input type="text" id="guest-last" placeholder="Nom *" autocomplete="off">
+        </div>
+        <div class="guest-form-row">
+          <input type="number" id="guest-jersey" placeholder="N° *" min="1" max="99" inputmode="numeric" style="flex:0 0 70px;">
+          <select id="guest-pos" style="flex:1;">
+            <option value="G">G — Gardien</option>
+            <option value="DEF">DEF — Défenseur</option>
+            <option value="MIL" selected>MIL — Milieu</option>
+            <option value="AT">AT — Attaquant</option>
+          </select>
+          <button class="guest-add-btn" onclick="addGuestFromForm()">+ Ajouter</button>
+        </div>
+        <small>Pour les joueurs convoqués hors effectif (groupement, équipe sénior d'un autre club).</small>
+      </div>
     </div>`;
   }
   function panelCustomize() {
@@ -1688,9 +1749,9 @@
       title.textContent = sheetMode === 'replace' ? 'Remplacer par...' : 'Choisir joueur';
       sub.textContent = `Poste suggéré : ${posLabelFull(expectedPos)}`;
       actions.style.display = 'none';
-      // Sort: players matching expected position first, then others
+      // Sort: players matching expected position first, then others. Inclut les invités.
       const placedIds = new Set(state.lineupStarters.filter(Boolean));
-      const sorted = [...ROSTER].sort((a, b) => {
+      const sorted = allPlayers().sort((a, b) => {
         const aMatch = a.position === expectedPos ? 0 : 1;
         const bMatch = b.position === expectedPos ? 0 : 1;
         if (aMatch !== bMatch) return aMatch - bMatch;
@@ -1704,8 +1765,10 @@
         if (isPlaced && !isThisSlot) cls.push('placed-elsewhere');
         if (disabled) cls.push('disabled');
         if (p.position === expectedPos) cls.push('on');
+        if (p.isGuest) cls.push('is-guest');
         return `<div class="${cls.join(' ')}" data-pid="${p.id}" onclick="pickPlayer('${p.id}')">
           <div class="pos-tag">${p.position}</div>
+          ${p.isGuest ? '<div class="pguest-tag">INVITÉ</div>' : ''}
           <div class="pimg-wrap">
             ${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy" onerror="this.style.display='none'; this.parentElement.querySelector('.pinit').style.display='flex'">` : ''}
             <div class="pinit" style="${p.photoUrl?'display:none':''}">${playerInitials(p)}</div>
@@ -1765,6 +1828,43 @@
     state.lineupStarters = ['','','','','','','','','','',''];
     state.lineupBench = [];
     toast('Composition vidée', 'blue');
+    renderPanel(); refresh();
+  };
+
+  /* ---------- GUEST PLAYERS (joueurs invités d'un groupement / d'une autre équipe) ---------- */
+  window.addGuestFromForm = function() {
+    const firstEl = document.getElementById('guest-first');
+    const lastEl  = document.getElementById('guest-last');
+    const jerEl   = document.getElementById('guest-jersey');
+    const posEl   = document.getElementById('guest-pos');
+    if (!firstEl || !lastEl || !jerEl || !posEl) return;
+    const firstName = firstEl.value.trim();
+    const lastName  = lastEl.value.trim();
+    const jersey    = parseInt(jerEl.value, 10);
+    const position  = posEl.value;
+    if (!lastName) { toast('Nom obligatoire', 'red'); lastEl.focus(); return; }
+    if (!Number.isFinite(jersey) || jersey < 1 || jersey > 99) { toast('Numéro 1-99 requis', 'red'); jerEl.focus(); return; }
+    if (!['G','DEF','MIL','AT'].includes(position)) { toast('Poste invalide', 'red'); return; }
+    const id = 'guest-' + Date.now();
+    const guest = { id, jerseyDisplay: jersey, firstName, lastName, position, isGuest: true };
+    state.guests.push(guest);
+    BY_ID[id] = guest;
+    toast(`+ Invité · ${lastName.toUpperCase()} #${jersey}`, 'blue');
+    renderPanel(); refresh();
+  };
+
+  window.removeGuest = function(guestId) {
+    const g = state.guests.find(x => x.id === guestId);
+    if (!g) return;
+    // Retirer du onze de départ, du banc et du capitanat si présent.
+    // NB: on garde l'entrée dans BY_ID pour que les buts déjà loggés restent lisibles.
+    const startIdx = state.lineupStarters.indexOf(guestId);
+    if (startIdx >= 0) state.lineupStarters[startIdx] = '';
+    const benchIdx = state.lineupBench.indexOf(guestId);
+    if (benchIdx >= 0) state.lineupBench.splice(benchIdx, 1);
+    if (state.captainId === guestId) state.captainId = '';
+    state.guests = state.guests.filter(x => x.id !== guestId);
+    toast(`✕ Invité retiré · ${g.lastName.toUpperCase()}`, 'red');
     renderPanel(); refresh();
   };
 
