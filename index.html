@@ -382,8 +382,13 @@
       crestBase: 'https://fc-atlantic-vevey.ch/logos/clubs/',
     },
   };
-  // Helper hashtag base — dépend de l'adversaire courant
-  const tagsBaseFor = (opp) => `#${TENANT_CONFIG.social.brandTag} #${TENANT_CONFIG.social.matchupTagPrefix}${opp.abbr} #${TENANT_CONFIG.social.leagueTag} #${TENANT_CONFIG.social.countryTag} #${TENANT_CONFIG.social.cityTag}`;
+  // Helper hashtag base — dépend de l'adversaire courant.
+  // Fallback sur les 4 premières lettres du slug si abbr manque (tenant qui ajoute
+  // un opponent sans le champ -> évite '#FCAvsundefined' dans la caption).
+  const tagsBaseFor = (opp) => {
+    const oppAbbr = opp.abbr || (opp.slug || 'opp').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'OPP';
+    return `#${TENANT_CONFIG.social.brandTag} #${TENANT_CONFIG.social.matchupTagPrefix}${oppAbbr} #${TENANT_CONFIG.social.leagueTag} #${TENANT_CONFIG.social.countryTag} #${TENANT_CONFIG.social.cityTag}`;
+  };
 
   /* === 2. CREST_DATAURL ========================================
      Logo du club en SVG base64. Pour swap : exporter le SVG du nouveau
@@ -599,14 +604,24 @@
       state.guests.forEach(p => { if (p.photoUrl && !PHOTO_CACHE[p.photoUrl]) urls.push({ url: p.photoUrl, target: 'photo' }); });
       OPPONENTS.forEach(o => { if (o.crestUrl && !CREST_CACHE[o.slug]) urls.push({ url: o.crestUrl, target: 'crest', slug: o.slug }); });
       const BATCH = 6;
+      let failures = 0;
       for (let i = 0; i < urls.length; i += BATCH) {
         await Promise.all(urls.slice(i, i + BATCH).map(async item => {
           const dataUrl = await fetchAsDataUrl(item.url);
           if (dataUrl) {
             if (item.target === 'photo') PHOTO_CACHE[item.url] = dataUrl;
             else if (item.target === 'crest') CREST_CACHE[item.slug] = dataUrl;
+          } else {
+            failures++;
           }
         }));
+      }
+      // Si certains assets ont échoué (CDN lent, CORS, 404 transitoire), on invalide
+      // le singleton pour que le prochain appel RETENTE les assets manquants au lieu
+      // de re-résoudre instantanément avec un cache incomplet.
+      if (failures > 0) {
+        console.warn(`[FCA] preloadAllAssets: ${failures} asset(s) en échec — singleton invalidé pour retry au prochain download`);
+        _preloadPromise = null;
       }
     })();
     return _preloadPromise;
@@ -1041,7 +1056,7 @@
             <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:52px; color:#fff; line-height:1; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;">${captainDisplay} · #${capt.jerseyDisplay}</div>
           </div>
         ` : ''}
-        ${customMessageBlock('Allez les Bleus ! 🔥')}
+        ${customMessageBlock(`Allez les ${TENANT_CONFIG.club.nickname} ! 🔥`)}
       </div>
       ${venueFooter()}
     `;
@@ -1448,7 +1463,7 @@
   }
   function panelMatch() {
     return `<div class="panel">
-      <div class="panel-label">Match <span class="b blue">#FCAvs${getOpp().abbr}</span></div>
+      <div class="panel-label">Match <span class="b blue">#${TENANT_CONFIG.social.matchupTagPrefix}${getOpp().abbr || ''}</span></div>
       <div class="row"><label>Adversaire</label>
         <select id="opp-select">
           ${OPPONENTS.map(o => `<option value="${o.slug}" ${state.opponentSlug===o.slug?'selected':''}>${o.name}</option>`).join('')}
@@ -1486,7 +1501,7 @@
       <div class="panel-label">Score <span class="b">${isLive ? 'En cours' : 'Final'}</span></div>
       <div class="score-row">
         <div class="score-group">
-          <label>FC Atlantic</label>
+          <label>${TENANT_CONFIG.club.name}</label>
           <input type="number" id="score-home" min="0" max="30" value="${state.score.home}" inputmode="numeric">
           <div class="score-stepper">
             <button class="minus" onclick="adjustScore('home',-1)">−</button>
@@ -1532,7 +1547,7 @@
       </div>
       <div class="panel-label" style="margin-top:14px;">Buteur — Atlantic ou adversaire ?</div>
       <div class="toggle-pair" style="margin-bottom:12px;">
-        <button class="${state.scorerSide==='home'?'on home':''}" onclick="setScorerSide('home')">⚽ FC Atlantic</button>
+        <button class="${state.scorerSide==='home'?'on home':''}" onclick="setScorerSide('home')">⚽ ${TENANT_CONFIG.club.name}</button>
         <button class="${state.scorerSide==='away'?'on away':''}" onclick="setScorerSide('away')">😐 Adversaire</button>
       </div>
       ${state.scorerSide === 'home' ? `
@@ -2177,7 +2192,8 @@
 
   function posterFileName() {
     const date = (state.kickoff.dateLabel || '').replace(/\s+/g, '-').toLowerCase();
-    return `FCA_${state.variant}_${date}_${state.format}.png`;
+    const prefix = (TENANT_CONFIG.club.abbr || 'POSTER').toUpperCase();
+    return `${prefix}_${state.variant}_${date}_${state.format}.png`;
   }
 
   async function downloadPoster() {
