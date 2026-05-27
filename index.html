@@ -512,6 +512,8 @@
   async function preloadAllAssets() {
     const urls = [];
     ROSTER.forEach(p => { if (p.photoUrl && !PHOTO_CACHE[p.photoUrl]) urls.push({ url: p.photoUrl, target: 'photo' }); });
+    // Joueurs invités (groupements / autres équipes) — peuvent avoir une photoUrl future.
+    state.guests.forEach(p => { if (p.photoUrl && !PHOTO_CACHE[p.photoUrl]) urls.push({ url: p.photoUrl, target: 'photo' }); });
     OPPONENTS.forEach(o => { if (o.crestUrl && !CREST_CACHE[o.slug]) urls.push({ url: o.crestUrl, target: 'crest', slug: o.slug }); });
     const BATCH = 6;
     for (let i = 0; i < urls.length; i += BATCH) {
@@ -565,6 +567,13 @@
     if (v === 'goal') {
       if (state.scorerSide === 'home') {
         const sc = BY_ID[state.scorerId];
+        if (!sc) {
+          return {
+            hook: `⚽ BUT À LA ${state.minute}' !`,
+            body: `Sélectionne le buteur dans l'onglet "Buts ⚽" pour personnaliser ce message.\n\nScore : ${sh} — ${sa} face à ${oppName}.`,
+            tags: `${tagsBase} #But`,
+          };
+        }
         return {
           hook: `⚽⚽⚽ BUT À LA ${state.minute}' !`,
           body: `${sc.firstName} ${sc.lastName.toUpperCase()} plante le numéro ${sh} pour les Bleus !\n\nScore : ${sh} — ${sa} face à ${oppName}.`,
@@ -983,6 +992,24 @@
       `;
     }
     const sc = BY_ID[state.scorerId];
+    // Guard: scorerSide='home' mais aucun buteur encore choisi -> placeholder
+    // au lieu d'un crash TypeError sur sc.lastName.length.
+    if (!sc) {
+      return `
+        <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(18,18)}px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">5E LIGUE · GROUPE 2</div>
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(140,130)}px; line-height:0.9; color:${GOLD}; text-shadow:0 0 32px rgba(245,184,46,0.6);">${state.minute || 0}'</div>
+        </div>
+        <div style="margin-top:${pf(24,20)}px; position:relative; z-index:1;">
+          ${unifiedScoreRow()}
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1; padding:${pf(60,40)}px;">
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(110,90)}px; line-height:0.95; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.5); letter-spacing:0.04em; text-align:center;">BUT !</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:${pf(22,20)}px; color:rgba(255,255,255,0.7); margin-top:${pf(20,16)}px; text-align:center; max-width:${pf(640,520)}px; line-height:1.4;">Sélectionne le buteur dans l'onglet <b style="color:${GOLD};">Buts ⚽</b> pour générer le visuel complet.</div>
+        </div>
+        ${venueFooter()}
+      `;
+    }
     const photo = getCachedPhoto(sc);
     const lastNameLen = sc.lastName.length;
     const lastNameFS = state.format === 'post'
@@ -1944,7 +1971,11 @@
      data URLs AVANT la capture, et on attend leur naturalWidth > 0.
   */
   async function renderFullRes() {
-    const f = FMT();
+    // Format effectif : la variante lineup force le 9:16 (story) même si le toggle est sur post,
+    // car le poster lineup est trop dense pour le 4:5. Cf. posterHTML L1231 et updatePreview L1257.
+    // Sans ça, l'export PNG était silencieusement croppé à 1080x1350 en perdant le banc + le footer.
+    const effectiveFormat = (state.variant === 'lineup') ? 'story' : state.format;
+    const f = FORMATS[effectiveFormat] || FORMATS.story;
 
     // STEP 0 — Rasterize the FCA SVG crest to PNG for reliable html2canvas export
     await ensureAtlCrestPng();
