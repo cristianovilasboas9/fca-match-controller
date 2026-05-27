@@ -509,22 +509,33 @@
   }
   function getAtlCrest() { return CREST_ATL_PNG; }
 
-  async function preloadAllAssets() {
-    const urls = [];
-    ROSTER.forEach(p => { if (p.photoUrl && !PHOTO_CACHE[p.photoUrl]) urls.push({ url: p.photoUrl, target: 'photo' }); });
-    // Joueurs invités (groupements / autres équipes) — peuvent avoir une photoUrl future.
-    state.guests.forEach(p => { if (p.photoUrl && !PHOTO_CACHE[p.photoUrl]) urls.push({ url: p.photoUrl, target: 'photo' }); });
-    OPPONENTS.forEach(o => { if (o.crestUrl && !CREST_CACHE[o.slug]) urls.push({ url: o.crestUrl, target: 'crest', slug: o.slug }); });
-    const BATCH = 6;
-    for (let i = 0; i < urls.length; i += BATCH) {
-      await Promise.all(urls.slice(i, i + BATCH).map(async item => {
-        const dataUrl = await fetchAsDataUrl(item.url);
-        if (dataUrl) {
-          if (item.target === 'photo') PHOTO_CACHE[item.url] = dataUrl;
-          else if (item.target === 'crest') CREST_CACHE[item.slug] = dataUrl;
-        }
-      }));
-    }
+  // Singleton promise pour éviter qu'init() et renderFullRes() lancent deux preload
+  // en parallèle (race où le download peut commencer avant la fin du preload de fond
+  // -> certaines photos pas encore dans PHOTO_CACHE -> img garde son URL externe
+  // -> taint canvas -> toBlob null). On résoud aussi quand un nouveau guest avec
+  // photoUrl est ajouté, en invalidant explicitement le singleton si besoin.
+  let _preloadPromise = null;
+  function invalidatePreloadCache() { _preloadPromise = null; }
+  function preloadAllAssets() {
+    if (_preloadPromise) return _preloadPromise;
+    _preloadPromise = (async () => {
+      const urls = [];
+      ROSTER.forEach(p => { if (p.photoUrl && !PHOTO_CACHE[p.photoUrl]) urls.push({ url: p.photoUrl, target: 'photo' }); });
+      // Joueurs invités (groupements / autres équipes) — peuvent avoir une photoUrl future.
+      state.guests.forEach(p => { if (p.photoUrl && !PHOTO_CACHE[p.photoUrl]) urls.push({ url: p.photoUrl, target: 'photo' }); });
+      OPPONENTS.forEach(o => { if (o.crestUrl && !CREST_CACHE[o.slug]) urls.push({ url: o.crestUrl, target: 'crest', slug: o.slug }); });
+      const BATCH = 6;
+      for (let i = 0; i < urls.length; i += BATCH) {
+        await Promise.all(urls.slice(i, i + BATCH).map(async item => {
+          const dataUrl = await fetchAsDataUrl(item.url);
+          if (dataUrl) {
+            if (item.target === 'photo') PHOTO_CACHE[item.url] = dataUrl;
+            else if (item.target === 'crest') CREST_CACHE[item.slug] = dataUrl;
+          }
+        }));
+      }
+    })();
+    return _preloadPromise;
   }
 
   /* ---------- CAPTION TEMPLATES (structured: hook / body / tags) ------ */
@@ -707,7 +718,7 @@
     const atlBlock = `
       <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
         <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
-          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${accent}33, transparent 65%); filter:blur(40px);"></div>
+          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${accent}55 0%, ${accent}22 25%, ${accent}0a 50%, transparent 75%);"></div>
           ${crestNode(getAtlCrest(), 'FCA', Math.round(cfg.crestSize*0.88), accent+'55')}
         </div>
         <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
@@ -716,7 +727,7 @@
     const oppBlock = `
       <div style="width:${sideBlockW}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:18px;">
         <div style="position:relative; width:${cfg.crestSize}px; height:${cfg.crestSize}px; display:flex; align-items:center; justify-content:center;">
-          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${accent}33, transparent 65%); filter:blur(40px);"></div>
+          <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${accent}55 0%, ${accent}22 25%, ${accent}0a 50%, transparent 75%);"></div>
           ${crestNode(oppCrest, opp.abbr, Math.round(cfg.crestSize*0.88), accent+'55')}
         </div>
         <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${cfg.nameSize}px; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.05; color:#fff; white-space:nowrap;">${opp.shortName}</div>
@@ -792,7 +803,7 @@
     const wmSize = isPost ? 950 : 1200;
     const atmosphere = !bleed ? `
       <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.4) 100%);"></div>
-      <div style="position:absolute; top:${isPost ? '240' : '380'}px; right:-200px; width:${isPost ? '550' : '700'}px; height:${isPost ? '550' : '700'}px; background:radial-gradient(circle, ${vInfo.accent}55, transparent 60%); filter:blur(24px); opacity:0.4; pointer-events:none;"></div>
+      <div style="position:absolute; top:${isPost ? '240' : '380'}px; right:-200px; width:${isPost ? '550' : '700'}px; height:${isPost ? '550' : '700'}px; background:radial-gradient(circle, ${vInfo.accent}55 0%, ${vInfo.accent}22 30%, transparent 70%); opacity:0.5; pointer-events:none;"></div>
     ` : '';
     // Watermark: positioned explicitly in pixels. Avoid `top:50%; left:50%; transform:translate(-50%,-50%)`
     // because html2canvas 1.4.1 drops that transform when the image overflows its parent,
@@ -801,7 +812,7 @@
     const pbH = f.h - 2 * f.padOuter;
     const wmLeft = Math.round((pbW - wmSize) / 2);
     const wmTop  = Math.round((pbH - wmSize) / 2);
-    const watermark = !bleed ? `<img crossorigin="anonymous" alt="" src="${getAtlCrest()}" style="position:absolute; width:${wmSize}px; height:${wmSize}px; left:${wmLeft}px; top:${wmTop}px; opacity:0.04; filter:blur(4px); pointer-events:none; z-index:0;">` : '';
+    const watermark = !bleed ? `<img crossorigin="anonymous" alt="" src="${getAtlCrest()}" style="position:absolute; width:${wmSize}px; height:${wmSize}px; left:${wmLeft}px; top:${wmTop}px; opacity:0.04; pointer-events:none; z-index:0;">` : '';
     
     if (!isPost) {
       // STORY: untouched — exact same rendering as v9
@@ -840,7 +851,7 @@
     const atlanticBlock = `
           <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(32,28)}px;">
             <div style="position:relative; width:${pf(280,300)}px; height:${pf(280,300)}px; display:flex; align-items:center; justify-content:center;">
-              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(40px);"></div>
+              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}55 0%, ${v.accent}22 25%, ${v.accent}0a 50%, transparent 75%);"></div>
               ${crestNode(getAtlCrest(), 'FCA', pf(220,250), ACCENT+'66')}
             </div>
             <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(38,40)}px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:420px;">FC ATLANTIC VEVEY</div>
@@ -849,7 +860,7 @@
     const oppBlock = `
           <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(32,28)}px;">
             <div style="position:relative; width:${pf(280,300)}px; height:${pf(280,300)}px; display:flex; align-items:center; justify-content:center;">
-              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}33, transparent 65%); filter:blur(40px);"></div>
+              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}55 0%, ${v.accent}22 25%, ${v.accent}0a 50%, transparent 75%);"></div>
               ${crestNode(oppCrest, opp.abbr, pf(220,250), ACCENT+'66')}
             </div>
             <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(38,40)}px; letter-spacing:0.04em; text-transform:uppercase; line-height:1.05; color:#fff; text-align:center; max-width:420px;">${opp.name.toUpperCase()}</div>
@@ -911,7 +922,7 @@
     const atlanticBlock = `
         <div style="flex:1; max-width:340px; display:flex; flex-direction:column; align-items:center; gap:20px;">
           <div style="position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center;">
-            <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}44, transparent 65%); filter:blur(40px);"></div>
+            <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}66 0%, ${v.accent}2a 25%, ${v.accent}10 50%, transparent 75%);"></div>
             ${crestNode(getAtlCrest(), 'FCA', 240, v.accent+'66')}
           </div>
           <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:34px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; white-space:nowrap;">FC ATLANTIC</div>
@@ -919,7 +930,7 @@
     const oppBlock = `
         <div style="flex:1; max-width:340px; display:flex; flex-direction:column; align-items:center; gap:20px;">
           <div style="position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center;">
-            <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}44, transparent 65%); filter:blur(40px);"></div>
+            <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}66 0%, ${v.accent}2a 25%, ${v.accent}10 50%, transparent 75%);"></div>
             ${crestNode(oppCrest, opp.abbr, 240, v.accent+'66')}
           </div>
           <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:34px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; text-align:center; white-space:nowrap;">${opp.shortName}</div>
@@ -940,13 +951,17 @@
       <!-- Center: COUP D'ENVOI + captain only -->
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1; gap:36px; margin-top:40px;">
         <div style="text-align:center;">
-          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:120px; line-height:0.9; color:${v.accent}; text-shadow:0 0 60px ${v.accent}cc; letter-spacing:0.02em; white-space:nowrap;">COUP D'ENVOI</div>
+          <!-- 108px au lieu de 120px : à 120 + nowrap le 'I' final clippait au pixel près
+               selon le rendu de police lors de l'export html2canvas. -->
+          <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:108px; line-height:0.9; color:${v.accent}; text-shadow:0 0 60px ${v.accent}cc; letter-spacing:0.02em; white-space:nowrap;">COUP D'ENVOI</div>
           <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:42px; letter-spacing:0.14em; color:rgba(255,255,255,0.75); text-transform:uppercase; margin-top:16px; white-space:nowrap;">Dans quelques instants</div>
         </div>
         ${capt ? `
-          <div style="margin-top:20px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); border-radius:28px; padding:32px 56px; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="margin-top:20px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); border-radius:28px; padding:32px 56px; max-width:760px; display:flex; flex-direction:column; align-items:center; gap:10px;">
             <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:22px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.5); white-space:nowrap;">Capitaine</div>
-            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:58px; color:#fff; line-height:1; white-space:nowrap;">${captainDisplay} · #${capt.jerseyDisplay}</div>
+            <!-- 52px au lieu de 58px + ellipsis : à 58 + nowrap les noms composés
+                 comme PINHEIRO DA SILVA dépassaient le bord du fichier exporté. -->
+            <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:52px; color:#fff; line-height:1; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;">${captainDisplay} · #${capt.jerseyDisplay}</div>
           </div>
         ` : ''}
         ${customMessageBlock('Allez les Bleus ! 🔥')}
@@ -1876,6 +1891,9 @@
     const guest = { id, jerseyDisplay: jersey, firstName, lastName, position, isGuest: true };
     state.guests.push(guest);
     BY_ID[id] = guest;
+    // Invalide le singleton preload pour qu'un futur download précharge
+    // une éventuelle photoUrl d'invité avant de capturer le PNG.
+    invalidatePreloadCache();
     toast(`+ Invité · ${lastName.toUpperCase()} #${jersey}`, 'blue');
     renderPanel(); refresh();
   };
@@ -1988,8 +2006,12 @@
     off.innerHTML = posterHTML();
     document.body.appendChild(off);
 
-    // STEP 3 — Rewrite every <img> src to its cached data URL (fail-safe)
+    // STEP 3 — Rewrite every <img> src to its cached data URL (fail-safe).
+    // On track aussi les <img> dont l'URL externe n'a PAS pu être remplacée par
+    // un dataURL caché : ces images vont taint le canvas et faire échouer le
+    // toBlob (CORS). On les signale au lieu de produire un PNG silencieusement cassé.
     const imgs = off.querySelectorAll('img');
+    const untaintable = [];
     imgs.forEach(img => {
       const src = img.getAttribute('src') || '';
       if (src.startsWith('data:')) return; // already a data URL
@@ -1998,27 +2020,49 @@
       // Match against CREST_CACHE (opponent logos by URL)
       const oppMatch = OPPONENTS.find(o => o.crestUrl === src);
       if (oppMatch && CREST_CACHE[oppMatch.slug]) { img.src = CREST_CACHE[oppMatch.slug]; return; }
+      // Sinon : URL externe non-cachée -> risque de taint canvas.
+      untaintable.push(src);
     });
+    if (untaintable.length > 0) {
+      console.warn('[FCA] %d <img> sans dataURL caché (risque CORS taint) :', untaintable.length, untaintable);
+    }
 
-    // STEP 4 — Wait for ALL images in the offscreen tree to be fully loaded
+    // STEP 4 — Wait for ALL images in the offscreen tree to be fully loaded.
+    // On compte les images qui ont raté (error event ou timeout) — ces images
+    // vont rendre une icône cassée dans le PNG final, il faut le signaler.
+    let imageFailures = 0;
     await Promise.all([...imgs].map(img => {
       if (img.complete && img.naturalWidth > 0) return Promise.resolve();
       return new Promise(res => {
-        const done = () => res();
-        img.addEventListener('load', done, { once: true });
-        img.addEventListener('error', done, { once: true });
-        // Safety timeout: 4s max
-        setTimeout(done, 4000);
+        let settled = false;
+        const ok = () => { if (settled) return; settled = true; res(); };
+        const fail = (reason) => { if (settled) return; settled = true; imageFailures++; console.warn('[FCA] img load failed (%s) :', reason, (img.src || '').slice(0, 100)); res(); };
+        img.addEventListener('load', ok, { once: true });
+        img.addEventListener('error', () => fail('error'), { once: true });
+        setTimeout(() => fail('timeout-4s'), 4000);
       });
     }));
 
     // STEP 5 — Wait for fonts
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    // STEP 5b — Decode every <img> so html2canvas sees fully-rasterized bitmaps
+    // STEP 5b — Decode every <img> so html2canvas sees fully-rasterized bitmaps.
+    // Si decode() échoue, on compte aussi : le bitmap sera partiel ou vide.
+    let decodeFailures = 0;
     await Promise.all([...imgs].map(img => {
-      if (typeof img.decode === 'function') return img.decode().catch(() => {});
-      return Promise.resolve();
+      if (typeof img.decode !== 'function') return Promise.resolve();
+      return img.decode().catch(err => {
+        decodeFailures++;
+        console.warn('[FCA] img.decode failed :', (img.src || '').slice(0, 100), err && err.message);
+      });
     }));
+
+    // Si trop d'images cassées, on signale à l'utilisateur AVANT de capturer
+    // (le toast warning sera visible quelques secondes pendant le rendu).
+    const totalFailures = imageFailures + decodeFailures + untaintable.length;
+    if (totalFailures > 0 && typeof toast === 'function') {
+      toast(`⚠ ${totalFailures} image(s) non chargée(s) — vérifie le PNG`, 'red');
+    }
+
     // STEP 6 — Layout settle delay (forces browser to compute final styles)
     await new Promise(r => setTimeout(r, 350));
 
@@ -2042,7 +2086,12 @@
   async function buildPosterBlob() {
     const canvas = await renderFullRes();
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 0.95));
-    // Log the actual rendered dimensions so Boss can verify in DevTools if needed
+    // canvas.toBlob renvoie null si le canvas est tainté (CORS) ou si l'encoder
+    // échoue. Sans ce check on appellerait URL.createObjectURL(null) plus loin
+    // et le user verrait juste "❌ Erreur PNG" sans diagnostic utilisable.
+    if (!blob) {
+      throw new Error('canvas.toBlob a renvoyé null — canvas probablement tainté (image externe non chargée en dataURL). Vérifier la console pour la liste.');
+    }
     console.info(`[FCA] Poster exported: ${canvas.width}×${canvas.height}px · ${(blob.size/1024).toFixed(0)} KB · ${state.format}/${state.variant}`);
     return { canvas, blob };
   }
@@ -2082,7 +2131,11 @@
       }
       // Delay revoke so the new tab has time to load the blob
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (e) { console.error(e); toast('❌ Erreur PNG', 'red'); }
+    } catch (e) {
+      console.error('[FCA] downloadPoster failed :', e);
+      const msg = (e && e.message) ? e.message.slice(0, 80) : 'Erreur inconnue';
+      toast(`❌ ${msg}`, 'red');
+    }
     finally { btn.disabled = false; lbl.textContent = 'PNG'; }
   }
 
@@ -2121,7 +2174,11 @@
         toast('✅ Téléchargé');
       }
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (e) { console.error(e); toast('❌ Erreur partage', 'red'); }
+    } catch (e) {
+      console.error('[FCA] sharePoster failed :', e);
+      const msg = (e && e.message) ? e.message.slice(0, 80) : 'Erreur inconnue';
+      toast(`❌ ${msg}`, 'red');
+    }
     finally { if (btn) { btn.disabled = false; btn.innerHTML = original; } }
   }
   async function copyCaption() {
