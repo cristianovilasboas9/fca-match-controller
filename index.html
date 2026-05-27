@@ -365,9 +365,10 @@
       dark:    '#04080F',                // fond
     },
     venue: {
-      defaultHomeName: 'TERRAIN DE LA VEYRE',          // affiché si state.venue vide en home
-      defaultHomeCity: 'ST-LÉGIER',                    // idem
-      captionAddress:  'Terrain de La Veyre, St-Légier', // forme caption ('Terrain de La Veyre, St-Légier.')
+      defaultHomeName:        'TERRAIN DE LA VEYRE',          // affiché si state.venue vide en home (UPPERCASE poster)
+      defaultHomeDisplayName: 'Terrain de La Veyre',          // forme display utilisée pour state.venue initial + caption
+      defaultHomeCity:        'ST-LÉGIER',                    // affiché si state.venueCity vide en home
+      captionAddress:         'Terrain de La Veyre, St-Légier', // forme caption ('Terrain de La Veyre, St-Légier.')
     },
     social: {
       brandTag:        'FCAtlanticVevey', // -> #FCAtlanticVevey
@@ -482,9 +483,12 @@
     variant: 'matchday',
     format: 'story',  // 'story' (1080x1920, 9:16) or 'post' (1080x1350, 4:5)
     homeAway: 'home',
+    // ---- État du MATCH EN COURS (édité avant chaque match) ----
+    // Pour un nouveau match : changer opponentSlug, matchNumber, et le bloc kickoff plus bas.
+    // venue/venueCity peuvent rester vides → fallback automatique sur TENANT_CONFIG.venue.*
     opponentSlug: 'fc-concordia-ls-iii',
     matchNumber: '138124',
-    venue: 'Terrain de La Veyre',
+    venue: TENANT_CONFIG.venue.defaultHomeDisplayName,
     venueCity: TENANT_CONFIG.venue.defaultHomeCity,
     kickoff: { dayName:'DIMANCHE', dateLabel:'24 MAI', year:2026, time:'15:00' },
     score: { home: 0, away: 0 },
