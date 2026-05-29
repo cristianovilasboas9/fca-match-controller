@@ -144,6 +144,22 @@
   .guest-form .guest-add-btn:active { transform:scale(0.96); }
   .guest-form small { font-family:'Inter', sans-serif; font-size:10px; color:rgba(255,255,255,0.45); line-height:1.4; }
 
+  /* MATCH BALL SPONSORS — entreprises offrant le ballon du match */
+  .sponsor-list { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+  .sponsor-row { display:flex; align-items:center; gap:10px; padding:7px 10px; background:rgba(245,184,46,0.08); border:1px solid rgba(245,184,46,0.30); border-radius:10px; }
+  .sponsor-row .sponsor-tile { font-family:'Oswald', sans-serif; font-weight:800; font-size:11px; letter-spacing:0.04em; color:#F5B82E; background:rgba(245,184,46,0.18); border:1px solid rgba(245,184,46,0.45); padding:5px 8px; border-radius:6px; min-width:36px; text-align:center; line-height:1; }
+  .sponsor-row .sponsor-name { flex:1; font-family:'Oswald', sans-serif; font-weight:600; font-size:13px; color:#fff; text-transform:uppercase; letter-spacing:0.03em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sponsor-row .sponsor-rm { background:rgba(239,68,68,0.18); color:#EF4444; border:1px solid rgba(239,68,68,0.40); width:24px; height:24px; border-radius:50%; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; line-height:1; }
+  .sponsor-row .sponsor-rm:active { transform:scale(0.92); }
+  .sponsor-form { margin-top:10px; padding:10px; background:rgba(0,0,0,0.25); border:1px dashed rgba(245,184,46,0.30); border-radius:10px; display:flex; flex-direction:column; gap:8px; }
+  .sponsor-form-row { display:flex; gap:6px; align-items:center; }
+  .sponsor-form input { background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.10); border-radius:8px; padding:8px 10px; font-family:'Inter', sans-serif; font-size:12px; flex:1; min-width:0; }
+  .sponsor-form input:focus { outline:none; border-color:#F5B82E; background:rgba(245,184,46,0.06); }
+  .sponsor-form input::placeholder { color:rgba(255,255,255,0.35); }
+  .sponsor-form .sponsor-add-btn { background:#F5B82E; color:#04080F; border:0; padding:8px 12px; border-radius:8px; font-family:'Inter', sans-serif; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; flex:0 0 auto; white-space:nowrap; }
+  .sponsor-form .sponsor-add-btn:active { transform:scale(0.96); }
+  .sponsor-form small { font-family:'Inter', sans-serif; font-size:10px; color:rgba(255,255,255,0.45); line-height:1.4; }
+
   /* ACTIONS BAR — plus fine & transparente */
   .actions-bar { position:fixed; bottom:0; left:0; right:0; z-index:60; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.75) 50%); padding:10px 12px calc(8px + env(safe-area-inset-bottom)); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
   .actions { max-width:540px; margin:0 auto; display:grid; grid-template-columns:2fr 1fr 1fr; gap:6px; }
@@ -381,6 +397,9 @@
       photoBase: 'https://fc-atlantic-vevey.ch/players/',
       crestBase: 'https://fc-atlantic-vevey.ch/logos/clubs/',
     },
+    copy: {
+      matchBallLabel: 'BALLON DE MATCH · OFFERT PAR', // eyebrow au-dessus des sponsors sur les posters
+    },
   };
   // Helper hashtag base — dépend de l'adversaire courant.
   // Fallback sur les 4 premières lettres du slug si abbr manque (tenant qui ajoute
@@ -496,6 +515,12 @@
     venue: TENANT_CONFIG.venue.defaultHomeDisplayName,
     venueCity: TENANT_CONFIG.venue.defaultHomeCity,
     kickoff: { dayName:'DIMANCHE', dateLabel:'24 MAI', year:2026, time:'15:00' },
+    // Ballons de match — sponsors qui offrent le ballon pour ce match.
+    // Affichés sur matchday, kickoff et recap. Format : { name: string, abbr: string (2-3 lettres) }
+    matchBallSponsors: [
+      { name: 'TECHAUTO AG',       abbr: 'TE' },
+      { name: 'BARBEY FRÈRES SA',  abbr: 'BA' },
+    ],
     score: { home: 0, away: 0 },
     minute: 0,
     scorerId: '',
@@ -866,6 +891,31 @@
     </div>`;
   }
 
+  // Bloc sponsors "Ballon de match" — affiché sur matchday / kickoff / recap si state.matchBallSponsors.length > 0.
+  // Rend vide string si aucun sponsor : aucune réservation d'espace, le venue footer reste cohérent.
+  function matchBallSponsorsBlock() {
+    const list = state.matchBallSponsors || [];
+    if (list.length === 0) return '';
+    const eyebrowFS = pf(16, 14);
+    const tileSize = pf(48, 44);
+    const tileFS = pf(18, 16);
+    const nameFS = pf(22, 20);
+    const gap = pf(14, 12);
+    return `
+      <div style="position:relative; z-index:1; margin-top:${pf(28,20)}px; margin-bottom:${pf(20,14)}px; padding-top:${pf(20,16)}px; padding-bottom:${pf(20,16)}px; border-top:1px solid rgba(245,184,46,0.22); border-bottom:1px solid rgba(245,184,46,0.22);">
+        <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:${eyebrowFS}px; letter-spacing:0.24em; text-transform:uppercase; color:${GOLD}; text-align:center; margin-bottom:${pf(14,10)}px; line-height:1;">${TENANT_CONFIG.copy.matchBallLabel}</div>
+        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:${gap}px ${pf(28,20)}px;">
+          ${list.map(s => `
+            <div style="display:inline-flex; align-items:center; gap:${pf(10,8)}px;">
+              <div style="width:${tileSize}px; height:${tileSize}px; border-radius:10px; background:linear-gradient(135deg, rgba(245,184,46,0.22), rgba(245,184,46,0.08)); border:1.5px solid ${GOLD}; display:flex; align-items:center; justify-content:center; font-family:'Oswald', sans-serif; font-weight:700; font-size:${tileFS}px; color:${GOLD}; letter-spacing:0.04em; flex-shrink:0;">${s.abbr}</div>
+              <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${nameFS}px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; line-height:1;">${s.name}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   function customMessageBlock(fallback) {
     const msg = getCustomMessage() || fallback || '';
     if (!msg) return '';
@@ -992,6 +1042,7 @@
         </div>
       </div>
       ${customMessageBlock('')}
+      ${matchBallSponsorsBlock()}
       <div style="margin-top:auto;">
         <div style="height:1px; background:linear-gradient(90deg, transparent, ${v.accent}66, transparent); margin-bottom:${pf(40,24)}px; position:relative; z-index:1;"></div>
         ${venueFooter()}
@@ -1058,6 +1109,7 @@
         ` : ''}
         ${customMessageBlock(`Allez les ${TENANT_CONFIG.club.nickname} ! 🔥`)}
       </div>
+      ${matchBallSponsorsBlock()}
       ${venueFooter()}
     `;
   }
@@ -1208,6 +1260,7 @@
         ${unifiedScoreRow({ atlSubBlock })}
         ${customMessageBlock(`${state.kickoff.dayName} ${state.kickoff.dateLabel} ${state.kickoff.year}`)}
       </div>
+      ${matchBallSponsorsBlock()}
       ${venueFooter()}
     `;
   }
@@ -1483,6 +1536,27 @@
       </div>
       <div class="row"><label>N° match</label>
         <input type="text" id="match-number-input" value="${state.matchNumber || ''}" inputmode="numeric" placeholder="ex: 138117">
+      </div>
+
+      <!-- BALLONS DE MATCH — sponsors qui apparaîtront sur matchday / kickoff / recap -->
+      <div class="panel-label" style="margin-top:18px;">Ballons de match <span class="b">${state.matchBallSponsors.length}</span></div>
+      ${state.matchBallSponsors.length > 0 ? `
+        <div class="sponsor-list">
+          ${state.matchBallSponsors.map((s, i) => `
+            <div class="sponsor-row">
+              <span class="sponsor-tile">${s.abbr}</span>
+              <span class="sponsor-name">${s.name}</span>
+              <button class="sponsor-rm" onclick="removeMatchBallSponsor(${i})" aria-label="Retirer ${s.name}">×</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div class="sponsor-form">
+        <div class="sponsor-form-row">
+          <input type="text" id="sponsor-name" placeholder="Nom de l'entreprise (ex: TECHAUTO AG)" autocomplete="off">
+          <button class="sponsor-add-btn" onclick="addMatchBallSponsor()">+ Ajouter</button>
+        </div>
+        <small>Visible sur matchday, kickoff et recap. Les initiales sont auto-générées.</small>
       </div>
     </div>`;
   }
@@ -2004,6 +2078,42 @@
     if (state.captainId === guestId) state.captainId = '';
     state.guests = state.guests.filter(x => x.id !== guestId);
     toast(`✕ Invité retiré · ${g.lastName.toUpperCase()}`, 'red');
+    renderPanel(); refresh();
+  };
+
+  /* ---------- MATCH BALL SPONSORS — entreprises offrant le ballon du match ---------- */
+  // Auto-derive 2 chars d'initiales depuis le nom : 'TECHAUTO AG' -> 'TE', 'BARBEY FRÈRES SA' -> 'BA',
+  // 'FC Atlantic' -> 'FC'. Garde uniquement A-Z (sans accents).
+  function deriveSponsorAbbr(name) {
+    const clean = (name || '').toUpperCase()
+      .normalize('NFD').replace(/\p{Diacritic}/gu, '') // strip accents
+      .replace(/[^A-Z0-9 ]/g, '')
+      .trim();
+    if (!clean) return '??';
+    const words = clean.split(/\s+/).filter(Boolean);
+    if (words.length === 1) return words[0].slice(0, 2);
+    return (words[0][0] || '') + (words[1][0] || '');
+  }
+
+  window.addMatchBallSponsor = function() {
+    const nameEl = document.getElementById('sponsor-name');
+    if (!nameEl) return;
+    const name = nameEl.value.trim();
+    if (!name) { toast('Nom de l\'entreprise requis', 'red'); nameEl.focus(); return; }
+    if (state.matchBallSponsors.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+      toast('Ce sponsor est déjà dans la liste', 'red');
+      return;
+    }
+    state.matchBallSponsors.push({ name, abbr: deriveSponsorAbbr(name) });
+    toast(`+ Sponsor · ${name}`, 'blue');
+    renderPanel(); refresh();
+  };
+
+  window.removeMatchBallSponsor = function(idx) {
+    const s = state.matchBallSponsors[idx];
+    if (!s) return;
+    state.matchBallSponsors.splice(idx, 1);
+    toast(`✕ Sponsor retiré · ${s.name}`, 'red');
     renderPanel(); refresh();
   };
 
