@@ -455,16 +455,20 @@
      (PNG carré, fond transparent).
      ============================================================= */
   const OPPONENTS = [
-    { slug:'fc-azzurri-90-ls-ii',     name:'FC Azzurri 90 LS II',     shortName:'AZZURRI',  abbr:'AZZ',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-azzurri-90-ls-ii.png' },
-    { slug:'fc-dardania-lausanne-iii',name:'FC Dardania Lausanne III',shortName:'DARDANIA', abbr:'DAR',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-dardania-lausanne-iii.png' },
-    { slug:'fc-kurde-ls',             name:'FC Kurde LS',             shortName:'KURDE',    abbr:'KUR',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-kurde-ls.png' },
-    { slug:'fc-yvorne-ii',            name:'FC Yvorne II',            shortName:'YVORNE',   abbr:'YVO',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-yvorne-ii.png' },
-    { slug:'cs-la-tour-de-peilz-iii', name:'CS La Tour-de-Peilz III', shortName:'LA TOUR',  abbr:'LTDP', crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/cs-la-tour-de-peilz-iii.png' },
-    { slug:'fc-concordia-ls-iii',     name:'FC Concordia LS III',     shortName:'CONCORDIA',abbr:'CON',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-concordia-ls-iii.png' },
-    { slug:'villeneuve-sports-ii',    name:'Villeneuve-Sports II',    shortName:'VILLENEUVE',abbr:'VIL', crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/villeneuve-sports-ii.png' },
-    { slug:'fc-cugy-ib',              name:'FC Cugy IB',              shortName:'CUGY',     abbr:'CUG',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-cugy-ib.png' },
-    { slug:'es-malley-ii',            name:'ES Malley II',            shortName:'MALLEY',   abbr:'MAL',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/es-malley-ii.png' },
-    { slug:'fc-roche',                name:'FC Roche',                shortName:'ROCHE',    abbr:'ROC',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-roche.png' },
+    /* 4e ligue · Groupe 6 · saison 2026-2027 (Boss 2026-07-11).
+       crestUrl = écusson du CLUB (la 2e équipe porte l'écusson de la 1re) —
+       fichiers refaits en HQ le 11.07 (upscale 4K + détourage). */
+    { slug:'fc-vignoble-ii',          name:'FC Vignoble II',          shortName:'VIGNOBLE',  abbr:'VIG',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-vignoble.png' },
+    { slug:'fc-aigle-ii',             name:'FC Aigle II',             shortName:'AIGLE',     abbr:'AIG',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-aigle.png' },
+    { slug:'fc-montreux-sports-ii',   name:'FC Montreux-Sports II',   shortName:'MONTREUX',  abbr:'MSP',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-montreux-sports.png' },
+    { slug:'fc-leysin',               name:'FC Leysin',               shortName:'LEYSIN',    abbr:'LEY',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-leysin.png' },
+    { slug:'ouest-lausanne',          name:'Ouest Lausanne',          shortName:'OUEST LS',  abbr:'OLS',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/ouest-lausanne.png' },
+    { slug:'fc-turc-lausanne',        name:'FC Turc Lausanne',        shortName:'TURC LS',   abbr:'TUR',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-turc-lausanne.png' },
+    { slug:'racing-club-lausanne-ii', name:'Racing Club Lausanne II', shortName:'RACING',    abbr:'RCL',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/racing-club-lausanne.png' },
+    { slug:'fc-saint-legier-iii',     name:'FC Saint-Légier III',     shortName:'ST-LÉGIER', abbr:'STL',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-saint-legier.png' },
+    { slug:'cs-la-tour-de-peilz-ii',  name:'CS La Tour-de-Peilz II',  shortName:'LA TOUR',   abbr:'LTDP', crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/cs-la-tour-de-peilz.png' },
+    { slug:'fc-rapid-montreux-ii',    name:'FC Rapid-Montreux II',    shortName:'RAPID',     abbr:'RAP',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-rapid-montreux.png' },
+    { slug:'fc-yvorne-ia',            name:'FC Yvorne Ia',            shortName:'YVORNE',    abbr:'YVO',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-yvorne.png' },
   ];
 
   const VARIANTS = [
@@ -510,7 +514,7 @@
     // ---- État du MATCH EN COURS (édité avant chaque match) ----
     // Pour un nouveau match : changer opponentSlug, matchNumber, et le bloc kickoff plus bas.
     // venue/venueCity peuvent rester vides → fallback automatique sur TENANT_CONFIG.venue.*
-    opponentSlug: 'cs-la-tour-de-peilz-iii',
+    opponentSlug: 'fc-vignoble-ii',
     matchNumber: '138135',
     venue: TENANT_CONFIG.venue.defaultHomeDisplayName,
     venueCity: TENANT_CONFIG.venue.defaultHomeCity,
