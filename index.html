@@ -266,8 +266,8 @@
       <button class="ft-btn" data-fmt="post" onclick="setFormat('post')">⊞ Post</button>
     </div>
     <div class="right">
-      <strong id="match-opp">vs CS La Tour-de-Peilz III</strong>
-      <small id="match-date">Dim 7 juin · 15:00</small>
+      <strong id="match-opp">vs CS Ollon IA</strong>
+      <small id="match-date">Sam 15 août · 15:00</small>
     </div>
   </div>
 
@@ -373,7 +373,7 @@
       nickname:   'Bleus',               // surnom équipe pour les captions ('les Bleus', 'Allez les Bleus')
     },
     league: {
-      label: '5E LIGUE · GROUPE 2',      // eyebrow ligue sur les posters
+      label: '4E LIGUE · GROUPE 6',      // eyebrow ligue sur les posters (montée 2026)
     },
     theme: {
       primary: '#2E7BFF',                // accent global
@@ -388,7 +388,7 @@
     },
     social: {
       brandTag:        'FCAtlanticVevey', // -> #FCAtlanticVevey
-      leagueTag:       '5eLigue',         // -> #5eLigue
+      leagueTag:       '4eLigue',         // -> #4eLigue
       countryTag:      'FootballSuisse',  // -> #FootballSuisse
       cityTag:         'Vevey',           // -> #Vevey
       matchupTagPrefix: 'FCAvs',          // -> #FCAvs<OPP_ABBR>
@@ -406,8 +406,16 @@
   // un opponent sans le champ -> évite '#FCAvsundefined' dans la caption).
   const tagsBaseFor = (opp) => {
     const oppAbbr = opp.abbr || (opp.slug || 'opp').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'OPP';
-    return `#${TENANT_CONFIG.social.brandTag} #${TENANT_CONFIG.social.matchupTagPrefix}${oppAbbr} #${TENANT_CONFIG.social.leagueTag} #${TENANT_CONFIG.social.countryTag} #${TENANT_CONFIG.social.cityTag}`;
+    const compTag = state.competition === 'coupe' ? 'BCVCup' : TENANT_CONFIG.social.leagueTag;
+    return `#${TENANT_CONFIG.social.brandTag} #${TENANT_CONFIG.social.matchupTagPrefix}${oppAbbr} #${compTag} #${TENANT_CONFIG.social.countryTag} #${TENANT_CONFIG.social.cityTag}`;
   };
+
+  /* Eyebrow compétition des posters — kicker (petite ligne) + label (grande).
+     Championnat : CHAMPIONNAT / 4E LIGUE · GROUPE 6 · Coupe : BCV CUP / sous-titre du tour. */
+  const compKicker = () => (state.competition === 'coupe' ? 'BCV CUP' : 'CHAMPIONNAT');
+  const compLabel  = () => (state.competition === 'coupe'
+    ? (state.competitionSub || 'COUPE DES ACTIFS')
+    : TENANT_CONFIG.league.label);
 
   /* === 2. CREST_DATAURL ========================================
      Logo du club en SVG base64. Pour swap : exporter le SVG du nouveau
@@ -462,13 +470,16 @@
     { slug:'fc-aigle-ii',             name:'FC Aigle II',             shortName:'AIGLE',     abbr:'AIG',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-aigle.png' },
     { slug:'fc-montreux-sports-ii',   name:'FC Montreux-Sports II',   shortName:'MONTREUX',  abbr:'MSP',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-montreux-sports.png' },
     { slug:'fc-leysin',               name:'FC Leysin',               shortName:'LEYSIN',    abbr:'LEY',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-leysin.png' },
-    { slug:'ouest-lausanne',          name:'Ouest Lausanne',          shortName:'OUEST LS',  abbr:'OLS',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/ouest-lausanne.png' },
+    { slug:'fc-slavia-ls',            name:'FC Slavia LS',            shortName:'SLAVIA',    abbr:'SLA',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-slavia-ls.png' },
     { slug:'fc-turc-lausanne',        name:'FC Turc Lausanne',        shortName:'TURC LS',   abbr:'TUR',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-turc-lausanne.png' },
     { slug:'racing-club-lausanne-ii', name:'Racing Club Lausanne II', shortName:'RACING',    abbr:'RCL',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/racing-club-lausanne.png' },
     { slug:'fc-saint-legier-iii',     name:'FC Saint-Légier III',     shortName:'ST-LÉGIER', abbr:'STL',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-saint-legier.png' },
     { slug:'cs-la-tour-de-peilz-ii',  name:'CS La Tour-de-Peilz II',  shortName:'LA TOUR',   abbr:'LTDP', crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/cs-la-tour-de-peilz.png' },
     { slug:'fc-rapid-montreux-ii',    name:'FC Rapid-Montreux II',    shortName:'RAPID',     abbr:'RAP',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-rapid-montreux.png' },
     { slug:'fc-yvorne-ia',            name:'FC Yvorne IA',            shortName:'YVORNE',    abbr:'YVO',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/fc-yvorne.png' },
+    /* BCV Cup (coupe des actifs) — adversaires hors championnat, au compte-goutte
+       selon les tours. Écusson interim 80px ACVF → remplacement Flow HQ à venir. */
+    { slug:'cs-ollon-ia',             name:'CS Ollon IA',             shortName:'OLLON',     abbr:'OLL',  crestUrl:'https://fc-atlantic-vevey.ch/logos/clubs/cs-ollon.png' },
   ];
 
   const VARIANTS = [
@@ -510,15 +521,19 @@
   const state = {
     variant: 'matchday',
     format: 'story',  // 'story' (1080x1920, 9:16) or 'post' (1080x1350, 4:5)
-    homeAway: 'home',
+    homeAway: 'away',
+    // 'championnat' → eyebrow 4E LIGUE · GROUPE 6 + #4eLigue · 'coupe' → BCV CUP + #BCVCup
+    competition: 'coupe',
+    competitionSub: 'COUPE DES ACTIFS · TOUR PRÉLIMINAIRE',  // ligne sous BCV CUP (coupe only)
     // ---- État du MATCH EN COURS (édité avant chaque match) ----
     // Pour un nouveau match : changer opponentSlug, matchNumber, et le bloc kickoff plus bas.
     // venue/venueCity peuvent rester vides → fallback automatique sur TENANT_CONFIG.venue.*
-    opponentSlug: 'fc-vignoble-ii',
-    matchNumber: '138135',
-    venue: TENANT_CONFIG.venue.defaultHomeDisplayName,
-    venueCity: TENANT_CONFIG.venue.defaultHomeCity,
-    kickoff: { dayName:'DIMANCHE', dateLabel:'7 JUIN', year:2026, time:'15:00' },
+    opponentSlug: 'cs-ollon-ia',
+    matchNumber: '512778',
+    venue: 'Stade les Verchys',
+    venueCity: 'OLLON',
+    // ⚠️ heure PROVISOIRE (ACVF n'a pas publié l'horaire du tour préliminaire)
+    kickoff: { dayName:'SAMEDI', dateLabel:'15 AOÛT', year:2026, time:'15:00' },
     // Ballons de match — sponsors qui offrent le ballon pour ce match.
     // Affichés sur matchday, kickoff et recap. Format : { name: string, abbr: string (2-3 lettres) }
     matchBallSponsors: [
@@ -1017,8 +1032,8 @@
     return `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:32px; position:relative; z-index:1;">
         <div style="font-family:'Inter', sans-serif; font-weight:600; letter-spacing:0.24em; color:rgba(255,255,255,0.72); text-transform:uppercase; line-height:1.35;">
-          <div style="color:rgba(255,255,255,0.5); font-size:${pf(18,15)}px; margin-bottom:6px;">CHAMPIONNAT</div>
-          <div style="font-size:${pf(22,18)}px;">${TENANT_CONFIG.league.label}</div>
+          <div style="color:rgba(255,255,255,0.5); font-size:${pf(18,15)}px; margin-bottom:6px;">${compKicker()}</div>
+          <div style="font-size:${pf(22,18)}px;">${compLabel()}</div>
           ${state.matchNumber ? `<div style="color:rgba(255,255,255,0.4); font-size:${pf(13,11)}px; margin-top:6px; font-weight:500;">N° MATCH ${state.matchNumber}</div>` : ''}
         </div>
         ${eyebrowPill(v)}
@@ -1087,7 +1102,7 @@
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
         ${eyebrowPill(v)}
-        <div style="text-align:right; font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${TENANT_CONFIG.league.label}</div>
+        <div style="text-align:right; font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${compLabel()}</div>
       </div>
       <!-- Logos bigger (no score taking space) -->
       <div style="margin-top:60px; display:flex; align-items:center; justify-content:center; gap:40px; position:relative; z-index:1; padding:0 20px;">
@@ -1160,7 +1175,7 @@
     if (!sc) {
       return `
         <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(18,18)}px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${TENANT_CONFIG.league.label}</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(18,18)}px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${compLabel()}</div>
           <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(140,130)}px; line-height:0.9; color:${GOLD}; text-shadow:0 0 32px rgba(245,184,46,0.6);">${state.minute || 0}'</div>
         </div>
         <div style="margin-top:${pf(24,20)}px; position:relative; z-index:1;">
@@ -1182,7 +1197,7 @@
     const paniniH = pf(700, 680);
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center;">
-        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(18,18)}px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${TENANT_CONFIG.league.label}</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(18,18)}px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${compLabel()}</div>
         <div style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${pf(140,130)}px; line-height:0.9; color:${GOLD}; text-shadow:0 0 32px rgba(245,184,46,0.6);">${state.minute}'</div>
       </div>
       <div style="margin-top:${pf(24,20)}px; position:relative; z-index:1;">
@@ -1218,7 +1233,7 @@
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
         ${eyebrowPill(v)}
-        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${TENANT_CONFIG.league.label}</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${compLabel()}</div>
       </div>
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
         <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:22px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-bottom:40px;">Score à la 45'</div>
@@ -1253,8 +1268,8 @@
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="font-family:'Inter', sans-serif; font-weight:600; letter-spacing:0.24em; color:rgba(255,255,255,0.72); text-transform:uppercase;">
-          <div style="color:rgba(255,255,255,0.5); font-size:18px; margin-bottom:6px;">CHAMPIONNAT</div>
-          <div style="font-size:22px;">${TENANT_CONFIG.league.label}</div>
+          <div style="color:rgba(255,255,255,0.5); font-size:18px; margin-bottom:6px;">${compKicker()}</div>
+          <div style="font-size:22px;">${compLabel()}</div>
           ${state.matchNumber ? `<div style="color:rgba(255,255,255,0.4); font-size:13px; margin-top:6px; font-weight:500;">N° MATCH ${state.matchNumber}</div>` : ''}
         </div>
         ${eyebrowPill(v)}
@@ -1346,7 +1361,7 @@
       <!-- Header -->
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
         ${eyebrowPill(v)}
-        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${TENANT_CONFIG.league.label}</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${compLabel()}</div>
       </div>
 
       <!-- Info bar: formation + date -->
