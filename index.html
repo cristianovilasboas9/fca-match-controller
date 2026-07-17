@@ -412,10 +412,14 @@
 
   /* Eyebrow compétition des posters — kicker (petite ligne) + label (grande).
      Championnat : CHAMPIONNAT / 4E LIGUE · GROUPE 6 · Coupe : BCV CUP / sous-titre du tour. */
-  const compKicker = () => (state.competition === 'coupe' ? 'BCV CUP' : 'CHAMPIONNAT');
-  const compLabel  = () => (state.competition === 'coupe'
-    ? (state.competitionSub || 'COUPE DES ACTIFS')
-    : TENANT_CONFIG.league.label);
+  const compKicker = () =>
+    state.competition === 'coupe' ? 'BCV CUP'
+    : state.competition === 'amical' ? 'MATCH AMICAL'
+    : 'CHAMPIONNAT';
+  const compLabel  = () =>
+    state.competition === 'coupe' ? (state.competitionSub || 'COUPE DES ACTIFS')
+    : state.competition === 'amical' ? (state.competitionSub || 'PRÉ-SAISON')
+    : TENANT_CONFIG.league.label;
 
   /* === 2. CREST_DATAURL ========================================
      Logo du club en SVG base64. Pour swap : exporter le SVG du nouveau
@@ -522,8 +526,11 @@
     variant: 'matchday',
     format: 'story',  // 'story' (1080x1920, 9:16) or 'post' (1080x1350, 4:5)
     homeAway: 'away',
-    // 'championnat' → eyebrow 4E LIGUE · GROUPE 6 + #4eLigue · 'coupe' → BCV CUP + #BCVCup
+    // 'championnat' → eyebrow 4E LIGUE · GROUPE 6 + #4eLigue · 'coupe' → BCV CUP + #BCVCup · 'amical' → MATCH AMICAL
     competition: 'coupe',
+    // Convocation coach chargée depuis le site (numéros de maillot) — quand
+    // présente, le picker de composition ne propose QUE ces joueurs (+ invités).
+    convokedJerseys: null,
     competitionSub: 'COUPE DES ACTIFS · TOUR PRÉLIMINAIRE',  // ligne sous BCV CUP (coupe only)
     // ---- État du MATCH EN COURS (édité avant chaque match) ----
     // Pour un nouveau match : changer opponentSlug, matchNumber, et le bloc kickoff plus bas.
@@ -1980,7 +1987,15 @@
       actions.style.display = 'none';
       // Sort: players matching expected position first, then others. Inclut les invités.
       const placedIds = new Set(state.lineupStarters.filter(Boolean));
-      const sorted = allPlayers().sort((a, b) => {
+      /* Convocation chargée → seuls les convoqués (les invités passent toujours). */
+      const convoked = state.convokedJerseys;
+      const pool = convoked && convoked.length
+        ? allPlayers().filter((p) => p.isGuest || convoked.includes(p.jerseyDisplay))
+        : allPlayers();
+      if (convoked && convoked.length) {
+        sub.textContent = `Poste suggéré : ${posLabelFull(expectedPos)} · Convocation officielle (${convoked.length})`;
+      }
+      const sorted = pool.sort((a, b) => {
         const aMatch = a.position === expectedPos ? 0 : 1;
         const bMatch = b.position === expectedPos ? 0 : 1;
         if (aMatch !== bMatch) return aMatch - bMatch;
@@ -2415,11 +2430,61 @@
 
   /* ---------- INIT -------------------------------------------- */
   let _initRan = false;
+  /* ── Connexion au site (Boss 2026-07-18 · chantier convocations) ──
+     Le site expose le prochain match + la convocation coach. On pré-configure
+     l'état (adversaire, date, lieu, n° match, compétition) et on restreint le
+     picker aux convoqués. Silencieux en cas d'échec (PWA offline → manuel). */
+  const SITE_API = 'https://fc-atlantic-vevey.ch/api/match-controller/next-match';
+  const POS_MAP = { GK: 'G', DEF: 'DEF', MID: 'MIL', FWD: 'AT' };
+  async function loadFromSite() {
+    try {
+      const res = await fetch(`${SITE_API}?ts=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const m = data?.match;
+      if (!m) return;
+      if (m.opponent?.slug && OPPONENTS.some((o) => o.slug === m.opponent.slug)) {
+        state.opponentSlug = m.opponent.slug;
+      } else if (m.opponent?.name && m.opponent?.crestUrl) {
+        /* Adversaire inconnu (ex. amical hors liste) : entrée dynamique. */
+        const dyn = { slug: 'dyn-' + (m.opponent.slug || 'opp'), name: m.opponent.name,
+          shortName: (m.opponent.shortName || m.opponent.name).toUpperCase().slice(0, 10),
+          abbr: (m.opponent.shortName || m.opponent.name).replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3) || 'OPP',
+          crestUrl: m.opponent.crestUrl };
+        OPPONENTS.push(dyn);
+        state.opponentSlug = dyn.slug;
+      }
+      state.homeAway = m.homeAway === 'away' ? 'away' : 'home';
+      state.matchNumber = String(m.matchNumber || state.matchNumber);
+      state.competition = m.competition || 'championnat';
+      if (m.competitionSub) {
+        /* le section ACVF répète « BCV CUP » — déjà porté par le kicker */
+        state.competitionSub = m.competitionSub.replace(/^BCV CUP\s*/i, '').trim() || 'COUPE DES ACTIFS';
+      }
+      if (m.kickoff) {
+        state.kickoff = { dayName: m.kickoff.dayName, dateLabel: m.kickoff.dateLabel,
+          year: m.kickoff.year, time: m.kickoff.time };
+      }
+      if (state.homeAway === 'away') {
+        state.venue = m.venueName || state.venue;
+        state.venueCity = (m.venueCity || '').toUpperCase();
+      } else {
+        state.venue = TENANT_CONFIG.venue.defaultHomeDisplayName;
+        state.venueCity = TENANT_CONFIG.venue.defaultHomeCity;
+      }
+      const jerseys = (data?.convocation?.players || [])
+        .map((p) => p.jersey).filter((n) => n != null);
+      state.convokedJerseys = jerseys.length > 0 ? jerseys : null;
+      renderAll();
+    } catch (e) { /* offline / API down → état manuel */ }
+  }
+
   async function init() {
     if (_initRan) return;
     _initRan = true;
     if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(e) {} }
     renderAll();
+    loadFromSite(); // non-bloquant · pré-configure match + convocation depuis le site
     // Rasterize SVG crest + preload external assets in parallel, then re-render.
     Promise.all([ensureAtlCrestPng(), preloadAllAssets()]).then(() => refresh());
   }
