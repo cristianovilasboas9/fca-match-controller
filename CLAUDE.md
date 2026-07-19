@@ -9,7 +9,7 @@ PWA single-file qui génère les visuels Instagram (story 1080×1920 + post 1080
 - Source logos clubs : `https://fc-atlantic-vevey.ch/logos/clubs/<slug>.png`
 
 ## Stack
-- 1 seul fichier `index.html` (~2412 lignes au 2026-07-07, fonts Oswald/Inter inline en base64, crest Atlantic en SVG inline).
+- 1 seul fichier `index.html` (~2687 lignes au 2026-07-19, fonts Oswald/Inter inline en base64, crest Atlantic en SVG inline).
 - html2canvas chargé via CDN dans le fichier.
 - Photos joueurs + crests adverses fetchés au runtime → caché en dataURL via `fetchAsDataUrl()` (avec fallback proxy `images.weserv.nl` si CORS échoue).
 - Pas de build, pas de `npm install`. On édite `index.html`, on push, GitHub Pages serve.
@@ -18,26 +18,30 @@ PWA single-file qui génère les visuels Instagram (story 1080×1920 + post 1080
 
 Depuis les commits `f636173`/`d190d26`/`67c0f2a`, toutes les métadonnées club vivent dans un bloc unique `TENANT_CONFIG` (`grep -n "const TENANT_CONFIG" index.html` → ligne ~367, bloc ~343-424) : nom du club (name/nameUpper/nameFull), nickname pour captions, couleurs (`theme.primary`, `theme.gold` — les constantes `ACCENT`/`GOLD` en dérivent), copy, hashtags (`social.*`), CDN photos/crests, et venue par défaut (`venue.defaultHomeName` / `defaultHomeDisplayName` / `defaultHomeCity` / `captionAddress`). Le reste du code lit ces valeurs via `TENANT_CONFIG.*` — pour déployer pour un autre club, on ne patche que ce bloc + le crest SVG.
 
-## Mettre à jour pour un nouveau match (lignes à patcher)
+## Mettre à jour pour un nouveau match
 
-Toutes dans `index.html`. Le state JS est lignes ~506-545 (`grep -n "const state" index.html`).
+**Flux normal (saison 26/27)** : dans la PWA, onglet Match → picker « Calendrier 26/27 » → choisir le fixture (AM1-AM3, Tour prél. BCV Cup, J1-J22). `applyMatch(id)` applique TOUS les champs au state (adversaire, home/away, compétition + sous-label, n° ACVF, lieu, kickoff) et **remet `matchBallSponsors` à `[]`** — un match choisi n'hérite JAMAIS des sponsors du match précédent, Boss les re-saisit via le formulaire « Ballons de match » du même onglet. Le choix pose `state._userPickedMatch = true` → un `loadFromSite()` qui résout tard n'écrase plus le match choisi (il garde quand même la convocation). Les champs restent éditables manuellement après application.
+
+**Fallback (match hors calendrier / hand-edit)** : patcher le state dans `index.html` (lignes ~582-628, `grep -n "const state" index.html`).
 
 ```js
-// HTML statique de fallback (lignes 269-270)
+// HTML statique de fallback (lignes ~274-275, ancre `match-opp`)
 <strong id="match-opp">vs <Opponent></strong>
 <small id="match-date">Dim DD mois · HH:MM</small>
 
-// State JS (lignes ~508-524)
+// State JS (grep -n "const state" index.html)
 homeAway: 'home' | 'away',
+competition: 'championnat' | 'coupe' | 'amical',
+competitionSub: '',   // ligne sous le kicker (coupe/amical) — ex 'COUPE DES ACTIFS · TOUR PRÉLIMINAIRE'
 opponentSlug: '<slug existant dans OPPONENTS>',
-matchNumber: '<n° de match ACVF, ex 138135>',   // affiché sur les posters
+matchNumber: '<n° de match ACVF, ex 149634>',   // affiché sur les posters ; '' pour un amical
 venue: TENANT_CONFIG.venue.defaultHomeDisplayName,  // ou '<Stade>' si extérieur
 venueCity: TENANT_CONFIG.venue.defaultHomeCity,     // ou '<VILLE>' si extérieur
 kickoff: { dayName: 'DIMANCHE', dateLabel: 'DD MOIS', year: 2026, time: 'HH:MM' },
 matchBallSponsors: [ { name: '<SPONSOR>', abbr: '<2-3 lettres>' }, ... ],  // ou [] — affichés sur matchday/kickoff/recap
 ```
 
-Si `homeAway: 'home'`, laisser `venue`/`venueCity` vides ou sur `TENANT_CONFIG.venue.*` → fallback automatique sur « Terrain de La Veyre » / « ST-LÉGIER » (les défauts vivent dans TENANT_CONFIG, plus de « STADE DE LA VEYRE » hardcodé). Ne PAS oublier `matchNumber` et `matchBallSponsors`, sinon le nouveau match part avec le n° ACVF et les sponsors du match précédent.
+Si `homeAway: 'home'`, laisser `venue`/`venueCity` vides ou sur `TENANT_CONFIG.venue.*` → fallback automatique sur « Terrain de La Veyre » / « ST-LÉGIER » (les défauts vivent dans TENANT_CONFIG, plus de « STADE DE LA VEYRE » hardcodé). En hand-edit, ne PAS oublier `matchNumber` et `matchBallSponsors`, sinon le nouveau match part avec le n° ACVF et les sponsors du match précédent (le picker calendrier, lui, gère les deux).
 
 ## Workflow de déploiement
 
@@ -52,34 +56,39 @@ git push origin main
 until curl -sL "https://cristianovilasboas9.github.io/fca-match-controller/?v=$(date +%s)" | grep -q "opponentSlug: '<slug>'"; do sleep 6; done && echo OK
 ```
 
-## Structure du fichier (offsets vérifiés au 2026-07-07 — ils rotent, préférer `grep -n "<ancre>" index.html`)
+## Structure du fichier (offsets vérifiés au 2026-07-19 — ils rotent, préférer `grep -n "<ancre>" index.html`)
 
 | Lignes | Ancre grep | Contenu |
 |---|---|---|
-| 13-~260 | — | Fonts base64 + crest Atlantic SVG (NE PAS lire au scan, gros bruit) |
-| 269-270 | `match-opp` | HTML statique de fallback (opponent + date) |
-| 343-424 | `const TENANT_CONFIG` | Métadonnées tenant (voir section ci-dessus) |
-| 425-456 | `const ROSTER` | `ROSTER` — 23 joueurs (id, jerseyDisplay, firstName, lastName, position, photoUrl, isCaptain) |
-| 457-469 | `const OPPONENTS` | `OPPONENTS` — clubs 5e Ligue Groupe 2 (slug, name, shortName, abbr, crestUrl) |
-| 470-478 | `const VARIANTS` | `VARIANTS` — les 7 types de posters |
-| 482-489 | `const FORMATION_ROWS` | Formations supportées : 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 5-3-2, 3-4-3 |
-| 506-545 | `const state` | `state` — match data (incl. matchNumber, matchBallSponsors, guests) + lineup + UI selection |
-| 553-660 | `PHOTO_CACHE` | Cache + preload (`PHOTO_CACHE`, `CREST_CACHE`, `preloadAllAssets` — singleton avec retry sur échec) |
-| 822 | `function unifiedScoreRow` | Le score commun à liveScore/halftime/recap |
-| 875 | `function venueFooter` | Pied de carte avec lieu + pastille DOMICILE/EXTÉRIEUR |
-| 896 | `matchBallSponsorsBlock` | Bloc sponsors « Ballon de match » (matchday/kickoff/recap) |
-| 987-1420 | `function classicPoster` | Fonctions de poster par variant (`classicPoster`, `kickoffPoster`, `lineupPoster` à 1271, etc.) |
-| 1679 | `function panelLineup` | UI sélection 11+banc avec compteurs par poste + joueurs invités |
-| 1834 | `function bindPanelEvents` | Handlers onClick |
-| 2290-2320 | `buildPosterBlob` | Export PNG (`buildPosterBlob`, `downloadPoster`, chemin share iOS) |
-| 2405 | `preloadAllAssets()` | Init : `ensureAtlCrestPng()` + `preloadAllAssets()` puis `refresh()` |
+| 13-~260 | — | Fonts base64 + crest Atlantic SVG (NE PAS lire au scan, gros bruit ; idem la ligne CREST_ATL_DATAURL ~45KB) |
+| 274-275 | `match-opp` | HTML statique de fallback (opponent + date) |
+| 373-442 | `const TENANT_CONFIG` | Métadonnées tenant (voir section ci-dessus) — incl. `theme.neon` #38BDF8 (cyan saison 26/27) |
+| 444-481 | `const ROSTER` | `ROSTER` — 30 joueurs (id, jerseyDisplay, firstName, lastName, position, photoUrl, isCaptain) |
+| 483-505 | `const OPPONENTS` | `OPPONENTS` — clubs 4e ligue Groupe 6 saison 26/27 + adversaires amicaux/coupe (slug, name, shortName, abbr, crestUrl) |
+| 514-544 | `const MATCHES` | `MATCHES` — calendrier 26/27 : 26 fixtures (3 amicaux + 1 BCV Cup + 22 championnat avec n° ACVF) |
+| 546-556 | `const VARIANTS` | `VARIANTS` — les 7 types de posters |
+| 558-568 | `const FORMATION_ROWS` | Formations supportées : 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 5-3-2, 3-4-3 |
+| 582-628 | `const state` | `state` — match data (incl. matchId, _userPickedMatch, matchNumber, matchBallSponsors, guests) + lineup + UI selection |
+| 639-750 | `PHOTO_CACHE` | Cache + preload (`PHOTO_CACHE`, `CREST_CACHE`, `ensureCrest` à 675 — fetch à la demande des crests dynamiques, `preloadAllAssets` — singleton avec retry sur échec) |
+| 884-905 | `function neonHalo` | Refresh design néon 26/27 : `neonHalo()` (halo cyan derrière le crest) + `seasonPill()` (pastille SAISON 26/27) |
+| 939 | `function unifiedScoreRow` | Le score commun à liveScore/halftime/recap |
+| 992 | `function venueFooter` | Pied de carte avec lieu + pastille DOMICILE/EXTÉRIEUR |
+| 1013 | `matchBallSponsorsBlock` | Bloc sponsors « Ballon de match » (matchday/kickoff/recap) |
+| 1106-1590 | `function classicPoster` | Fonctions de poster par variant (`classicPoster`, `kickoffPoster`, `lineupPoster` à 1399, etc.) |
+| 1661-1697 | `function applyMatch` | Picker calendrier : `applyMatch(id)` (applique un fixture MATCHES + reset sponsors) + `setCompetition(comp)` (segmented control) |
+| 1690 | `function panelMatch` | Onglet Match : select « Calendrier 26/27 » + toggle compétition + champs manuels + ballons de match |
+| 1874 | `function panelLineup` | UI sélection 11+banc avec compteurs par poste + joueurs invités |
+| 2029 | `function bindPanelEvents` | Handlers onClick (incl. `match-select` → `applyMatch`) |
+| 2495-2560 | `buildPosterBlob` | Export PNG (`buildPosterBlob`, `downloadPoster`, chemin share iOS) |
+| 2610-2672 | `loadFromSite` | Préconfig depuis l'API du site (respecte `_userPickedMatch`, n° ACVF numérique only, sous-label par défaut par compétition) |
+| 2680 | `preloadAllAssets()` | Init : `ensureAtlCrestPng()` + `preloadAllAssets()` puis `refresh()` |
 
 ## Pièges à NE PAS réintroduire
 
 1. **Photos `.webp` pas `.png`** — le site fc-atlantic-vevey.ch a migré tout en webp. Toute URL en `.png` dans ROSTER → 404 → fallback initiales. Toujours utiliser `.webp`.
 2. **Badges jersey/capitaine clippés** — pattern actuel : conteneur extérieur `position:relative; width:Xpx; height:Xpx;` + wrapper photo intérieur `position:absolute; inset:0; border-radius:50%; overflow:hidden;` + badges en `position:absolute` SIBLINGS du wrapper photo (pas dedans) avec `z-index:3`. Si tu re-fusionnes en un seul div avec `overflow:hidden`, les badges disparaissent.
 3. **Score glow** — `unifiedScoreRow` utilise `getVariant().accent`, pas la constante `ACCENT`. Garder pour cohérence chromatique entre halftime (orange), recap (vert), kickoff (violet).
-4. **COUP D'ENVOI** — taille `120px` (pas 150px) sinon overflow horizontal avec `white-space:nowrap` à 1080px de large.
+4. **COUP D'ENVOI** — taille `108px` (pas 120px ni 150px) : à 150px overflow horizontal avec `white-space:nowrap` à 1080px de large, et à 120px le 'I' final clippait au pixel près (commentaire in-file au-dessus de la ligne `font-size:108px`).
 5. **Compteurs par poste** — `panelLineup` parse la formation via `FORMATION_ROWS` (6 formations : 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 5-3-2, 3-4-3 ; ex. 4-3-3 → G:1 DEF:4 MIL:3 AT:3) et affiche pastilles vert/orange/rouge. Si la compo ne matche pas la formation, warning visible. Le `lineupPoster` fait du bucketing par `p.position` et place les surplus dans les rangs vides — un défenseur en surplus peut donc finir ailier (warning UI prévient).
 
 ## Backlog non bloquant
@@ -91,13 +100,21 @@ until curl -sL "https://cristianovilasboas9.github.io/fca-match-controller/?v=$(
 
 ## Si Boss demande un nouveau match (workflow type)
 
-1. Demander : adversaire, date (jour + DD MOIS), heure, home/away, lieu (si extérieur).
-2. Vérifier que le slug existe dans `OPPONENTS` (lignes ~457-469). Sinon ajouter une entrée (slug + name + shortName + abbr + crestUrl).
-3. Vérifier que le logo du club existe : `curl -sI https://fc-atlantic-vevey.ch/logos/clubs/<slug>.png` doit renvoyer 200.
-4. Patcher le state (opponentSlug, homeAway, matchNumber, venue/venueCity, kickoff, matchBallSponsors) + HTML fallback (269-270).
-5. Montrer le diff à Boss avant push.
-6. Push + verify déploiement live.
-7. Demander à Boss de hard-refresh sur son tel (ajouter `?v=N` à l'URL ou suppr/réinstall PWA).
+1. Si le match est dans le calendrier 26/27 (AM1-AM3, BCV Cup, J1-J22) : **rien à coder** — Boss le choisit dans le picker « Calendrier 26/27 » de l'onglet Match, tout s'applique (sponsors remis à zéro, à re-saisir). Éventuellement patcher le state par défaut + HTML fallback (`match-opp`, ~274-275) pour que la PWA démarre sur ce match.
+2. Sinon (match hors calendrier) : demander adversaire, date (jour + DD MOIS), heure, home/away, lieu (si extérieur).
+3. Vérifier que le slug existe dans `OPPONENTS` (`grep -n "const OPPONENTS" index.html`). Sinon ajouter une entrée (slug + name + shortName + abbr + crestUrl).
+4. Vérifier que le logo du club existe : `curl -sI https://fc-atlantic-vevey.ch/logos/clubs/<slug>.png` doit renvoyer 200.
+5. Patcher le state (opponentSlug, homeAway, competition/competitionSub, matchNumber, venue/venueCity, kickoff, matchBallSponsors) + HTML fallback (~274-275).
+6. Montrer le diff à Boss avant push.
+7. Push + verify déploiement live.
+8. Demander à Boss de hard-refresh sur son tel (ajouter `?v=N` à l'URL ou suppr/réinstall PWA).
+
+## Features saison 26/27 (juillet 2026)
+- **MATCHES + picker calendrier** — array `MATCHES` (26 fixtures : 3 amicaux + 1 BCV Cup + 22 journées de championnat avec n° ACVF, horaires `timeProvisional` quand l'ACVF n'a pas confirmé). Select « Calendrier 26/27 » + segmented control compétition (Championnat / BCV Cup / Amical) dans l'onglet Match. Choisir un match → `applyMatch()` applique tout et **reset les sponsors** ; `state._userPickedMatch` empêche `loadFromSite()` d'écraser le choix.
+- **ensureCrest()** — fix crest dynamique : fetch à la demande du crest d'un adversaire ajouté après le preload singleton (sinon badge texte abbr au lieu du logo).
+- **Refresh design néon** — `TENANT_CONFIG.theme.neon` #38BDF8 (cyan 26/27), `neonHalo()` derrière le crest, `seasonPill()` (pastille SAISON 26/27) sur les posters.
+- **Roster 30 joueurs** — effectif 26/27 aligné sur la vitrine : arrivées Bajro Malcinovic #15 (DEF) + 8 recrues (Cantatore #99 DEF, Selimi #4 AT, Cerqueira #16 MIL, Das Dores #25 AT, Marzouki #17 MIL id `17-R`, Rahmani #45 AT, Santos Ribeiro #7 AT, Sousa Marques #9 AT) ; David Da Costa Silva #8 repositionné AT → MIL.
+- **loadFromSite durci** — n° de match accepté uniquement si numérique (un id API type `amical-…` ne s'imprime jamais), sous-label de compétition remis au défaut cohérent quand l'API n'en fournit pas.
 
 ## Features post-mai 2026 (contexte rapide)
 - **Joueurs invités** (`1694b8b`) — ajout libre nom + numéro + poste dans `state.guests`, plaçables terrain/banc.
@@ -139,6 +156,6 @@ The 7 poster variants render correctly in-browser (photos load, badges not clipp
 
 ### Conventions to match (§0.3 Surgical Changes)
 - Single-file architecture: everything lives in `index.html` (fonts base64-inline, crest SVG inline, html2canvas via CDN). No new files, no toolchain.
-- New match = patch the state block (~506-545: opponentSlug, homeAway, matchNumber, venue/venueCity, kickoff, matchBallSponsors) + HTML fallback (269-270) only; never rewrite surrounding code.
-- Respect the 5 "Pièges à NE PAS réintroduire" above (`.webp` not `.png`, badge sibling pattern, `getVariant().accent`, COUP D'ENVOI 120px, per-position counters).
+- New match = pick it in the Calendrier 26/27 UI when it's a season fixture; hand-edits are the fallback: patch the state block (~582-628: opponentSlug, homeAway, competition/competitionSub, matchNumber, venue/venueCity, kickoff, matchBallSponsors) + HTML fallback (~274-275) only; never rewrite surrounding code.
+- Respect the 5 "Pièges à NE PAS réintroduire" above (`.webp` not `.png`, badge sibling pattern, `getVariant().accent`, COUP D'ENVOI 108px, per-position counters).
 - Player photos `.webp` from `fc-atlantic-vevey.ch/players/`, club crests `.png` from `/logos/clubs/`; both fetched at runtime and cached as dataURL.
