@@ -716,7 +716,7 @@
      aux convoqués (photo dispo), sinon tout le roster. Style Gil Vicente,
      loi Boss 10.08. */
   function heroPlayerFor(matchKey) {
-    const withPhotos = ROSTER.filter(p => p.photoUrl && !p.isGuest);
+    const withPhotos = ROSTER.filter(p => p.photoUrl && !p.isGuest && p._active !== false);
     if (!withPhotos.length) return null;
     let pool = withPhotos;
     if (state.convokedPlayers && state.convokedPlayers.length) {
@@ -3072,25 +3072,43 @@
       }));
     MATCHES.length = 0;
     Array.prototype.push.apply(MATCHES, projected);
-    /* ROSTER — rafraîchi par identité (numéro + nom) ; recrues inconnues
-       ajoutées. Position écrasée seulement si le site en donne une valide. */
+    /* ROSTER — rafraîchi par identité robuste : numéro + MÊMES tokens de
+       nom complet (le site peut couper prénom/nom autrement : « Rafael /
+       Lazarim Xavier » vs « Xavier Rafael / Lazarim »). Les joueurs qui ne
+       sont plus dans l'effectif actif du site sortent du tirage héros
+       (_active=false) mais restent lisibles pour l'historique des buts. */
+    const nameTokens = (a, b) => normName(a + ' ' + b).length
+      ? (a + ' ' + b).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z ]/g, '').split(/\s+/).filter(Boolean).sort().join('|')
+      : '';
+    const touched = new Set();
     (data.roster || []).forEach(r => {
       const pos = POS_MAP[r.position];
-      const hit = ROSTER.find(p => !p.isGuest && p.jerseyDisplay === r.jersey && normName(p.lastName) === normName(r.lastName));
+      const rKey = nameTokens(r.firstName, r.lastName);
+      const hit = ROSTER.find(p => !p.isGuest && p.jerseyDisplay === r.jersey &&
+        (normName(p.lastName) === normName(r.lastName) || nameTokens(p.firstName, p.lastName) === rKey));
       if (hit) {
+        /* on adopte la coupe prénom/nom du site — les convocations (même
+           source) matchent alors à l'identique */
         if (r.firstName) hit.firstName = r.firstName;
+        if (r.lastName) hit.lastName = r.lastName;
         if (r.photoUrl) hit.photoUrl = r.photoUrl;
         if (pos) hit.position = pos;
+        hit._active = true;
+        touched.add(hit.id);
       } else if (r.jersey != null) {
         const id = 'api-' + r.jersey + '-' + normName(r.lastName).slice(0, 8);
         if (!ROSTER.some(p => p.id === id)) {
           const entry = { id, jerseyDisplay: r.jersey, firstName: r.firstName || '',
-            lastName: r.lastName || '', position: pos || 'MIL', photoUrl: r.photoUrl || '' };
+            lastName: r.lastName || '', position: pos || 'MIL', photoUrl: r.photoUrl || '', _active: true };
           ROSTER.push(entry);
           BY_ID[id] = entry;
         }
+        touched.add(id);
       }
     });
+    if ((data.roster || []).length) {
+      ROSTER.forEach(p => { if (!p.isGuest && !touched.has(p.id)) p._active = false; });
+    }
     return true;
   }
 
