@@ -82,7 +82,7 @@ until curl -sL "https://cristianovilasboas9.github.io/fca-match-controller/?v=$(
 | 2101 | `function bindPanelEvents` | Handlers onClick (incl. `.match-row` → `applyMatch`, input Heure → garde `_userPickedMatch`) |
 | 2355 | `deriveSponsorAbbr` | Initiales sponsor auto (2 premiers mots → 'TA'/'BF' ; mot unique → 2 lettres) |
 | 2558-2640 | `buildPosterBlob` | Export PNG (`buildPosterBlob`, `downloadPoster`, chemin share iOS) |
-| 2673-2737 | `loadFromSite` | Préconfig depuis l'API du site (respecte `_userPickedMatch`, n° ACVF numérique only, sous-label par défaut par compétition) |
+| — | `loadBundle` | Bundle API 26/27 : saison entière (matchs UUID + heures TBD + convocations par match + parrains ballon + roster) depuis /api/match-controller/bundle, cache localStorage `fca-mc:v1:bundle`, fallback tables hardcodées |
 | 2739 | `async function init` | Init : auto-sélection `nextUpcomingMatch()` par date réelle, puis `loadFromSite()` + `ensureAtlCrestPng()` + `preloadAllAssets()` puis `refresh()` |
 
 ## Pièges à NE PAS réintroduire
@@ -110,6 +110,12 @@ until curl -sL "https://cristianovilasboas9.github.io/fca-match-controller/?v=$(
 6. Montrer le diff à Boss avant push.
 7. Push + verify déploiement live.
 8. Demander à Boss de hard-refresh sur son tel (ajouter `?v=N` à l'URL ou suppr/réinstall PWA).
+
+## Features saison 26/27 — chantier bundle + persistance + DA (août 2026)
+- **Bundle API** (`222a9e1`) — `loadBundle()` remplace loadFromSite : GET https://fc-atlantic-vevey.ch/api/match-controller/bundle (sans `?ts` — le CDN 120s sert des HIT). MATCHES/OPPONENTS/ROSTER projetés du bundle (ids = UUID DB, la DB gagne sur les horaires), convocation PAR match sélectionné avec matching numéro+nom, parrains ballon pré-remplis par match, labels J1-J22 ordinaux (matchday DB vide). Offline : cache localStorage, sinon seed hardcodé.
+- **Persistance live** (`222a9e1`) — snapshot par match `fca-mc:v1:live:<matchKey>` (TTL 12h) écrit à chaque mutation + pagehide/visibilitychange ; restauré par init() AVANT l'auto-sélection. Changer de match = reset propre (confirm si buts saisis) ; revenir sur un match entamé = reprise du snapshot. **Source de vérité score = state.goals** : ±/saisie manuelle créent des buts anonymes, le score en dérive toujours.
+- **DA 26/27** (`9aeb5f3`) — fond radial du calendrier d'août + auras + streak −10°, Space Grotesk + Bebas Neue inline (Bebas = chiffres/heures/ghost only, accents en Oswald), accent championnat #60A5FA, footbar signature tricolore + URL, heure TBD = `–:–` + ★★★ SVG or + « heure à confirmer » (jamais d'heure inventée), logos parrains blancs sur tuile sombre (SPONSOR_CACHE dataURL only). Exports de validation : `validation-da-2627/` (non commité).
+- **Debug/E2E** — `window.__mc = { state, MATCHES, OPPONENTS, ROSTER, buildPosterBlob }` pour piloter les tests Playwright.
 
 ## Features saison 26/27 (juillet 2026)
 - **Onglet Match v2** — array `MATCHES` (26 fixtures : 3 amicaux + 1 BCV Cup + 22 journées de championnat avec n° ACVF, horaires `timeProvisional` quand l'ACVF n'a pas confirmé ; les fixtures de coupe portent leur `competitionSub`). Segmented Amical/Championnat/BCV Cup + liste tappable ; taper un match → `applyMatch()` applique tout et **reset les sponsors** ; seul l'input Heure reste éditable ; `state._userPickedMatch` (posé par le pick ET par l'édition de l'heure) empêche `loadFromSite()` d'écraser le choix. `init()` auto-sélectionne le prochain fixture par date réelle si l'API du site est muette.
