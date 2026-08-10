@@ -611,16 +611,18 @@
     homeAway: 'away',
     // 'championnat' → eyebrow 4E LIGUE · GROUPE 6 + #4eLigue · 'coupe' → BCV CUP + #BCVCup · 'amical' → MATCH AMICAL
     competition: 'coupe',
-    // Convocation coach chargée depuis le site (numéros de maillot) — quand
-    // présente, le picker de composition ne propose QUE ces joueurs (+ invités).
-    convokedJerseys: null,
+    // Convocation coach du match SÉLECTIONNÉ (bundle API, clé = match UUID).
+    // [{ jersey, firstName, lastName, position }] — quand présente, le picker
+    // de composition ne propose QUE ces joueurs (+ invités). Matching par
+    // numéro + nom (deux gardiens portent le 1, deux joueurs le 17).
+    convokedPlayers: null,
     competitionSub: 'COUPE DES ACTIFS · TOUR PRÉLIMINAIRE',  // ligne sous BCV CUP (coupe only)
     // ---- État du MATCH EN COURS ----
     // Auto-configuré au chargement : init() sélectionne le prochain match du
-    // calendrier MATCHES par date réelle, puis loadFromSite() peut affiner
+    // calendrier MATCHES par date réelle, puis loadBundle() peut affiner
     // depuis l'API du site. Les valeurs ci-dessous sont des placeholders inertes.
     matchId: '',              // entrée MATCHES sélectionnée ('' = match libre / venu du site)
-    _userPickedMatch: false,  // true dès que Boss choisit un match (ou édite l'heure) → loadFromSite ne clobber plus
+    _userPickedMatch: false,  // true dès que Boss choisit un match (ou édite l'heure) → un refresh bundle ne clobber plus
     opponentSlug: 'cs-ollon-ia',
     matchNumber: '',
     venue: '',
@@ -648,7 +650,6 @@
     activeSection: 'variant',
     customMessage: {},       // per-variant override — state.customMessage[variantId] = 'custom text'
     captionOverride: {},     // per-variant caption override — { hook, body, tags }
-    _goalCounted: false,
   };
 
   const getOpp = () => OPPONENTS.find(o => o.slug === state.opponentSlug) || OPPONENTS[0];
@@ -656,6 +657,20 @@
   const playerInitials = p => (p.lastName || '?').slice(0,2).toUpperCase();
   // Liste unifiée roster + invités pour les grilles de sélection (scorer, bench, picker).
   const allPlayers = () => [...ROSTER, ...state.guests];
+
+  /* Convocation — matching par identité (numéro + nom), pas par numéro seul :
+     le ROSTER porte deux n°1 (Tiago / Tony) et deux n°17 (Barry / Marzouki).
+     Si le nom de la convocation ne colle à aucun joueur du numéro (graphie),
+     repli par numéro seul — mieux vaut inclure trop que rayer un convoqué. */
+  const normName = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  function isConvoked(p) {
+    const list = state.convokedPlayers;
+    if (!list || !list.length) return true;
+    const byIdentity = list.some((c) => c.jersey === p.jerseyDisplay && normName(c.lastName) === normName(p.lastName));
+    if (byIdentity) return true;
+    return list.some((c) => c.jersey === p.jerseyDisplay &&
+      !ROSTER.some((r) => r.jerseyDisplay === c.jersey && normName(r.lastName) === normName(c.lastName)));
+  }
 
   /* Photos & crests cache (base64 data URLs) */
   const PHOTO_CACHE = {};
@@ -690,7 +705,7 @@
   function getCachedCrest(opp) { return opp ? (CREST_CACHE[opp.slug] || null) : null; }
 
   /* Crest fetch à la demande — pour tout adversaire absent de CREST_CACHE
-     (opponent dynamique poussé par loadFromSite APRÈS le preload singleton,
+     (opponent dynamique ajouté depuis le bundle APRÈS le preload singleton,
      ou match sélectionné avant la fin du preload). Sans ça le poster rend
      le badge texte abbr au lieu du logo. Async + garde anti double-fetch. */
   const _crestFetching = new Set();
@@ -1745,6 +1760,9 @@
   const MONTH_INDEX = { JANVIER:0, FÉVRIER:1, MARS:2, AVRIL:3, MAI:4, JUIN:5,
     JUILLET:6, AOÛT:7, SEPTEMBRE:8, OCTOBRE:9, NOVEMBRE:10, DÉCEMBRE:11 };
   function matchDate(m) {
+    /* Les fixtures projetés du bundle portent l'ISO exact — le parse du
+       dateLabel FR ne sert plus que de secours pour les fixtures hardcodés. */
+    if (m.kickoff.iso) return new Date(m.kickoff.iso);
     const parts = (m.kickoff.dateLabel || '').split(' ');
     const day = parseInt(parts[0], 10) || 1;
     const mo = MONTH_INDEX[parts[1]] != null ? MONTH_INDEX[parts[1]] : 0;
@@ -1775,13 +1793,25 @@
     state.venue = m.venue;
     state.venueCity = m.venueCity;
     state.kickoff = { ...m.kickoff };
-    state.matchBallSponsors = [];
+    /* Parrains ballon publiés sur le site pour CE match (éditables ensuite) ;
+       jamais hérités du match précédent. */
+    state.matchBallSponsors = ballSponsorsFor(m.id);
+    state.convokedPlayers = convocationFor(m.id);
   }
   function applyMatch(id) {
     const m = MATCHES.find(x => x.id === id);
     if (!m) return;
+    const changing = id !== state.matchId;
+    if (changing && state.goals.length > 0 &&
+        !confirm('Changer de match efface le score et les buts en cours. Continuer ?')) return;
     applyMatchFields(m);
-    state._userPickedMatch = true;   // un loadFromSite tardif ne doit plus écraser
+    if (changing) {
+      resetLiveFields();
+      /* Retour sur un match déjà entamé (< 12 h) → on reprend son état. */
+      const snap = readSnap(LIVE_KEY_PREFIX + id);
+      if (snap) applySnap(snap);
+    }
+    state._userPickedMatch = true;   // un refresh bundle tardif ne doit plus écraser
     matchBrowserComp = null;         // le browser suit le match appliqué
     ensureCrest(getOpp());
     renderAll();
@@ -1815,7 +1845,9 @@
         <span class="mr-date">${m.kickoff.dayName.slice(0,3)} ${dateShort}</span>
         <span class="mr-opp">${oppName}</span>
         <span class="mr-ha ${isHome ? 'dom' : 'ext'}">${isHome ? 'DOM' : 'EXT'}</span>
-        <span class="mr-time">${m.kickoff.time}${m.timeProvisional ? '*' : ''}</span>
+        <span class="mr-time">${m.timeProvisional
+          ? '<span style="color:#F5B82E;">–:– ★</span>'
+          : m.kickoff.time}</span>
       </button>`;
     }).join('');
     return `<div class="panel">
@@ -1824,7 +1856,7 @@
         ${comps.map(c => `<button type="button" class="${activeComp === c.id ? 'on' : ''}" onclick="setMatchBrowser('${c.id}')">${c.label}</button>`).join('')}
       </div>
       <div class="match-list">${rows || '<div class="goal-empty">Aucun match dans cette compétition.</div>'}</div>
-      ${hasProvisional ? '<div class="match-note">* horaire provisoire — pas encore confirmé par l\'ACVF</div>' : ''}
+      ${hasProvisional ? '<div class="match-note"><span style="color:#F5B82E;">★</span> heure non fixée — pas encore confirmée par l\'ACVF</div>' : ''}
       <div class="row" style="margin-top:14px;"><label>Heure</label>
         <input type="text" id="time-input" value="${state.kickoff.time}" placeholder="15:00">
       </div>
@@ -2126,24 +2158,25 @@
     // Match browser — tap = tout est configuré (même garde _userPickedMatch que l'ancien picker)
     document.querySelectorAll('.match-row').forEach(b => b.addEventListener('click', () => applyMatch(b.dataset.mid)));
     // Heure — SEUL champ éditable du match. L'éditer pose la garde pour qu'un
-    // loadFromSite tardif ne réécrase pas l'horaire choisi par le président.
+    // refresh bundle tardif ne réécrase pas l'horaire choisi par le président.
     const tInput = document.getElementById('time-input');
     if (tInput) tInput.addEventListener('input', e => { state.kickoff.time = e.target.value; state._userPickedMatch = true; refresh(); });
     const sh = document.getElementById('score-home');
     const sa = document.getElementById('score-away');
     const mn = document.getElementById('minute-input');
-    if (sh) sh.addEventListener('input', e => { state.score.home = parseInt(e.target.value)||0; refresh(); });
-    if (sa) sa.addEventListener('input', e => { state.score.away = parseInt(e.target.value)||0; refresh(); });
+    if (sh) sh.addEventListener('input', e => { setScoreCount('home', parseInt(e.target.value)||0); refresh(); });
+    if (sa) sa.addEventListener('input', e => { setScoreCount('away', parseInt(e.target.value)||0); refresh(); });
     if (mn) mn.addEventListener('input', e => { state.minute = parseInt(e.target.value)||0; refresh(); });
 
     // Scorer click — increment Atlantic score + log goal into timeline
     document.querySelectorAll('#scorer-grid .player-mini').forEach(el => el.addEventListener('click', () => {
       const pid = el.dataset.id;
-      state.score.home += 1;
       state.scorerId = pid;
       state.scorerSide = 'home';
       state.goals.push({ minute: state.minute || 0, playerId: pid, side: 'home', ts: Date.now() });
-      const p = BY_ID[pid];
+      syncScoreFromGoals();
+      /* un invité peut marquer — il n'est pas dans BY_ID */
+      const p = BY_ID[pid] || state.guests.find(g => g.id === pid) || { lastName: '?', jerseyDisplay: '' };
       toast(`⚽ ${state.minute || 0}' · ${p.lastName.toUpperCase()} #${p.jerseyDisplay} · ${state.score.home}—${state.score.away}`);
       renderPanel(); refresh();
     }));
@@ -2237,9 +2270,9 @@
       // Sort: players matching expected position first, then others. Inclut les invités.
       const placedIds = new Set(state.lineupStarters.filter(Boolean));
       /* Convocation chargée → seuls les convoqués (les invités passent toujours). */
-      const convoked = state.convokedJerseys;
+      const convoked = state.convokedPlayers;
       const pool = convoked && convoked.length
-        ? allPlayers().filter((p) => p.isGuest || convoked.includes(p.jerseyDisplay))
+        ? allPlayers().filter((p) => p.isGuest || isConvoked(p))
         : allPlayers();
       if (convoked && convoked.length) {
         sub.textContent = `Poste suggéré : ${posLabelFull(expectedPos)} · Convocation officielle (${convoked.length})`;
@@ -2401,12 +2434,36 @@
     renderPanel(); refresh();
   };
 
-  /* ---------- GOAL TIMELINE actions ---------- */
+  /* ---------- GOAL TIMELINE actions ----------
+     Source de vérité UNIQUE : state.goals. Le score en dérive toujours —
+     un ± ou une saisie manuelle crée/retire des buts anonymes (playerId '')
+     au lieu de muter le score seul. Le Recap ne peut plus afficher 3-0
+     avec un seul buteur listé. */
+  function syncScoreFromGoals() {
+    state.score.home = state.goals.filter(g => g.side === 'home').length;
+    state.score.away = state.goals.filter(g => g.side === 'away').length;
+  }
+  /* Retire le but le plus récent d'un camp — anonyme d'abord (un but nommé
+     saisi par tap buteur ne saute jamais avant les ajustements manuels). */
+  function removeLatestGoal(side) {
+    const candidates = state.goals.filter(g => g.side === side);
+    if (!candidates.length) return false;
+    const anon = candidates.filter(g => !g.playerId);
+    const target = (anon.length ? anon : candidates).reduce((a, b) => (a.ts > b.ts ? a : b));
+    state.goals.splice(state.goals.indexOf(target), 1);
+    return true;
+  }
+  function setScoreCount(side, n) {
+    n = Math.max(0, n | 0);
+    let count = state.goals.filter(g => g.side === side).length;
+    while (count > n && removeLatestGoal(side)) count--;
+    while (count < n) { state.goals.push({ minute: state.minute || 0, playerId: '', side, ts: Date.now() + count }); count++; }
+    syncScoreFromGoals();
+  }
   window.undoGoal = function() {
     if (state.goals.length === 0) return;
-    const last = state.goals.pop();
-    if (last.side === 'home') state.score.home = Math.max(0, state.score.home - 1);
-    else state.score.away = Math.max(0, state.score.away - 1);
+    state.goals.pop();
+    syncScoreFromGoals();
     toast(`↩ But annulé · ${state.score.home}—${state.score.away}`, 'blue');
     renderPanel(); refresh();
   };
@@ -2415,14 +2472,15 @@
     if (i < 0) return;
     const g = state.goals[i];
     state.goals.splice(i, 1);
-    if (g.side === 'home') state.score.home = Math.max(0, state.score.home - 1);
-    else state.score.away = Math.max(0, state.score.away - 1);
+    syncScoreFromGoals();
     toast(`✕ But ${g.minute}' retiré · ${state.score.home}—${state.score.away}`, 'blue');
     renderPanel(); refresh();
   };
 
   window.adjustScore = function(side, delta) {
-    state.score[side] = Math.max(0, state.score[side] + delta);
+    if (delta > 0) state.goals.push({ minute: state.minute || 0, playerId: '', side, ts: Date.now() });
+    else removeLatestGoal(side);
+    syncScoreFromGoals();
     renderPanel();
     refresh();
   };
@@ -2433,8 +2491,8 @@
     renderPanel(); refresh();
   };
   window.logAwayGoal = function() {
-    state.score.away += 1;
     state.goals.push({ minute: state.minute || 0, playerId: '', side: 'away', ts: Date.now() });
+    syncScoreFromGoals();
     toast(`😐 ${state.minute || 0}' · But encaissé · ${state.score.home}—${state.score.away}`, 'red');
     renderPanel(); refresh();
   };
@@ -2449,7 +2507,65 @@
     toast(`↺ ${field === 'hook' ? 'Titre' : field === 'body' ? 'Message' : 'Hashtags'} réinitialisé`);
   };
 
-  function refresh() { updatePreview(); updateAppbar(); }
+  /* ---------- Persistance locale ----------
+     Sur iOS, une PWA standalone est tuée en arrière-plan en quelques
+     minutes : perdre score/buteurs/compo en plein match était le scénario
+     NOMINAL. Chaque mutation persiste l'état du match courant (clé par
+     match, TTL 12 h) ; init() restaure avant toute auto-sélection. */
+  const LIVE_KEY_PREFIX = 'fca-mc:v1:live:';
+  const LAST_KEY = 'fca-mc:v1:last';
+  const LIVE_TTL_MS = 12 * 3600 * 1000;
+  const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers',
+    'competitionSub','matchId','_userPickedMatch','opponentSlug','matchNumber','venue','venueCity',
+    'kickoff','matchBallSponsors','score','minute','scorerId','scorerSide','formation','captainId',
+    'lineupStarters','lineupBench','guests','goals','customMessage','captionOverride'];
+  function liveKey() {
+    return LIVE_KEY_PREFIX + (state.matchId || (state.opponentSlug + '|' + state.kickoff.dateLabel));
+  }
+  function persistLive() {
+    try {
+      const snap = { ts: Date.now() };
+      PERSIST_FIELDS.forEach(k => { snap[k] = state[k]; });
+      const key = liveKey();
+      localStorage.setItem(key, JSON.stringify(snap));
+      localStorage.setItem(LAST_KEY, key);
+    } catch (e) { /* stockage plein / navigation privée — l'app reste fonctionnelle */ }
+  }
+  function readSnap(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const snap = JSON.parse(raw);
+      if (!snap || !snap.ts || Date.now() - snap.ts > LIVE_TTL_MS) return null;
+      return snap;
+    } catch (e) { return null; }
+  }
+  function applySnap(snap) {
+    PERSIST_FIELDS.forEach(k => { if (snap[k] !== undefined) state[k] = snap[k]; });
+    syncScoreFromGoals();
+  }
+  /* Reprise au démarrage : dernier match travaillé, snapshot < 12 h. */
+  function restoreLive() {
+    try {
+      const key = localStorage.getItem(LAST_KEY);
+      if (!key) return false;
+      const snap = readSnap(key);
+      if (!snap) return false;
+      applySnap(snap);
+      return true;
+    } catch (e) { return false; }
+  }
+  function resetLiveFields() {
+    state.score = { home: 0, away: 0 };
+    state.minute = 0;
+    state.scorerId = '';
+    state.scorerSide = 'home';
+    state.goals = [];
+    state.lineupStarters = ['','','','','','','','','','',''];
+    state.lineupBench = [];
+  }
+
+  function refresh() { updatePreview(); updateAppbar(); persistLive(); }
   function renderAll() { renderSectionTabs(); renderPanel(); refresh(); }
 
   function toast(msg, kind='') {
@@ -2680,92 +2796,156 @@
 
   /* ---------- INIT -------------------------------------------- */
   let _initRan = false;
-  /* ── Connexion au site (Boss 2026-07-18 · chantier convocations) ──
-     Le site expose le prochain match + la convocation coach. On pré-configure
-     l'état (adversaire, date, lieu, n° match, compétition) et on restreint le
-     picker aux convoqués. Silencieux en cas d'échec (PWA offline → manuel). */
-  const SITE_API = 'https://fc-atlantic-vevey.ch/api/match-controller/next-match';
+  /* ── Bundle API (chantier 26/27) ──────────────────────────────
+     Le site est la source de vérité : une requête charge TOUTE la saison
+     (matchs + heures « à confirmer », convocations par match, parrains
+     ballon publiés, roster actif). Le bundle est caché en localStorage —
+     offline, la PWA repart du dernier bundle connu ; sans aucun cache,
+     les tables hardcodées MATCHES/OPPONENTS/ROSTER restent le seed. */
+  const BUNDLE_API = 'https://fc-atlantic-vevey.ch/api/match-controller/bundle';
+  const BUNDLE_KEY = 'fca-mc:v1:bundle';
   const POS_MAP = { GK: 'G', DEF: 'DEF', MID: 'MIL', FWD: 'AT' };
-  async function loadFromSite() {
+  let BUNDLE = null;   // dernier bundle appliqué (réseau ou cache)
+
+  /* Parrains ballon publiés pour un match — pré-remplis, éditables ensuite. */
+  function ballSponsorsFor(matchId) {
+    const list = BUNDLE && BUNDLE.matchBallSponsors && BUNDLE.matchBallSponsors[matchId];
+    if (!list || !list.length) return [];
+    return list.map(s => ({ name: s.companyName, abbr: deriveSponsorAbbr(s.companyName), logoUrl: s.logoUrl || null }));
+  }
+  /* Convocation coach du match — la convocation colle au match SÉLECTIONNÉ,
+     plus jamais celle du « prochain match » collée sur un autre. */
+  function convocationFor(matchId) {
+    const c = BUNDLE && BUNDLE.convocations && BUNDLE.convocations[matchId];
+    if (!c || !c.players || !c.players.length) return null;
+    return c.players.map(p => ({ jersey: p.jersey, firstName: p.firstName || '',
+      lastName: p.lastName || '', position: POS_MAP[p.position] || p.position || '' }));
+  }
+
+  function applyBundleData(data) {
+    if (!data || !Array.isArray(data.matches) || !data.matches.length) return false;
+    BUNDLE = data;
+    /* OPPONENTS — noms officiels du site (désambiguïsés « FC Vignoble II ») ;
+       shortName/abbr curés conservés ; inconnus ajoutés, dédup par slug. */
+    data.matches.forEach(m => {
+      const o = m.opponent || {};
+      if (!o.slug) return;
+      const existing = OPPONENTS.find(x => x.slug === o.slug);
+      if (existing) {
+        if (o.name) existing.name = o.name;
+        if (!existing.crestUrl && o.crestUrl) existing.crestUrl = o.crestUrl;
+      } else {
+        OPPONENTS.push({ slug: o.slug, name: o.name || 'Adversaire',
+          shortName: (o.shortName || o.name || '').toUpperCase().slice(0, 14) || 'ADV',
+          abbr: (o.shortName || o.name || '').replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3) || 'OPP',
+          crestUrl: o.crestUrl || '' });
+      }
+    });
+    /* MATCHES — projection du bundle (la DB gagne, y c. heures TBD 00228).
+       matchday n'est pas rempli par la sync ACVF → J1..J22 par ordre
+       chronologique (le bundle porte la saison entière, triée asc). */
+    let am = 0, jn = 0;
+    const useOrdinal = data.matches.some(m => m.competition === 'championnat' && !m.matchday);
+    const projected = data.matches
+      .filter(m => m.status !== 'cancelled' && m.opponent && m.opponent.slug)
+      .map(m => ({
+        id: m.id,
+        comp: m.competition,
+        label: m.competition === 'championnat' ? 'J' + (useOrdinal ? ++jn : m.matchday)
+             : m.competition === 'amical' ? 'AM' + (++am) : 'COUPE',
+        competitionSub: m.competitionSub || undefined,
+        opponentSlug: m.opponent.slug,
+        homeAway: m.homeAway === 'away' ? 'away' : 'home',
+        matchNumber: m.matchNumber || '',
+        venue: m.homeAway === 'home' ? '' : (m.venueName || ''),
+        venueCity: m.homeAway === 'home' ? '' : (m.venueCity || '').toUpperCase(),
+        kickoff: { dayName: m.kickoff.dayName, dateLabel: m.kickoff.dateLabel, year: m.kickoff.year,
+                   time: m.kickoff.time, iso: m.kickoff.iso, timeTbd: !!m.kickoff.timeTbd },
+        timeProvisional: !!m.kickoff.timeTbd,
+        status: m.status,
+        siteScore: m.score || null,
+      }));
+    MATCHES.length = 0;
+    Array.prototype.push.apply(MATCHES, projected);
+    /* ROSTER — rafraîchi par identité (numéro + nom) ; recrues inconnues
+       ajoutées. Position écrasée seulement si le site en donne une valide. */
+    (data.roster || []).forEach(r => {
+      const pos = POS_MAP[r.position];
+      const hit = ROSTER.find(p => !p.isGuest && p.jerseyDisplay === r.jersey && normName(p.lastName) === normName(r.lastName));
+      if (hit) {
+        if (r.firstName) hit.firstName = r.firstName;
+        if (r.photoUrl) hit.photoUrl = r.photoUrl;
+        if (pos) hit.position = pos;
+      } else if (r.jersey != null) {
+        const id = 'api-' + r.jersey + '-' + normName(r.lastName).slice(0, 8);
+        if (!ROSTER.some(p => p.id === id)) {
+          const entry = { id, jerseyDisplay: r.jersey, firstName: r.firstName || '',
+            lastName: r.lastName || '', position: pos || 'MIL', photoUrl: r.photoUrl || '' };
+          ROSTER.push(entry);
+          BY_ID[id] = entry;
+        }
+      }
+    });
+    return true;
+  }
+
+  function applyCachedBundle() {
     try {
-      const res = await fetch(`${SITE_API}?ts=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json();
-      const m = data?.match;
-      if (!m) return;
-      /* Si Boss a explicitement choisi un match dans le picker, un loadFromSite
-         qui résout tard ne doit PAS écraser son choix. On garde quand même la
-         convocation (restriction du picker de compo) plus bas. */
-      if (!state._userPickedMatch) {
-      if (m.opponent?.slug && OPPONENTS.some((o) => o.slug === m.opponent.slug)) {
-        state.opponentSlug = m.opponent.slug;
-      } else if (m.opponent?.name && m.opponent?.crestUrl) {
-        /* Adversaire inconnu (ex. amical hors liste) : entrée dynamique.
-           Poussé APRÈS le preload singleton → fetch du crest à la demande,
-           sinon les posters rendent le badge texte abbr au lieu du logo. */
-        const dyn = { slug: 'dyn-' + (m.opponent.slug || 'opp'), name: m.opponent.name,
-          shortName: (m.opponent.shortName || m.opponent.name).toUpperCase().slice(0, 10),
-          abbr: (m.opponent.shortName || m.opponent.name).replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3) || 'OPP',
-          crestUrl: m.opponent.crestUrl };
-        OPPONENTS.push(dyn);
-        state.opponentSlug = dyn.slug;
-        ensureCrest(dyn);
+      const raw = localStorage.getItem(BUNDLE_KEY);
+      if (!raw) return false;
+      const cached = JSON.parse(raw);
+      return applyBundleData(cached && cached.data);
+    } catch (e) { return false; }
+  }
+
+  async function loadBundle(restored) {
+    let data = null;
+    try {
+      /* PAS de ?ts ni no-store : le CDN (s-maxage 120 s) sert enfin des HIT. */
+      const res = await fetch(BUNDLE_API);
+      if (res.ok) {
+        data = await res.json();
+        try { localStorage.setItem(BUNDLE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (e) {}
       }
-      state.homeAway = m.homeAway === 'away' ? 'away' : 'home';
-      /* n° ACVF numérique uniquement — un id API type 'amical-20260728-pully'
-         ne doit jamais s'imprimer sur les posters (« N° MATCH AMICAL-… »). */
-      const apiNum = String(m.matchNumber || state.matchNumber || '');
-      state.matchNumber = /^\d+$/.test(apiNum) ? apiNum : '';
-      state.competition = m.competition || 'championnat';
-      if (m.competitionSub) {
-        /* le section ACVF répète « BCV CUP » — déjà porté par le kicker */
-        state.competitionSub = m.competitionSub.replace(/^BCV CUP\s*/i, '').trim() || 'COUPE DES ACTIFS';
-      } else {
-        /* miroir d'applyMatch — sans ça, le sous-label coupe du state par
-           défaut resterait collé sous un match amical/championnat du site */
-        state.competitionSub = state.competition === 'amical' ? 'PRÉ-SAISON'
-          : state.competition === 'coupe' ? 'COUPE DES ACTIFS' : '';
-      }
-      if (m.kickoff) {
-        state.kickoff = { dayName: m.kickoff.dayName, dateLabel: m.kickoff.dateLabel,
-          year: m.kickoff.year, time: m.kickoff.time };
-      }
-      if (state.homeAway === 'away') {
-        state.venue = m.venueName || state.venue;
-        state.venueCity = (m.venueCity || '').toUpperCase();
-      } else {
-        state.venue = TENANT_CONFIG.venue.defaultHomeDisplayName;
-        state.venueCity = TENANT_CONFIG.venue.defaultHomeCity;
-      }
-      /* Re-synchronise le browser calendrier avec le match du site : n° ACVF
-         d'abord, sinon (amicaux sans n°) adversaire + date. */
-      const cal = MATCHES.find((x) =>
-        (x.matchNumber && x.matchNumber === String(m.matchNumber || '')) ||
-        (x.opponentSlug === state.opponentSlug && x.kickoff.dateLabel === (m.kickoff?.dateLabel || '')));
-      state.matchId = cal ? cal.id : '';
-      ensureCrest(getOpp());
-      }
-      const jerseys = (data?.convocation?.players || [])
-        .map((p) => p.jersey).filter((n) => n != null);
-      state.convokedJerseys = jerseys.length > 0 ? jerseys : null;
-      renderAll();
-    } catch (e) { /* offline / API down → état manuel */ }
+    } catch (e) { /* offline → le cache appliqué par init() fait foi */ }
+    if (!data || !applyBundleData(data)) return;
+    if (!restored && !state._userPickedMatch) {
+      applyMatchFields(nextUpcomingMatch());
+    } else if (state.matchId) {
+      /* État repris ou match choisi : on ne touche qu'aux données annexes. */
+      state.convokedPlayers = convocationFor(state.matchId) || state.convokedPlayers;
+      if (!state.matchBallSponsors.length) state.matchBallSponsors = ballSponsorsFor(state.matchId);
+    }
+    ensureCrest(getOpp());
+    /* Nouvelles photos/crests éventuels (recrues, logos à jour) → re-preload. */
+    invalidatePreloadCache();
+    preloadAllAssets().then(() => refresh());
+    renderAll();
   }
 
   async function init() {
     if (_initRan) return;
     _initRan = true;
-    /* Auto-sélection : prochain match du calendrier par date réelle. Si l'API
-       du site répond ensuite, loadFromSite affine (garde _userPickedMatch respectée). */
-    if (!state._userPickedMatch && !state.matchId) applyMatchFields(nextUpcomingMatch());
+    applyCachedBundle();            // saison depuis le dernier bundle connu (offline-first)
+    const restored = restoreLive(); // reprise d'un match en cours (< 12 h) — AVANT toute auto-sélection
+    if (!restored && !state._userPickedMatch && !state.matchId) applyMatchFields(nextUpcomingMatch());
     if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(e) {} }
     renderAll();
-    loadFromSite(); // non-bloquant · pré-configure match + convocation depuis le site
+    loadBundle(restored); // non-bloquant · rafraîchit saison + convocations + parrains
     // Rasterize SVG crest + preload external assets in parallel, then re-render.
     Promise.all([ensureAtlCrestPng(), preloadAllAssets()]).then(() => refresh());
   }
+  /* Poignée de debug/E2E (lecture seule par convention — rien dans l'app ne
+     passe par elle). Permet aux tests Playwright d'observer l'état réel. */
+  window.__mc = { state, MATCHES, OPPONENTS, ROSTER, buildPosterBlob };
   window.addEventListener('load', init);
   window.addEventListener('resize', () => updatePreview());
+  /* iOS tue la PWA en arrière-plan sans prévenir — on persiste au moment
+     où elle passe en fond, pas seulement à la dernière mutation. */
+  window.addEventListener('pagehide', persistLive);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') persistLive();
+  });
   init();
   </script>
 </body>
