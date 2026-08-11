@@ -108,6 +108,7 @@
   .panel-label .b { background:rgba(245,184,46,0.18); color:#F5B82E; padding:3px 9px; border-radius:999px; font-size:9px; letter-spacing:0.12em; }
   .panel-label .b.green { background:rgba(34,197,94,0.18); color:#22C55E; }
   .panel-label .b.blue { background:rgba(46,123,255,0.18); color:#2E7BFF; }
+  .panel-label .b.gold { background:rgba(245,184,46,0.18); color:#F5B82E; }
 
   /* VARIANT GRID */
   .variant-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
@@ -170,6 +171,7 @@
   .hero-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(74px, 1fr)); gap:10px; margin-top:10px; }
   .hero-mini { position:relative; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); border-radius:12px; padding:6px 4px 7px; text-align:center; cursor:pointer; }
   .hero-mini.on { border-color:#2E7BFF; background:rgba(46,123,255,0.14); }
+  .hero-mini.on.cap { border-color:#F5B82E; background:rgba(245,184,46,0.14); }
   .hero-img { width:46px; height:46px; margin:0 auto; border-radius:50%; overflow:hidden; background:linear-gradient(135deg,#1a3058,#04080F); }
   .hero-img img { width:100%; height:100%; object-fit:cover; object-position:center top; display:block; }
   .hero-auto { width:46px; height:46px; margin:0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(46,123,255,0.16); border:1px dashed rgba(46,123,255,0.5); font-family:'Inter',sans-serif; font-weight:700; font-size:9px; letter-spacing:0.08em; color:#7FB2FF; }
@@ -814,6 +816,13 @@
     const s = SCENES.find(x => x.id === state.heroSceneId);
     if (s) ensureScene(s);
     toast(s ? `Visuel : ${s.label}` : 'Visuel : rotation automatique', 'blue');
+    renderPanel(); refresh();
+  };
+  window.setCaptain = function(id) {
+    const p = BY_ID[id];
+    if (!p) return;
+    state.captainId = id;
+    toast(`🟡 ${p.lastName.toUpperCase()} capitaine`, 'blue');
     renderPanel(); refresh();
   };
   window.setHeroPlayer = function(id) {
@@ -2500,6 +2509,21 @@
         <input type="text" id="time-input" value="${state.kickoff.time}" placeholder="15:00">
       </div>
       <div class="match-note">Tape un match → tout est configuré. Seule l'heure reste éditable.</div>
+
+      <!-- CAPITAINE — choisi parmi les CONVOQUÉS (Boss 11.08). Jusqu'ici il
+           fallait d'abord poser le joueur sur le terrain pour le désigner. -->
+      <div class="panel-label" style="margin-top:18px;">Capitaine
+        <span class="b gold">${(BY_ID[state.captainId] || {}).lastName ? BY_ID[state.captainId].lastName.toUpperCase() : 'à désigner'}</span>
+      </div>
+      <div class="hero-grid">
+        ${heroCandidates().map(p => `
+          <div class="hero-mini ${state.captainId === p.id ? 'on cap' : ''}" onclick="setCaptain('${p.id}')">
+            <div class="hero-img">${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy">` : ''}</div>
+            <div class="hero-jer">${p.jerseyDisplay}</div>
+            <div class="hero-name">${p.lastName}</div>
+          </div>`).join('')}
+      </div>
+      <div class="match-note">Son nom porte un (C) sur tous les visuels.${state.convokedPlayers && state.convokedPlayers.length ? ` Liste limitée aux ${state.convokedPlayers.length} convoqués.` : ''}</div>
 
       <!-- JOUEUR EN FOND — visage des visuels (sauf « But », où c'est le buteur) -->
       <div class="panel-label" style="margin-top:18px;">Joueur en fond
