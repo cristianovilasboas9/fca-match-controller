@@ -2515,7 +2515,7 @@
           <div class="hero-auto">—</div>
           <div class="hero-name">Bleu nuit</div>
         </div>
-        ${SCENES.map(s => `
+        ${SCENES.filter(s => s.group !== 'shooting').map(s => `
           <div class="hero-mini ${state.sceneId === s.id ? 'on' : ''}" onclick="setScene('${s.id}')">
             <div class="hero-img"><img src="${s.url}" loading="lazy"></div>
             <div class="hero-name">${s.label}</div>
