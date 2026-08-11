@@ -1355,14 +1355,18 @@
      story 1080×1920 fixe ; en post 4:5 le shell scale le canvas virtuel. */
   const FB = {
     royal: '#2E7BFF',
+    /* Largeur du canvas de composition : 1080 en story, plus large en post
+       (canvas virtuel scalé). Posée par shellWrap avant chaque rendu. */
+    vw: 1080,
     bg() {
       return `<div style="position:absolute; inset:0; background:radial-gradient(135% 95% at 72% -14%, #17417F 0%, #133870 20%, #0F2E5C 38%, #0C264C 50%, #0A2040 60%, #071630 72%, #050C1C 84%, #04080F 96%);"></div>
       <div style="position:absolute; inset:0; background:radial-gradient(90% 60% at 30% 110%, rgba(8,65,123,0.25) 0%, rgba(8,65,123,0.08) 50%, transparent 75%);"></div>
       <div style="position:absolute; top:-220px; right:-180px; width:760px; height:760px; background:radial-gradient(circle, rgba(56,140,255,0.2) 0%, rgba(56,140,255,0.06) 45%, transparent 70%);"></div>`;
     },
     photo(d) {
+      const w = FB.vw;
       return `<div style="position:absolute; top:430px; left:50%; margin-left:-420px; width:840px; height:840px; background:radial-gradient(circle, rgba(46,123,255,0.3) 0%, rgba(46,123,255,0.1) 42%, transparent 68%);"></div>
-      <div style="position:absolute; left:50%; margin-left:-540px; top:480px; width:1080px; height:1440px; background-image:url('${d}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>`;
+      <div style="position:absolute; left:0; top:480px; width:${w}px; height:${Math.round(w * 4 / 3)}px; background-image:url('${d}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>`;
     },
     scrim(topY = 1020) {
       return `<div style="position:absolute; left:0; right:0; top:${topY}px; bottom:0; background:linear-gradient(180deg, transparent 0%, rgba(4,8,15,0.35) 20%, rgba(4,8,15,0.72) 36%, rgba(4,8,15,0.95) 52%, rgba(4,8,15,1) 70%);"></div>`;
@@ -1598,7 +1602,7 @@
         ${FB.sub('Dans quelques instants', 430, 44)}
         ${FB.compline(502)}
         <div style="position:absolute; right:72px; top:296px; text-align:right;">
-          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:12px;">Coup d'envoi</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:12px;">Heure</div>
           ${FB.timeBlock(150)}
         </div>
         ${FB.rail()}
@@ -1806,11 +1810,11 @@
         ${FB.bg()}
         ${FB.photo(heroHPhoto)}
         ${FB.scrim()}
-        ${FB.kicker('Pause · Saison 26/27')}
+        ${FB.kicker('Match en cours · Saison 26/27')}
         ${FB.titre('MI-TEMPS', 150)}
         ${FB.compline(470)}
         <div style="position:absolute; right:72px; top:296px; text-align:right;">
-          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-bottom:12px;">Pause</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-bottom:12px;">Minute</div>
           ${FB.chiffre("45'", 140, '#F5B82E')}
         </div>
         ${FB.rail()}
@@ -2046,6 +2050,11 @@
   /* Master dispatcher */
   function posterHTML() {
     const v = state.variant;
+    /* Largeur du canvas de composition pour les briques FB (photo pleine
+       largeur) : le post rend dans un canvas virtuel plus large que 1080. */
+    FB.vw = state.format === 'post' && v !== 'lineup'
+      ? Math.round(FORMATS.post.w / (FORMATS.post.h / 1920))
+      : 1080;
     // Lineup is too dense for 4:5 → force story format for this variant only
     let savedFormat = null;
     if (v === 'lineup' && state.format === 'post') {
