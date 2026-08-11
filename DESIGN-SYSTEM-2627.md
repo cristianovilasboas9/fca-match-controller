@@ -93,6 +93,29 @@ on utilise `FB.royal` = `#5E9BFF`. Jamais de glow de la même teinte que le text
 **Réserve de l'or** : BUT, minute du but, parrains ballon, étoiles TBD, VICTOIRE,
 brassard capitaine. La minute d'un match en cours (live, mi-temps) est BLANCHE.
 
+## 5ter. Montage du joueur (Boss 11.08)
+
+Les portraits de la vitrine portent un fond studio **cuit dans l'image**. Une
+version **détourée** vit désormais à côté sur le site :
+`/players/cutout/<slug>.webp` (générée par `rembg` modèle `birefnet-portrait`,
+exposée par le bundle en `photoCutoutUrl`).
+
+- Le buste détouré est posé à **0.93 d'opacité**, largeur 1010, ancré y512.
+- **Décalage par variante** (`FB.side`) — deux stories publiées à la suite ne
+  montrent jamais l'image au même endroit :
+  matchday **droite** · kickoff **gauche** · live **droite** ·
+  mi-temps **gauche** · recap **droite** · but **centré** (c'est le buteur).
+- **Choix du visage** : le président peut fixer le joueur de fond
+  (`state.heroPlayerId`, onglet Match). Vide = rotation automatique sans
+  répétition. La variante **But** ignore ce choix — son héros est le buteur.
+- Précharger les découpes des rotations **+0, +1 et +2** ainsi que celle du
+  buteur : sinon une variante retombe en silence sur la photo à fond studio
+  et perd son décalage.
+- Sans découpe en cache (offline) → cadrage centré + nappe qui masque la boîte.
+
+**Régénérer les découpes** après une nouvelle photo :
+`python3 scripts/cutouts.py` côté site, puis `vercel --prod`.
+
 ## 6. Lois non négociables
 
 - **Zéro chrome** : pas de cadre, pas de pastille décorative, pas de tuile bordée.
