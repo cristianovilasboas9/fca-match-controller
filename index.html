@@ -3225,6 +3225,30 @@
      logos et les photos dans le PNG final. Fix: on hydrate TOUS les <img> en
      data URLs AVANT la capture, et on attend leur naturalWidth > 0.
   */
+  /* Attend (max 6 s) que le buste détouré du héros courant et le décor
+     éventuel soient en cache. Au-delà, on capture avec ce qu'on a plutôt que
+     de bloquer le président — mais on ne part plus AVANT de les avoir
+     demandés. */
+  async function awaitHeroAssets() {
+    const wanted = [];
+    const push = (p) => { if (p && p.cutoutUrl) { ensureCutout(p); wanted.push(() => !!CUTOUT_CACHE[p.cutoutUrl]); } };
+    if (state.variant === 'goal') {
+      push(BY_ID[state.scorerId] || null);
+    } else if (!state.customHeroImage) {
+      const off = state.variant === 'kickoff' ? 1 : state.variant === 'halftime' ? 2 : 0;
+      heroPlayerFor._offset = off;
+      push(heroPlayerFor(state.matchId));
+      heroPlayerFor._offset = 0;
+    }
+    const sc = currentScene();
+    if (sc) { ensureScene(sc); wanted.push(() => !!SCENE_CACHE[sc.url]); }
+    if (!wanted.length) return;
+    const deadline = Date.now() + 6000;
+    while (Date.now() < deadline && !wanted.every(f => f())) {
+      await new Promise(r => setTimeout(r, 120));
+    }
+  }
+
   async function renderFullRes() {
     // Format effectif : la variante lineup force le 9:16 (story) même si le toggle est sur post,
     // car le poster lineup est trop dense pour le 4:5. Cf. posterHTML L1231 et updatePreview L1257.
@@ -3236,6 +3260,10 @@
     await ensureAtlCrestPng();
     // STEP 1 — Make sure all external assets are pre-cached as data URLs
     await preloadAllAssets();
+    // STEP 1b — Le buste détouré et le décor arrivent par leur propre fetch :
+    // sans cette attente, un export lancé dans les premières secondes partait
+    // avec l'ancienne photo à fond studio, DIFFÉRENTE de l'aperçu à l'écran.
+    await awaitHeroAssets();
 
     // STEP 2 — Build offscreen DOM (full-res)
     const off = document.createElement('div');
