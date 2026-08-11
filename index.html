@@ -678,6 +678,11 @@
     competition: 'coupe',
     // Décor du club en fond (bundle.scenes) — le joueur reste DEVANT.
     sceneId: '',
+    // true = AUCUN visage (carte nette : juste le fond et le texte).
+    heroOff: false,
+    // Photo du shooting maillots utilisée comme visuel principal.
+    heroSceneId: '',
+    _shootingOpen: false,
     // Image de fond importée par le président (dataURL JPEG réduite).
     // Quand elle est posée, elle remplace le joueur sur toutes les variantes
     // sauf « But » (là, c'est toujours le buteur).
@@ -759,6 +764,8 @@
         c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
         state.customHeroImage = c.toDataURL('image/jpeg', 0.86);
         state.heroPlayerId = '';
+        state.heroSceneId = '';
+        state.heroOff = false;
         toast('Image de fond importée', 'blue');
         renderPanel(); refresh();
       };
@@ -773,19 +780,43 @@
     toast('Image retirée', 'blue');
     renderPanel(); refresh();
   };
+  /* Toggle : retaper la case déjà choisie la DÉSÉLECTIONNE (Boss 11.08) —
+     on peut ainsi obtenir une carte nette, sans visage ni décor. */
   window.setScene = function(id) {
-    state.sceneId = id || '';
+    state.sceneId = (id && state.sceneId === id) ? '' : (id || '');
     const s = currentScene();
     if (s) ensureScene(s);
     toast(s ? `Décor : ${s.label}` : 'Décor : bleu nuit', 'blue');
     renderPanel(); refresh();
   };
-  window.setHeroPlayer = function(id) {
+  window.toggleShooting = function() {
+    state._shootingOpen = !state._shootingOpen;
+    if (state._shootingOpen) SCENES.filter(s => s.group === 'shooting').slice(0, 4).forEach(ensureScene);
+    renderPanel();
+  };
+  window.setHeroScene = function(id) {
+    const off = state.heroSceneId === id;
+    state.heroSceneId = off ? '' : id;
+    state.heroPlayerId = '';
     state.customHeroImage = '';
-    state.heroPlayerId = id || '';
-    const p = id ? BY_ID[id] : null;
+    state.heroOff = false;
+    const s = SCENES.find(x => x.id === state.heroSceneId);
+    if (s) ensureScene(s);
+    toast(s ? `Visuel : ${s.label}` : 'Visuel : rotation automatique', 'blue');
+    renderPanel(); refresh();
+  };
+  window.setHeroPlayer = function(id) {
+    /* Retaper la case active = plus AUCUN visage (carte nette). */
+    const wasThis = id ? (state.heroPlayerId === id && !state.heroOff)
+                       : (!state.heroPlayerId && !state.customHeroImage && !state.heroSceneId && !state.heroOff);
+    state.customHeroImage = '';
+    state.heroSceneId = '';
+    state.heroPlayerId = wasThis ? '' : (id || '');
+    state.heroOff = wasThis;
+    const p = state.heroPlayerId ? BY_ID[state.heroPlayerId] : null;
     if (p) ensureCutout(p);
-    toast(p ? `Visage : ${p.lastName.toUpperCase()}` : 'Visage : rotation automatique', 'blue');
+    toast(state.heroOff ? 'Aucun visage — carte nette'
+        : p ? `Visage : ${p.lastName.toUpperCase()}` : 'Visage : rotation automatique', 'blue');
     renderPanel(); refresh();
   };
 
@@ -841,6 +872,15 @@
   const CUTOUT_CACHE = {};
   const _cutoutFetching = new Set();
   function heroImage(p, allowCustom = true) {
+    /* Visage explicitement retiré → carte nette (fond + texte seuls). */
+    if (allowCustom && state.heroOff) return null;
+    /* Photo du shooting choisie comme visuel principal. */
+    if (allowCustom && state.heroSceneId) {
+      const s = SCENES.find(x => x.id === state.heroSceneId);
+      const d = s && SCENE_CACHE[s.url];
+      if (d) return { src: d, mode: 'bg' };
+      return null;
+    }
     /* Image importée : elle porte son propre décor, on la traite en fond
        plein cadre (pas en buste détouré). */
     if (allowCustom && state.customHeroImage) return { src: state.customHeroImage, mode: 'bg' };
@@ -2429,9 +2469,13 @@
         <span class="b blue">${state.heroPlayerId ? 'choisi' : 'auto'}</span>
       </div>
       <div class="hero-grid">
-        <div class="hero-mini ${(state.heroPlayerId || state.customHeroImage) ? '' : 'on'}" onclick="setHeroPlayer('')">
+        <div class="hero-mini ${(state.heroPlayerId || state.customHeroImage || state.heroSceneId || state.heroOff) ? '' : 'on'}" onclick="setHeroPlayer('')">
           <div class="hero-auto">AUTO</div>
           <div class="hero-name">Rotation</div>
+        </div>
+        <div class="hero-mini ${state._shootingOpen || state.heroSceneId ? 'on' : ''}" onclick="toggleShooting()">
+          <div class="hero-auto" style="border-style:solid; border-color:rgba(245,184,46,0.55); background:rgba(245,184,46,0.14); color:#F5B82E;">📸</div>
+          <div class="hero-name">Shooting</div>
         </div>
         <label class="hero-mini ${state.customHeroImage ? 'on' : ''}" style="cursor:pointer;">
           <div class="hero-img" style="display:flex; align-items:center; justify-content:center; border:1px dashed rgba(255,255,255,0.35);">
@@ -2449,7 +2493,18 @@
             <div class="hero-name">${p.lastName}</div>
           </div>`).join('')}
       </div>
-      <div class="match-note">Le visage des visuels. « But » utilise toujours le buteur.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
+      ${state._shootingOpen ? `
+        <div class="panel-label" style="margin-top:12px;">Shooting maillots <span class="b">${SCENES.filter(s => s.group === 'shooting').length}</span></div>
+        <div class="hero-grid">
+          ${SCENES.filter(s => s.group === 'shooting').map(s => `
+            <div class="hero-mini ${state.heroSceneId === s.id ? 'on' : ''}" onclick="setHeroScene('${s.id}')">
+              <div class="hero-img"><img src="${s.url}" loading="lazy"></div>
+              <div class="hero-name">${s.label}</div>
+            </div>`).join('')}
+        </div>` : ''}
+      <div class="match-note">${state.heroOff
+        ? 'Carte nette : aucun visage.'
+        : 'Le visage des visuels. « But » utilise toujours le buteur.'} Retape la case active pour la désélectionner.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
 
       <!-- DÉCOR — passe DERRIÈRE le joueur -->
       <div class="panel-label" style="margin-top:18px;">Décor en fond
@@ -3129,7 +3184,7 @@
   const LIVE_KEY_PREFIX = 'fca-mc:v1:live:';
   const LAST_KEY = 'fca-mc:v1:last';
   const LIVE_TTL_MS = 12 * 3600 * 1000;
-  const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage','sceneId',
+  const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage','sceneId','heroOff','heroSceneId',
     'competitionSub','matchId','_userPickedMatch','opponentSlug','matchNumber','venue','venueCity',
     'kickoff','matchBallSponsors','score','minute','scorerId','scorerSide','formation','captainId',
     'lineupStarters','lineupBench','guests','goals','customMessage','captionOverride'];
