@@ -1368,15 +1368,14 @@
          sombre se voit en post). Comme le canvas post est plus large, l'image
          grandit : on remonte son ancrage pour que le VISAGE tombe au même
          endroit qu'en story — composition identique dans les deux formats. */
-      const w = FB.vw;
-      const top = Math.round(480 - (w / 1080 - 1) * 504);
-      /* Les photos de la banque ont un fond bleu nuit cuit dans l'image : sans
-         préparation, leur bord haut dessine une ligne nette sur le ciel. On
-         assombrit progressivement la bande juste au-dessus → la jonction
-         disparaît. */
-      return `<div style="position:absolute; left:0; right:0; top:${top - 190}px; height:230px; background:linear-gradient(180deg, transparent 0%, rgba(6,20,45,0.55) 55%, rgba(6,20,45,0.95) 100%);"></div>
+      /* La photo garde EXACTEMENT la même taille et le même ancrage en story
+         et en post (composition identique). Comme le canvas post est plus
+         large que la photo, une nappe bleu nuit la prolonge sur toute la
+         largeur — c'est elle qui absorbe aussi le bord haut de l'image (ces
+         photos portent un fond cuit qui dessinerait sinon une ligne nette). */
+      return `<div style="position:absolute; left:0; right:0; top:290px; bottom:0; background:linear-gradient(180deg, transparent 0px, rgba(6,20,45,0.58) 130px, rgba(6,20,45,0.9) 195px, rgba(6,20,45,0.95) 320px, rgba(6,20,45,0.96) 100%);"></div>
       <div style="position:absolute; top:430px; left:50%; margin-left:-420px; width:840px; height:840px; background:radial-gradient(circle, rgba(46,123,255,0.3) 0%, rgba(46,123,255,0.1) 42%, transparent 68%);"></div>
-      <div style="position:absolute; left:0; top:${top}px; width:${w}px; height:${Math.round(w * 4 / 3)}px; background-image:url('${d}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>`;
+      <div style="position:absolute; left:50%; margin-left:-540px; top:480px; width:1080px; height:1440px; background-image:url('${d}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>`;
     },
     scrim(topY = 1020) {
       return `<div style="position:absolute; left:0; right:0; top:${topY}px; bottom:0; background:linear-gradient(180deg, transparent 0%, rgba(4,8,15,0.35) 20%, rgba(4,8,15,0.72) 36%, rgba(4,8,15,0.95) 52%, rgba(4,8,15,1) 70%);"></div>`;
