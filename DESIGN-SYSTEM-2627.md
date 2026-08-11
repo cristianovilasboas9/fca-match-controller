@@ -100,7 +100,17 @@ version **détourée** vit désormais à côté sur le site :
 `/players/cutout/<slug>.webp` (générée par `rembg` modèle `birefnet-portrait`,
 exposée par le bundle en `photoCutoutUrl`).
 
-- Le buste détouré est posé à **0.93 d'opacité**, largeur 1010, ancré y512.
+- Le buste détouré est posé à **0.93 d'opacité**, hauteur **1700** ancrée y330 :
+  le joueur occupe QUASIMENT toute la hauteur (loi Boss 11.08) et déborde
+  donc du cadre en largeur. On le positionne par la **face** (centrée dans la
+  découpe), pas par le bord : `left = faceX × largeurCanvas − largeur/2`,
+  avec faceX = .63 (droite) / .37 (gauche) / .50 (centre).
+- Un **voile haut** (620px, sans bord visible) garde le header lisible sur les
+  cheveux — mesuré 18:1 sur les titres.
+- **Image importée** : le président peut charger sa propre photo (tuile
+  « Importer »). Elle porte son décor → rendue plein cadre (`cover`, ancrée
+  22 % du haut), pas en buste. Réduite à 1400px / JPEG 0.86 avant stockage,
+  sinon le quota localStorage explose et l'état du match est perdu.
 - **Décalage par variante** (`FB.side`) — deux stories publiées à la suite ne
   montrent jamais l'image au même endroit :
   matchday **droite** · kickoff **gauche** · live **droite** ·

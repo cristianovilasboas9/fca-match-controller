@@ -672,6 +672,10 @@
     homeAway: 'away',
     // 'championnat' → eyebrow 4E LIGUE · GROUPE 6 + #4eLigue · 'coupe' → BCV CUP + #BCVCup · 'amical' → MATCH AMICAL
     competition: 'coupe',
+    // Image de fond importée par le président (dataURL JPEG réduite).
+    // Quand elle est posée, elle remplace le joueur sur toutes les variantes
+    // sauf « But » (là, c'est toujours le buteur).
+    customHeroImage: '',
     // Joueur en fond choisi à la main ('' = rotation automatique par match).
     // Ne s'applique JAMAIS au variant But : là, le héros est le buteur.
     heroPlayerId: '',
@@ -732,7 +736,39 @@
     const conv = withPhotos.filter(isConvoked);
     return (conv.length ? conv : withPhotos).sort((a, b) => (a.jerseyDisplay || 99) - (b.jerseyDisplay || 99));
   }
+  /* Import d'une image de fond. On la réduit à 1400px de large en JPEG
+     avant de la garder : une photo d'iPhone brute ferait exploser le quota
+     de stockage et l'état du match serait perdu au rechargement. */
+  window.loadHeroUpload = function(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        const maxW = 1400;
+        const scale = Math.min(1, maxW / im.width);
+        const c = document.createElement('canvas');
+        c.width = Math.round(im.width * scale);
+        c.height = Math.round(im.height * scale);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        state.customHeroImage = c.toDataURL('image/jpeg', 0.86);
+        state.heroPlayerId = '';
+        toast('Image de fond importée', 'blue');
+        renderPanel(); refresh();
+      };
+      im.onerror = () => toast('Image illisible', 'red');
+      im.src = reader.result;
+    };
+    reader.onerror = () => toast('Lecture impossible', 'red');
+    reader.readAsDataURL(file);
+  };
+  window.clearHeroUpload = function() {
+    state.customHeroImage = '';
+    toast('Image retirée', 'blue');
+    renderPanel(); refresh();
+  };
   window.setHeroPlayer = function(id) {
+    state.customHeroImage = '';
     state.heroPlayerId = id || '';
     const p = id ? BY_ID[id] : null;
     if (p) ensureCutout(p);
@@ -791,7 +827,10 @@
      pose sur le décor. On garde la photo d'origine en secours. */
   const CUTOUT_CACHE = {};
   const _cutoutFetching = new Set();
-  function heroImage(p) {
+  function heroImage(p, allowCustom = true) {
+    /* Image importée : elle porte son propre décor, on la traite en fond
+       plein cadre (pas en buste détouré). */
+    if (allowCustom && state.customHeroImage) return { src: state.customHeroImage, mode: 'bg' };
     if (!p) return null;
     if (p.cutoutUrl && CUTOUT_CACHE[p.cutoutUrl]) return { src: CUTOUT_CACHE[p.cutoutUrl], cut: true };
     const photo = getCachedPhoto(p);
@@ -1423,6 +1462,11 @@
        masque sa boîte. */
     photo(img, side = 'center') {
       if (!img) return '';
+      /* Image importée par le président : plein cadre, cadrée au centre. */
+      if (img.mode === 'bg') {
+        return `<div style="position:absolute; inset:0; background-image:url('${img.src}'); background-size:cover; background-position:center 22%; background-repeat:no-repeat; opacity:0.96;"></div>
+        <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,8,15,0.72) 0%, rgba(4,8,15,0.3) 22%, transparent 44%);"></div>`;
+      }
       const haloX = side === 'right' ? '60%' : side === 'left' ? '40%' : '50%';
       const halo = `<div style="position:absolute; top:${side === 'center' ? 430 : 480}px; left:${haloX}; margin-left:-420px; width:840px; height:840px; background:radial-gradient(circle, rgba(46,123,255,0.28) 0%, rgba(46,123,255,0.1) 42%, transparent 68%);"></div>`;
       if (!img.cut) {
@@ -1430,12 +1474,17 @@
       ${halo}
       <div style="position:absolute; left:50%; margin-left:-540px; top:480px; width:1080px; height:1440px; background-image:url('${img.src}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>`;
       }
-      const w = 1010, h = 1330, top = 512;
-      const left = side === 'right' ? FB.vw - w + 132
-                 : side === 'left'  ? -132
-                 : Math.round((FB.vw - w) / 2);
+      /* Boss 11.08 : le joueur occupe QUASIMENT toute la hauteur. Le buste
+         déborde donc largement du cadre en largeur — on positionne par la
+         FACE (elle est centrée dans la découpe), pas par le bord. */
+      const h = 1700, w = Math.round(h * 0.79), top = 330;
+      const faceX = side === 'right' ? 0.63 : side === 'left' ? 0.37 : 0.5;
+      const left = Math.round(faceX * FB.vw - w / 2);
+      /* Le buste monte maintenant jusque dans la bande du titre : un voile
+         haut sans bord visible garde le header lisible sur les cheveux. */
       return `${halo}
-      <div style="position:absolute; left:${left}px; top:${top}px; width:${w}px; height:${h}px; opacity:0.93; background-image:url('${img.src}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>`;
+      <div style="position:absolute; left:${left}px; top:${top}px; width:${w}px; height:${h}px; opacity:0.93; background-image:url('${img.src}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>
+      <div style="position:absolute; left:0; right:0; top:0; height:620px; background:linear-gradient(180deg, rgba(4,8,15,0.72) 0%, rgba(4,8,15,0.5) 42%, rgba(4,8,15,0.2) 72%, transparent 100%);"></div>`;
     },
     /* Côté du buste par variante : deux stories publiées à la suite ne
        présentent jamais la même image au même endroit. */
@@ -2340,10 +2389,19 @@
         <span class="b blue">${state.heroPlayerId ? 'choisi' : 'auto'}</span>
       </div>
       <div class="hero-grid">
-        <div class="hero-mini ${state.heroPlayerId ? '' : 'on'}" onclick="setHeroPlayer('')">
+        <div class="hero-mini ${(state.heroPlayerId || state.customHeroImage) ? '' : 'on'}" onclick="setHeroPlayer('')">
           <div class="hero-auto">AUTO</div>
           <div class="hero-name">Rotation</div>
         </div>
+        <label class="hero-mini ${state.customHeroImage ? 'on' : ''}" style="cursor:pointer;">
+          <div class="hero-img" style="display:flex; align-items:center; justify-content:center; border:1px dashed rgba(255,255,255,0.35);">
+            ${state.customHeroImage
+              ? `<img src="${state.customHeroImage}">`
+              : `<span style="font-family:'Inter',sans-serif; font-weight:700; font-size:16px; color:rgba(255,255,255,0.6);">+</span>`}
+          </div>
+          <div class="hero-name">${state.customHeroImage ? 'Ma photo' : 'Importer'}</div>
+          <input type="file" accept="image/*" id="hero-upload" style="display:none;">
+        </label>
         ${heroCandidates().map(p => `
           <div class="hero-mini ${state.heroPlayerId === p.id ? 'on' : ''}" onclick="setHeroPlayer('${p.id}')">
             <div class="hero-img">${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy">` : ''}</div>
@@ -2351,7 +2409,7 @@
             <div class="hero-name">${p.lastName}</div>
           </div>`).join('')}
       </div>
-      <div class="match-note">Le visage des visuels. « But » utilise toujours le buteur.</div>
+      <div class="match-note">Le visage des visuels. « But » utilise toujours le buteur.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
 
       <!-- BALLONS DE MATCH — sponsors qui apparaîtront sur matchday / kickoff / recap -->
       <div class="panel-label" style="margin-top:18px;">Ballons de match <span class="b">${state.matchBallSponsors.length}</span></div>
@@ -2650,6 +2708,8 @@
     document.querySelectorAll('.match-row').forEach(b => b.addEventListener('click', () => applyMatch(b.dataset.mid)));
     // Heure — SEUL champ éditable du match. L'éditer pose la garde pour qu'un
     // refresh bundle tardif ne réécrase pas l'horaire choisi par le président.
+    const up = document.getElementById('hero-upload');
+    if (up) up.addEventListener('change', e => loadHeroUpload(e.target.files && e.target.files[0]));
     const tInput = document.getElementById('time-input');
     if (tInput) tInput.addEventListener('input', e => {
       state.kickoff.time = e.target.value;
@@ -3012,7 +3072,7 @@
   const LIVE_KEY_PREFIX = 'fca-mc:v1:live:';
   const LAST_KEY = 'fca-mc:v1:last';
   const LIVE_TTL_MS = 12 * 3600 * 1000;
-  const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId',
+  const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage',
     'competitionSub','matchId','_userPickedMatch','opponentSlug','matchNumber','venue','venueCity',
     'kickoff','matchBallSponsors','score','minute','scorerId','scorerSide','formation','captainId',
     'lineupStarters','lineupBench','guests','goals','customMessage','captionOverride'];
