@@ -320,6 +320,9 @@
   .goal-row .g-min { font-family:'Oswald',sans-serif; font-weight:700; font-size:14px; min-width:38px; color:#F5B82E; }
   .goal-row.away .g-min { color:#EF4444; }
   .goal-row .g-emoji { font-size:16px; }
+  .goal-row .g-min-input { width:52px; background:rgba(245,184,46,0.12); border:1px solid rgba(245,184,46,0.35); border-radius:8px; color:#F5B82E; font-family:'Oswald',sans-serif; font-weight:700; font-size:14px; text-align:center; padding:4px 2px; }
+  .goal-row.away .g-min-input { background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.35); color:#EF4444; }
+  .goal-row .g-scorer { flex:1; min-width:0; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:8px; color:#fff; font-family:'Oswald',sans-serif; font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; padding:5px 6px; }
   .goal-row .g-name { flex:1; font-family:'Oswald',sans-serif; font-weight:600; font-size:12px; text-transform:uppercase; color:#fff; letter-spacing:0.04em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .goal-row .g-jersey { font-family:'Oswald',sans-serif; font-weight:700; font-size:11px; padding:2px 7px; border-radius:6px; background:rgba(46,123,255,0.2); color:#8DB6FF; }
   .goal-row .g-rm { background:none; border:0; color:rgba(255,255,255,0.4); font-size:18px; cursor:pointer; padding:0 4px; line-height:1; }
@@ -731,6 +734,14 @@
     captionOverride: {},     // per-variant caption override — { hook, body, tags }
   };
 
+  /* Boss 11.08 : seuls le matchday et le recap se publient en 4:5. Les
+     autres visuels sont pensés pour la story et perdent leur composition en
+     format carré — le bouton POST est donc désactivé pour eux, et le rendu
+     comme l'export retombent sur la story quoi qu'il arrive. */
+  const POST_ALLOWED = ['matchday', 'recap'];
+  const canPost = (v = state.variant) => POST_ALLOWED.includes(v);
+  const effFormat = () => (canPost() ? state.format : 'story');
+
   const getOpp = () => OPPONENTS.find(o => o.slug === state.opponentSlug) || OPPONENTS[0];
   const getVariant = () => VARIANTS.find(v => v.id === state.variant) || VARIANTS[0];
   const playerInitials = p => (p.lastName || '?').slice(0,2).toUpperCase();
@@ -854,6 +865,11 @@
      le ROSTER porte deux n°1 (Tiago / Tony) et deux n°17 (Barry / Marzouki).
      Si le nom de la convocation ne colle à aucun joueur du numéro (graphie),
      repli par numéro seul — mieux vaut inclure trop que rayer un convoqué. */
+  /* Le capitaine porte toujours son C, partout où son nom s'affiche
+     (loi Boss 11.08). */
+  const isCaptain = (p) => !!p && p.id === state.captainId;
+  const nameWithC = (p) => p ? `${(p.lastName || '').toUpperCase()}${isCaptain(p) ? ' (C)' : ''}` : '';
+
   const normName = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
   function isConvoked(p) {
     const list = state.convokedPlayers;
@@ -1962,7 +1978,7 @@
         ${FB.colDroite('Minute', FB.chiffre(goalMinute + "'", 140, GOLD))}
         ${FB.compline(470)}
         ${FB.rail()}
-        <div style="position:absolute; left:0; right:0; top:1210px; text-align:center; ${dispFontCss(sc.firstName + sc.lastName)} font-size:62px; line-height:1.1; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 18px rgba(4,8,15,0.95);">${sc.firstName} ${sc.lastName}</div>
+        <div style="position:absolute; left:0; right:0; top:1210px; text-align:center; ${dispFontCss(sc.firstName + sc.lastName)} font-size:62px; line-height:1.1; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 18px rgba(4,8,15,0.95);">${sc.firstName} ${nameWithC(sc)}</div>
         ${FB.scoreRow(1330, 150, 92)}
         ${FB.bottom(false)}`;
       return { fullBleed: true, html };
@@ -1996,11 +2012,11 @@
           </div>
           <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(4,8,15,0.92) 30%, #04080F); padding:${pf(120,120)}px ${pf(24,24)}px ${pf(20,22)}px; z-index:2;">
             <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:${pf(24,26)}px; color:${GOLD}; letter-spacing:0.08em; text-transform:uppercase;">${sc.firstName}</div>
-            <div style="${dispFontCss(sc.lastName)} font-size:${lastNameFS}px; line-height:1; text-transform:uppercase; letter-spacing:0.03em; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.lastName}</div>
+            <div style="${dispFontCss(sc.lastName)} font-size:${lastNameFS}px; line-height:1; text-transform:uppercase; letter-spacing:0.03em; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${nameWithC(sc)}</div>
           </div>
         </div>
         <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(200,180)}px; line-height:0.95; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.7), 0 0 20px rgba(255,255,255,0.2); letter-spacing:0.06em; text-align:center; margin-top:${pf(8,6)}px;">BUT !</div>
-        <div style="${dispFontCss(sc.firstName + sc.lastName)} font-size:${pf(50,48)}px; line-height:1; color:#fff; letter-spacing:0.05em; text-align:center; text-transform:uppercase; margin-top:${pf(-16,-14)}px;">${sc.firstName} ${sc.lastName}</div>
+        <div style="${dispFontCss(sc.firstName + sc.lastName)} font-size:${pf(50,48)}px; line-height:1; color:#fff; letter-spacing:0.05em; text-align:center; text-transform:uppercase; margin-top:${pf(-16,-14)}px;">${sc.firstName} ${nameWithC(sc)}</div>
         ${customMessageBlock('')}
       </div>
       ${venueFooter()}
@@ -2050,14 +2066,22 @@
     const fcaGoals = (state.goals || [])
       .filter(g => g.side === 'home' && g.playerId)
       .sort((a, b) => (a.minute - b.minute) || (a.ts - b.ts));
-    const atlSubBlock = fcaGoals.length === 0 ? '' : `
+    /* Regroupement par buteur : un joueur qui marque plusieurs fois tient sur
+       UNE ligne — « 9' + 19' NOM » (Boss 11.08). Source unique, utilisée par le
+       rendu plein cadre comme par la carte de secours. */
+    const parMarqueur = [];
+    fcaGoals.forEach(g => {
+      const p = BY_ID[g.playerId] || state.guests.find(x => x.id === g.playerId);
+      if (!p) return;
+      const hit = parMarqueur.find(x => x.p.id === p.id);
+      if (hit) hit.minutes.push(g.minute);
+      else parMarqueur.push({ p, minutes: [g.minute] });
+    });
+    const minutesOf = (mins) => mins.slice().sort((a, b) => a - b).map(m => `${m}'`).join(' + ');
+    const atlSubBlock = parMarqueur.length === 0 ? '' : `
       <div style="margin-top:4px; display:flex; flex-direction:column; align-items:center; gap:6px;">
-        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:14px; letter-spacing:0.24em; color:rgba(245,184,46,0.9); text-transform:uppercase;">⚽ Buteur${fcaGoals.length>1?'s':''}</div>
-        ${fcaGoals.map(g => {
-          const p = BY_ID[g.playerId];
-          if (!p) return '';
-          return `<div style="font-family:'Oswald',sans-serif; font-weight:700; font-size:22px; line-height:1.15; letter-spacing:0.03em; text-transform:uppercase; color:#fff; white-space:nowrap;"><span style="color:rgba(255,255,255,0.55); font-weight:500; margin-right:6px;">${g.minute}'</span>${p.lastName}</div>`;
-        }).join('')}
+        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:14px; letter-spacing:0.24em; color:rgba(245,184,46,0.9); text-transform:uppercase;">Buteur${parMarqueur.length>1?'s':''}</div>
+        ${parMarqueur.map(({ p, minutes }) => `<div style="font-family:'Oswald',sans-serif; font-weight:700; font-size:22px; line-height:1.15; letter-spacing:0.03em; text-transform:uppercase; color:#fff; white-space:nowrap;"><span style="color:rgba(255,255,255,0.55); font-weight:500; margin-right:6px;">${minutesOf(minutes)}</span>${nameWithC(p)}</div>`).join('')}
       </div>`;
     /* Full-bleed système : héros = dernier buteur FCA (photo), sinon rotation */
     const lastScorer = [...fcaGoals].reverse().map(g => BY_ID[g.playerId]).find(p => p && getCachedPhoto(p));
@@ -2066,13 +2090,26 @@
     if (heroRImg) {
       const resultWord = win ? 'VICTOIRE' : (draw ? 'MATCH NUL' : 'DÉFAITE');
       const resultCol = win ? '#F5B82E' : (draw ? '#FFFFFF' : '#F87171');
-      const shown = fcaGoals.slice(0, (state.matchBallSponsors || []).length ? 2 : 3);
-      const more = fcaGoals.length - shown.length;
-      const buteurRows = shown.map(g => {
-        const p = BY_ID[g.playerId];
-        if (!p) return '';
-        return `<div style="margin-top:8px;"><span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:28px; color:${GOLD}; margin-right:14px;">${g.minute}'</span><span style="${dispFontCss(p.lastName)} font-size:30px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.92);">${p.lastName}</span></div>`;
-      }).join('') + (more > 0 ? `<div style="margin-top:8px; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.2em; color:rgba(255,255,255,0.5);">+ ${more} autre${more > 1 ? 's' : ''}</div>` : '');
+      /* Boss 11.08 : TOUS les buteurs, jamais de « + 2 autres ». Un joueur qui
+         marque plusieurs fois tient sur UNE ligne : « 9' + 19' NOM ». La taille
+         se resserre quand la liste s'allonge pour que tout tienne au propre. */
+      const n = parMarqueur.length;
+      const fsMin = n > 6 ? 20 : n > 4 ? 24 : 28;
+      const fsNom = n > 6 ? 22 : n > 4 ? 26 : 30;
+      const gap   = n > 6 ? 5 : n > 4 ? 6 : 8;
+      /* La liste des buteurs grandit vers le HAUT : son bas reste calé
+         au-dessus du pied, sinon la 4e ligne écrivait sur le lieu (constaté
+         à l'export avec 5 buts). Le matchup se replie s'il n'y a plus la
+         place — les buteurs priment sur les écussons. */
+      const hasSponsors = (state.matchBallSponsors || []).length > 0;
+      const bottomTop = hasSponsors ? 1436 : 1500;      // 1re ligne du pied
+      const blocH = 24 + n * (fsNom + gap + 6);
+      const buteursY = bottomTop - blocH - 26;
+      const matchupY = buteursY - 118 >= 1120 ? buteursY - 118 : null;
+      const buteurRows = parMarqueur.map(({ p, minutes }) => {
+        const mins = minutesOf(minutes);
+        return `<div style="margin-top:${gap}px;"><span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${fsMin}px; color:${GOLD}; margin-right:14px;">${mins}</span><span style="${dispFontCss(p.lastName)} font-size:${fsNom}px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.92);">${nameWithC(p)}</span></div>`;
+      }).join('');
       const html = `
         ${FB.bg()}
         ${FB.photo(heroRImg, FB.side('recap'))}
@@ -2082,9 +2119,9 @@
         ${FB.compline(470)}
         ${FB.colDroite('Score final', FB.chiffre(`${state.homeAway === 'away' ? state.score.away : state.score.home}<span style="opacity:0.55;"> – </span>${state.homeAway === 'away' ? state.score.home : state.score.away}`, 140, '#FFFFFF'))}
         ${FB.rail()}
-        ${FB.matchup(1214)}
-        ${fcaGoals.length ? `<div style="position:absolute; left:0; right:0; top:1318px; text-align:center;">
-          <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD};">Buteur${fcaGoals.length > 1 ? 's' : ''}</div>
+        ${matchupY !== null ? FB.matchup(matchupY) : ''}
+        ${n ? `<div style="position:absolute; left:0; right:0; top:${buteursY}px; text-align:center;">
+          <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD};">Buteur${n > 1 ? 's' : ''}</div>
           ${buteurRows}
         </div>` : ''}
         ${FB.bottom(true)}`;
@@ -2142,7 +2179,7 @@
             <div style="position:absolute; bottom:-6px; right:-8px; width:38px; height:38px; border-radius:50%; background:#04080F; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:19px; border:2px solid rgba(255,255,255,0.28); z-index:3;">${p.jerseyDisplay}</div>
             ${isCaptain ? `<div style="position:absolute; top:-6px; left:-8px; width:32px; height:32px; border-radius:50%; background:#04080F; color:${GOLD}; display:flex; align-items:center; justify-content:center; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:17px; border:2px solid ${GOLD}; z-index:3;">C</div>` : ''}
           </div>
-          <div style="${dispFontCss(p.lastName)} font-size:20px; text-transform:uppercase; color:#fff; letter-spacing:0.04em; white-space:nowrap; max-width:170px; overflow:hidden; text-overflow:ellipsis; line-height:1.05; text-shadow:0 2px 10px rgba(0,0,0,0.85), 0 0 22px rgba(0,0,0,0.7);">${p.lastName}</div>
+          <div style="${dispFontCss(p.lastName)} font-size:20px; text-transform:uppercase; color:#fff; letter-spacing:0.04em; white-space:nowrap; max-width:170px; overflow:hidden; text-overflow:ellipsis; line-height:1.05; text-shadow:0 2px 10px rgba(0,0,0,0.85), 0 0 22px rgba(0,0,0,0.7);">${nameWithC(p)}</div>
         </div>
       `;
     }
@@ -2257,7 +2294,7 @@
       : 1080;
     // Lineup is too dense for 4:5 → force story format for this variant only
     let savedFormat = null;
-    if (v === 'lineup' && state.format === 'post') {
+    if (!canPost(v) && state.format === 'post') {
       savedFormat = state.format;
       state.format = 'story';
     }
@@ -2284,7 +2321,7 @@
     const wrap = container.closest('.preview-inner');
     const ratio = container.closest('.preview-ratio');
     // Lineup variant always renders as story regardless of toggle
-    const effectiveFormat = (state.variant === 'lineup') ? 'story' : state.format;
+    const effectiveFormat = effFormat();
     if (effectiveFormat === 'post') {
       ratio.classList.add('fmt-post');
     } else {
@@ -2580,11 +2617,17 @@
           const p = g.playerId ? BY_ID[g.playerId] : null;
           const name = p ? `${p.firstName} ${p.lastName}` : 'But adverse';
           const jersey = p ? `<span class="g-jersey">#${p.jerseyDisplay}</span>` : '';
+          /* Boss 11.08 : chaque ligne se corrige sur place — la minute est
+             éditable, et le buteur se change sans supprimer/re-saisir. */
           return `<div class="goal-row ${g.side==='away'?'away':''}">
-            <span class="g-min">${g.minute}'</span>
+            <input class="g-min-input" type="number" min="0" max="130" inputmode="numeric"
+                   value="${g.minute}" data-ts="${g.ts}" aria-label="Minute du but">
             <span class="g-emoji">${g.side==='home'?'⚽':'😐'}</span>
-            <span class="g-name">${name}</span>
-            ${jersey}
+            ${g.side === 'home'
+              ? `<select class="g-scorer" data-ts="${g.ts}" aria-label="Buteur">
+                   ${allPlayers().map(p => `<option value="${p.id}" ${p.id===g.playerId?'selected':''}>${p.jerseyDisplay} · ${p.lastName.toUpperCase()}</option>`).join('')}
+                 </select>`
+              : `<span class="g-name">${name}</span>${jersey}`}
             <button class="g-rm" onclick="removeGoal(${g.ts})" aria-label="Retirer">×</button>
           </div>`;
         }).join('');
@@ -2830,6 +2873,24 @@
       state._userPickedMatch = true;
       refresh();
     });
+    /* Édition en place d'une ligne de but (minute + buteur). */
+    document.querySelectorAll('.g-min-input').forEach(el => el.addEventListener('change', e => {
+      const ts = Number(e.target.dataset.ts);
+      const g = state.goals.find(x => x.ts === ts);
+      if (!g) return;
+      g.minute = Math.max(0, Math.min(130, parseInt(e.target.value, 10) || 0));
+      renderPanel(); refresh();
+    }));
+    document.querySelectorAll('.g-scorer').forEach(el => el.addEventListener('change', e => {
+      const ts = Number(e.target.dataset.ts);
+      const g = state.goals.find(x => x.ts === ts);
+      if (!g) return;
+      g.playerId = e.target.value;
+      if (state.scorerId && !state.goals.some(x => x.playerId === state.scorerId)) {
+        state.scorerId = g.playerId;   // le visuel « But » suit le dernier buteur valide
+      }
+      renderPanel(); refresh();
+    }));
     const sh = document.getElementById('score-home');
     const sa = document.getElementById('score-away');
     const mn = document.getElementById('minute-input');
@@ -3254,7 +3315,7 @@
     if (lastHome) ensureCutout(BY_ID[lastHome.playerId]);
     updatePreview(); updateAppbar(); persistLive();
   }
-  function renderAll() { renderSectionTabs(); renderPanel(); refresh(); }
+  function renderAll() { renderSectionTabs(); renderPanel(); syncFormatToggle(); refresh(); }
 
   function toast(msg, kind='') {
     const t = document.getElementById('toast');
@@ -3266,13 +3327,27 @@
 
   window.setFormat = function(fmt) {
     if (fmt !== 'story' && fmt !== 'post') return;
+    if (fmt === 'post' && !canPost()) {
+      toast('Le 4:5 n\'existe que pour Matchday et Recap', 'blue');
+      return;
+    }
     state.format = fmt;
-    // Update toggle UI
-    document.querySelectorAll('#format-toggle .ft-btn').forEach(b => {
-      b.classList.toggle('on', b.dataset.fmt === fmt);
-    });
+    syncFormatToggle();
     refresh();
   };
+  /* Reflète l'état réel : bouton actif + POST grisé quand la variante ne le
+     propose pas (le clic est refusé de toute façon). */
+  function syncFormatToggle() {
+    const eff = effFormat();
+    document.querySelectorAll('#format-toggle .ft-btn').forEach(b => {
+      const isPost = b.dataset.fmt === 'post';
+      b.classList.toggle('on', b.dataset.fmt === eff);
+      b.disabled = isPost && !canPost();
+      b.style.opacity = (isPost && !canPost()) ? '0.32' : '';
+      b.style.cursor = (isPost && !canPost()) ? 'not-allowed' : '';
+      b.title = (isPost && !canPost()) ? 'Disponible sur Matchday et Recap' : '';
+    });
+  }
 
   /* ---------- PNG GENERATION (v11 — bug-fix: force data URL hydration) ----------
      Bug fixed: external image URLs (logos d'opposants, photos joueurs) ne sont
@@ -3308,7 +3383,7 @@
     // Format effectif : la variante lineup force le 9:16 (story) même si le toggle est sur post,
     // car le poster lineup est trop dense pour le 4:5. Cf. posterHTML L1231 et updatePreview L1257.
     // Sans ça, l'export PNG était silencieusement croppé à 1080x1350 en perdant le banc + le footer.
-    const effectiveFormat = (state.variant === 'lineup') ? 'story' : state.format;
+    const effectiveFormat = effFormat();
     const f = FORMATS[effectiveFormat] || FORMATS.story;
 
     // STEP 0 — Rasterize the FCA SVG crest to PNG for reliable html2canvas export
@@ -3421,7 +3496,7 @@
     const prefix = (TENANT_CONFIG.club.abbr || 'POSTER').toUpperCase();
     /* Le lineup est TOUJOURS rendu en 9:16 (trop dense en 4:5) : on ne le
        nomme jamais « post », sinon le fichier ment sur son format. */
-    const fmtName = state.variant === 'lineup' ? 'story' : state.format;
+    const fmtName = effFormat();
     return `${prefix}_${state.variant}_${date}_${fmtName}.png`;
   }
 
