@@ -72,6 +72,27 @@ Post 4:5 : MÊME composition dans un canvas virtuel scalé (ancres left/right).
 | **recap** | RÉSULTAT FINAL / mot résultat (or/blanc/rouge) | score Outlined | buteurs (minutes or) · parrains · venue | dernier buteur FCA, sinon rotation |
 | **lineup** | COMPOSITION / jour+date | formation Outlined | terrain tactique (pas de photo héros) · banc · venue | — |
 
+## 5bis. Grille verrouillée (audit panel DA, 11.08)
+
+Ces valeurs ne sont PAS des suggestions — un panel de 4 DA indépendants a
+mesuré les dérives qu'elles corrigent.
+
+| Élément | Ancre | Règle |
+|---|---|---|
+| Kicker gauche | y238 | bleu `#5E9BFF`, Inter 700, 21px, .34em |
+| Titre display | y282 | rampe FIXE : 156px, ou 126px si > 10 caractères. Jamais d'autre valeur |
+| Colonne droite | y238 (label) | `FB.colDroite(label, chiffre)` — micro-label sur la MÊME ligne de base que le kicker |
+| Ligne compétition | y470-545 | opacité .66 minimum (mesuré 4.4:1 avant, ≥7:1 après) |
+| Info stack | grandit vers le HAUT | dernier pixel de contenu ≤ **y1650** (Instagram masque les 250 derniers px) |
+| Écusson | 92px | UN seul diamètre pour le même objet, halo sombre derrière (le blanc se perd sur le maillot clair) |
+
+**Contrastes plancher** (mesurés sur l'export, pas estimés) : texte courant ≥ 7:1,
+micro-label ≥ 4.5:1. Le bleu roi `#2E7BFF` tombe à 3.6:1 sur nuit → pour du TEXTE
+on utilise `FB.royal` = `#5E9BFF`. Jamais de glow de la même teinte que le texte.
+
+**Réserve de l'or** : BUT, minute du but, parrains ballon, étoiles TBD, VICTOIRE,
+brassard capitaine. La minute d'un match en cours (live, mi-temps) est BLANCHE.
+
 ## 6. Lois non négociables
 
 - **Zéro chrome** : pas de cadre, pas de pastille décorative, pas de tuile bordée.
