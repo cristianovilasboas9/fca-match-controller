@@ -85,6 +85,14 @@ until curl -sL "https://cristianovilasboas9.github.io/fca-match-controller/?v=$(
 | — | `loadBundle` | Bundle API 26/27 : saison entière (matchs UUID + heures TBD + convocations par match + parrains ballon + roster) depuis /api/match-controller/bundle, cache localStorage `fca-mc:v1:bundle`, fallback tables hardcodées |
 | 2739 | `async function init` | Init : auto-sélection `nextUpcomingMatch()` par date réelle, puis `loadFromSite()` + `ensureAtlCrestPng()` + `preloadAllAssets()` puis `refresh()` |
 
+## Design — LIRE AVANT TOUTE MODIF VISUELLE
+
+**`DESIGN-SYSTEM-2627.md` est la loi.** Identité, typographie du maillot
+(Portugal2025 solid = texte, Portugal2025 Outlined = grands chiffres), grille
+story 1080×1920, briques `FB.*`, blueprint par variante, lois non négociables.
+Aucune variante ne se dessine « à la main » : on assemble des briques `FB`.
+Toute nouvelle brique s'ajoute à `FB` ET au document.
+
 ## Pièges à NE PAS réintroduire
 
 1. **Photos `.webp` pas `.png`** — le site fc-atlantic-vevey.ch a migré tout en webp. Toute URL en `.png` dans ROSTER → 404 → fallback initiales. Toujours utiliser `.webp`.
