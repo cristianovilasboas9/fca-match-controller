@@ -1350,6 +1350,116 @@
     </div>`;
   }
 
+  /* ══════════ SYSTÈME FULL-BLEED 26/27 — voir DESIGN-SYSTEM-2627.md ═════════
+     Briques UNIQUES partagées par toutes les variantes photo-led. Grille
+     story 1080×1920 fixe ; en post 4:5 le shell scale le canvas virtuel. */
+  const FB = {
+    royal: '#2E7BFF',
+    bg() {
+      return `<div style="position:absolute; inset:0; background:radial-gradient(135% 95% at 72% -14%, #17417F 0%, #133870 20%, #0F2E5C 38%, #0C264C 50%, #0A2040 60%, #071630 72%, #050C1C 84%, #04080F 96%);"></div>
+      <div style="position:absolute; inset:0; background:radial-gradient(90% 60% at 30% 110%, rgba(8,65,123,0.25) 0%, rgba(8,65,123,0.08) 50%, transparent 75%);"></div>
+      <div style="position:absolute; top:-220px; right:-180px; width:760px; height:760px; background:radial-gradient(circle, rgba(56,140,255,0.2) 0%, rgba(56,140,255,0.06) 45%, transparent 70%);"></div>`;
+    },
+    photo(d) {
+      return `<div style="position:absolute; top:430px; left:50%; margin-left:-420px; width:840px; height:840px; background:radial-gradient(circle, rgba(46,123,255,0.3) 0%, rgba(46,123,255,0.1) 42%, transparent 68%);"></div>
+      <div style="position:absolute; left:50%; margin-left:-540px; top:480px; width:1080px; height:1440px; background-image:url('${d}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>`;
+    },
+    scrim(topY = 1020) {
+      return `<div style="position:absolute; left:0; right:0; top:${topY}px; bottom:0; background:linear-gradient(180deg, transparent 0%, rgba(4,8,15,0.35) 20%, rgba(4,8,15,0.72) 36%, rgba(4,8,15,0.95) 52%, rgba(4,8,15,1) 70%);"></div>`;
+    },
+    kicker(txt, y = 238) {
+      return `<div style="position:absolute; left:72px; top:${y}px; font-family:'Inter', sans-serif; font-weight:700; font-size:21px; letter-spacing:0.34em; text-transform:uppercase; color:#5E9BFF;">${txt}</div>`;
+    },
+    titre(txt, size = 168, y = 282, color = '#FFFFFF') {
+      return `<div style="position:absolute; left:72px; top:${y}px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${size}px; line-height:0.95; letter-spacing:0.015em; text-transform:uppercase; color:${color}; text-shadow:0 0 30px rgba(46,123,255,0.35); white-space:nowrap;">${txt}</div>`;
+    },
+    sub(txt, y, size = 58) {
+      return `<div style="position:absolute; left:74px; top:${y}px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${size}px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.82);">${txt}</div>`;
+    },
+    compline(y) {
+      return `<div style="position:absolute; left:75px; top:${y}px; font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45);">${compKicker()} · ${compLabel()}${state.matchNumber ? ` · N° ${state.matchNumber}` : ''}</div>`;
+    },
+    chiffre(txt, size, color) {
+      return `<div style="font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:${size}px; line-height:0.88; letter-spacing:0.03em; color:${color}; text-shadow:0 0 14px ${color}77, 0 0 46px ${color}33;">${txt}</div>`;
+    },
+    timeBlock(size = 150) {
+      return isTimeTbd()
+        ? `${FB.chiffre('–:–', size, 'rgba(255,255,255,0.45)')}
+           <div style="margin-top:14px; display:flex; align-items:center; justify-content:flex-end; gap:9px;">
+             ${tbdStars(21)}
+             <span style="font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.2em; text-transform:uppercase; color:${GOLD};">heure à confirmer</span>
+           </div>`
+        : FB.chiffre(state.kickoff.time, size, FB.royal);
+    },
+    rail() {
+      return `<div style="position:absolute; right:-186px; top:1050px; width:520px; transform:rotate(-90deg); font-family:'Inter', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.4em; text-transform:uppercase; color:rgba(255,255,255,0.32); text-align:center;">#${TENANT_CONFIG.social.matchupTagPrefix}${getOpp().abbr}</div>`;
+    },
+    haloCrest(crestHtml, size) {
+      return `<div style="position:relative; width:${size}px; height:${size}px; flex-shrink:0;">
+        <div style="position:absolute; inset:-16px; border-radius:50%; background:radial-gradient(circle, rgba(4,8,15,0.78) 0%, rgba(4,8,15,0.4) 55%, transparent 78%);"></div>
+        <div style="position:relative; z-index:1;">${crestHtml}</div>
+      </div>`;
+    },
+    matchup(y = 1372) {
+      const opp = getOpp();
+      const isAway = state.homeAway === 'away';
+      const leftName  = isAway ? opp.shortName : 'ATLANTIC';
+      const rightName = isAway ? 'ATLANTIC' : opp.shortName;
+      const atl = FB.haloCrest(crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 96, 'transparent'), 96);
+      const oc  = FB.haloCrest(crestNode(getCachedCrest(opp), opp.abbr, 96, 'transparent'), 96);
+      return `<div style="position:absolute; left:0; right:0; top:${y}px; display:flex; align-items:center; justify-content:center; gap:34px;">
+        <div style="display:flex; align-items:center; gap:20px;">${isAway ? oc : atl}<span style="${dispFontCss(leftName)} font-size:44px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${leftName}</span></div>
+        <span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:40px; color:${FB.royal}; text-shadow:0 0 22px ${FB.royal}88;">VS</span>
+        <div style="display:flex; align-items:center; gap:20px;"><span style="${dispFontCss(rightName)} font-size:44px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${rightName}</span>${isAway ? atl : oc}</div>
+      </div>`;
+    },
+    scoreRow(y, fs = 118, crest = 88) {
+      const opp = getOpp();
+      const isAway = state.homeAway === 'away';
+      const ls = isAway ? state.score.away : state.score.home;
+      const rs = isAway ? state.score.home : state.score.away;
+      const atl = FB.haloCrest(crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, crest, 'transparent'), crest);
+      const oc  = FB.haloCrest(crestNode(getCachedCrest(opp), opp.abbr, crest, 'transparent'), crest);
+      return `<div style="position:absolute; left:0; right:0; top:${y}px; display:flex; align-items:center; justify-content:center; gap:38px;">
+        ${isAway ? oc : atl}
+        <span style="font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:${fs}px; line-height:1; color:#fff; text-shadow:0 0 30px rgba(46,123,255,0.5);">${ls}<span style="opacity:0.55;"> – </span>${rs}</span>
+        ${isAway ? atl : oc}
+      </div>`;
+    },
+    sponsors(y = 1548) {
+      const list = state.matchBallSponsors || [];
+      if (!list.length) return '';
+      return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center;">
+        <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD}; margin-bottom:16px;">${TENANT_CONFIG.copy.matchBallLabel}</div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:38px;">
+          ${list.map(s => {
+            const lg = s.logoUrl && SPONSOR_CACHE[s.logoUrl];
+            return lg
+              ? `<div style="width:150px; height:46px; background-image:url('${lg}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>`
+              : `<span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:26px; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.88);">${s.name}</span>`;
+          }).join('')}
+        </div>
+      </div>`;
+    },
+    venue(y) {
+      const isHome = state.homeAway === 'home';
+      const vn = (state.venue && state.venue.trim()) || TENANT_CONFIG.venue.defaultHomeDisplayName;
+      const vc = (state.venueCity && state.venueCity.trim()) || (isHome ? TENANT_CONFIG.venue.defaultHomeCity : '');
+      return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.55);">
+        <span style="color:${isHome ? '#5E9BFF' : '#F87171'};">${isHome ? 'Domicile' : 'Extérieur'}</span> — ${vn}${vc ? ' · ' + vc : ''}
+      </div>`;
+    },
+    signature(y) {
+      return `<div style="position:absolute; left:50%; margin-left:-170px; top:${y}px; width:340px; height:3px; border-radius:2px; background:linear-gradient(90deg, #08417B 0%, #38BDF8 55%, #F5B82E 100%);"></div>
+      <div style="position:absolute; left:0; right:0; top:${y + 18}px; text-align:center; font-family:'Space Grotesk', 'Inter', sans-serif; font-weight:700; font-size:14px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.35);">fc-atlantic-vevey.ch</div>`;
+    },
+    /* Pied standard de la grille : parrains éventuels + venue + signature. */
+    bottom(withSponsors) {
+      const has = withSponsors && (state.matchBallSponsors || []).length > 0;
+      return `${has ? FB.sponsors(1548) : ''}${FB.venue(has ? 1660 : 1560)}${FB.signature(has ? 1712 : 1626)}`;
+    },
+  };
+
   /* ---- Variant: Preview J-3 + Matchday (big date + VS logos) ---- */
   function classicPoster() {
     const opp = getOpp();
@@ -1399,64 +1509,21 @@
     const heroP = heroPlayerFor(state.matchId);
     const heroPhoto = heroP && getCachedPhoto(heroP);
     if (heroPhoto) {
-      const royal = '#2E7BFF';
-      const isHomeFB = state.homeAway === 'home';
-      const leftName  = isAway ? opp.shortName : 'ATLANTIC';
-      const rightName = isAway ? 'ATLANTIC' : opp.shortName;
-      const leftCrest  = isAway ? crestNode(oppCrest, opp.abbr, 96, 'transparent') : crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 96, 'transparent');
-      const rightCrest = isAway ? crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 96, 'transparent') : crestNode(oppCrest, opp.abbr, 96, 'transparent');
-      const sponsors = (state.matchBallSponsors || []);
-      const sponsorRow = sponsors.length ? `
-        <div style="position:absolute; left:0; right:0; top:1548px; text-align:center;">
-          <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD}; margin-bottom:16px;">${TENANT_CONFIG.copy.matchBallLabel}</div>
-          <div style="display:flex; align-items:center; justify-content:center; gap:38px;">
-            ${sponsors.map(s => {
-              const lg = s.logoUrl && SPONSOR_CACHE[s.logoUrl];
-              return lg
-                ? `<div style="width:150px; height:46px; background-image:url('${lg}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>`
-                : `<span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:26px; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.88);">${s.name}</span>`;
-            }).join('')}
-          </div>
-        </div>` : '';
-      const timeBlock = isTimeTbd()
-        ? `<div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:104px; line-height:0.9; letter-spacing:0.05em; color:rgba(255,255,255,0.35);">–:–</div>
-           <div style="margin-top:14px; display:flex; align-items:center; justify-content:flex-end; gap:9px;">
-             ${tbdStars(22)}
-             <span style="font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.2em; text-transform:uppercase; color:${GOLD};">heure à confirmer</span>
-           </div>`
-        : `<div style="font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:158px; line-height:0.88; letter-spacing:0.03em; color:${royal}; text-shadow:0 0 26px ${royal}99, 0 0 90px ${royal}55;">${state.kickoff.time}</div>`;
-      const heroNum = heroP.jerseyDisplay != null ? String(heroP.jerseyDisplay) : '';
       const html = `
-        <div style="position:absolute; inset:0; background:radial-gradient(135% 95% at 72% -14%, #17417F 0%, #133870 20%, #0F2E5C 38%, #0C264C 50%, #0A2040 60%, #071630 72%, #050C1C 84%, #04080F 96%);"></div>
-        <div style="position:absolute; inset:0; background:radial-gradient(90% 60% at 30% 110%, rgba(8,65,123,0.25) 0%, rgba(8,65,123,0.08) 50%, transparent 75%);"></div>
-        <div style="position:absolute; top:-220px; right:-180px; width:760px; height:760px; background:radial-gradient(circle, rgba(56,140,255,0.22) 0%, rgba(56,140,255,0.07) 45%, transparent 70%);"></div>
-        <div style="position:absolute; top:430px; left:50%; margin-left:-420px; width:840px; height:840px; background:radial-gradient(circle, rgba(46,123,255,0.3) 0%, rgba(46,123,255,0.1) 42%, transparent 68%);"></div>
-        <div style="position:absolute; left:50%; margin-left:-540px; top:480px; width:1080px; height:1440px; background-image:url('${heroPhoto}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>
-        <div style="position:absolute; left:0; right:0; top:1020px; bottom:0; background:linear-gradient(180deg, transparent 0%, rgba(4,8,15,0.3) 22%, rgba(4,8,15,0.62) 40%, rgba(4,8,15,0.88) 58%, rgba(4,8,15,1) 82%);"></div>
-
-        <div style="position:absolute; left:72px; top:238px; font-family:'Inter', sans-serif; font-weight:700; font-size:21px; letter-spacing:0.34em; text-transform:uppercase; color:#5E9BFF;">Matchday · Saison 26/27</div>
-        <div style="position:absolute; left:72px; top:282px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:168px; line-height:0.95; letter-spacing:0.01em; text-transform:uppercase; color:#FFFFFF; text-shadow:0 0 30px rgba(46,123,255,0.35);">${state.kickoff.dayName}</div>
-        <div style="position:absolute; left:74px; top:462px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:58px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.82);">${state.kickoff.dateLabel} ${state.kickoff.year}</div>
-        <div style="position:absolute; left:75px; top:545px; font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45);">${compKicker()} · ${compLabel()}${state.matchNumber ? ` · N° ${state.matchNumber}` : ''}</div>
-
-        <div style="position:absolute; right:72px; top:610px; text-align:right;">
+        ${FB.bg()}
+        ${FB.photo(heroPhoto)}
+        ${FB.scrim()}
+        ${FB.kicker('Matchday · Saison 26/27')}
+        ${FB.titre(state.kickoff.dayName, 168)}
+        ${FB.sub(`${state.kickoff.dateLabel} ${state.kickoff.year}`, 462)}
+        ${FB.compline(545)}
+        <div style="position:absolute; right:72px; top:296px; text-align:right;">
           <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:12px;">Coup d'envoi</div>
-          ${timeBlock}
+          ${FB.timeBlock(150)}
         </div>
-
-        <div style="position:absolute; right:-186px; top:1050px; width:520px; transform:rotate(-90deg); font-family:'Inter', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.4em; text-transform:uppercase; color:rgba(255,255,255,0.32); text-align:center;">#${TENANT_CONFIG.social.matchupTagPrefix}${opp.abbr}</div>
-
-        <div style="position:absolute; left:0; right:0; top:1372px; display:flex; align-items:center; justify-content:center; gap:34px;">
-          <div style="display:flex; align-items:center; gap:20px;">${leftCrest}<span style="${dispFontCss(leftName)} font-size:44px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${leftName}</span></div>
-          <span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:40px; color:${royal}; text-shadow:0 0 22px ${royal}88;">VS</span>
-          <div style="display:flex; align-items:center; gap:20px;"><span style="${dispFontCss(rightName)} font-size:44px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${rightName}</span>${rightCrest}</div>
-        </div>
-        ${sponsorRow}
-        <div style="position:absolute; left:0; right:0; top:${sponsors.length ? 1660 : 1560}px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.55);">
-          <span style="color:${isHomeFB ? '#5E9BFF' : '#F87171'};">${isHomeFB ? 'Domicile' : 'Extérieur'}</span> — ${((state.venue && state.venue.trim()) || TENANT_CONFIG.venue.defaultHomeDisplayName)}${(state.venueCity || (isHomeFB ? TENANT_CONFIG.venue.defaultHomeCity : '')) ? ' · ' + ((state.venueCity && state.venueCity.trim()) || TENANT_CONFIG.venue.defaultHomeCity) : ''}
-        </div>
-        <div style="position:absolute; left:50%; margin-left:-170px; top:${sponsors.length ? 1712 : 1626}px; width:340px; height:3px; border-radius:2px; background:linear-gradient(90deg, #08417B 0%, #38BDF8 55%, #F5B82E 100%);"></div>
-        <div style="position:absolute; left:0; right:0; top:${sponsors.length ? 1730 : 1644}px; text-align:center; font-family:'Space Grotesk', 'Inter', sans-serif; font-weight:700; font-size:14px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.35);">fc-atlantic-vevey.ch</div>`;
+        ${FB.rail()}
+        ${FB.matchup(1372)}
+        ${FB.bottom(true)}`;
       return { fullBleed: true, html };
     }
     return `
@@ -1522,63 +1589,22 @@
     heroPlayerFor._offset = 0;
     const heroKPhoto = heroK && getCachedPhoto(heroK);
     if (heroKPhoto) {
-      const royal = '#2E7BFF';
-      const isHomeFB = state.homeAway === 'home';
-      const leftName  = isAway ? opp.shortName : 'ATLANTIC';
-      const rightName = isAway ? 'ATLANTIC' : opp.shortName;
-      const leftCrest  = isAway ? crestNode(oppCrest, opp.abbr, 96, 'transparent') : crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 96, 'transparent');
-      const rightCrest = isAway ? crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 96, 'transparent') : crestNode(oppCrest, opp.abbr, 96, 'transparent');
-      const sponsors = (state.matchBallSponsors || []);
-      const sponsorRowK = sponsors.length ? `
-        <div style="position:absolute; left:0; right:0; top:1548px; text-align:center;">
-          <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD}; margin-bottom:16px;">${TENANT_CONFIG.copy.matchBallLabel}</div>
-          <div style="display:flex; align-items:center; justify-content:center; gap:38px;">
-            ${sponsors.map(s => {
-              const lg = s.logoUrl && SPONSOR_CACHE[s.logoUrl];
-              return lg
-                ? `<div style="width:150px; height:46px; background-image:url('${lg}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>`
-                : `<span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:26px; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.88);">${s.name}</span>`;
-            }).join('')}
-          </div>
-        </div>` : '';
-      const timeBlockK = isTimeTbd()
-        ? `<div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:96px; line-height:0.9; letter-spacing:0.05em; color:rgba(255,255,255,0.35);">–:–</div>
-           <div style="margin-top:12px; display:flex; align-items:center; justify-content:flex-end; gap:9px;">
-             ${tbdStars(20)}
-             <span style="font-family:'Inter', sans-serif; font-weight:600; font-size:15px; letter-spacing:0.2em; text-transform:uppercase; color:${GOLD};">heure à confirmer</span>
-           </div>`
-        : `<div style="font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:150px; line-height:0.88; letter-spacing:0.03em; color:${royal}; text-shadow:0 0 26px ${royal}99, 0 0 90px ${royal}55;">${state.kickoff.time}</div>`;
       const html = `
-        <div style="position:absolute; inset:0; background:radial-gradient(135% 95% at 72% -14%, #17417F 0%, #133870 20%, #0F2E5C 38%, #0C264C 50%, #0A2040 60%, #071630 72%, #050C1C 84%, #04080F 96%);"></div>
-        <div style="position:absolute; inset:0; background:radial-gradient(90% 60% at 30% 110%, rgba(8,65,123,0.25) 0%, rgba(8,65,123,0.08) 50%, transparent 75%);"></div>
-        <div style="position:absolute; top:-220px; right:-180px; width:760px; height:760px; background:radial-gradient(circle, rgba(56,140,255,0.22) 0%, rgba(56,140,255,0.07) 45%, transparent 70%);"></div>
-        <div style="position:absolute; top:430px; left:50%; margin-left:-420px; width:840px; height:840px; background:radial-gradient(circle, rgba(46,123,255,0.3) 0%, rgba(46,123,255,0.1) 42%, transparent 68%);"></div>
-        <div style="position:absolute; left:50%; margin-left:-540px; top:480px; width:1080px; height:1440px; background-image:url('${heroKPhoto}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>
-        <div style="position:absolute; left:0; right:0; top:1020px; bottom:0; background:linear-gradient(180deg, transparent 0%, rgba(4,8,15,0.3) 22%, rgba(4,8,15,0.62) 40%, rgba(4,8,15,0.88) 58%, rgba(4,8,15,1) 82%);"></div>
-
-        <div style="position:absolute; left:72px; top:238px; font-family:'Inter', sans-serif; font-weight:700; font-size:21px; letter-spacing:0.34em; text-transform:uppercase; color:#5E9BFF;">Imminent · Saison 26/27</div>
-        <div style="position:absolute; left:72px; top:284px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:126px; line-height:0.95; letter-spacing:0.01em; text-transform:uppercase; color:#FFFFFF; text-shadow:0 0 30px rgba(46,123,255,0.35); white-space:nowrap;">COUP D'ENVOI</div>
-        <div style="position:absolute; left:74px; top:430px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:44px; letter-spacing:0.1em; text-transform:uppercase; color:rgba(255,255,255,0.8);">Dans quelques instants</div>
-        <div style="position:absolute; left:75px; top:502px; font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45);">${compKicker()} · ${compLabel()}${state.matchNumber ? ` · N° ${state.matchNumber}` : ''}</div>
-
-        <div style="position:absolute; right:72px; top:640px; text-align:right;">${timeBlockK}</div>
-
-        <div style="position:absolute; right:-186px; top:1050px; width:520px; transform:rotate(-90deg); font-family:'Inter', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.4em; text-transform:uppercase; color:rgba(255,255,255,0.32); text-align:center;">#${TENANT_CONFIG.social.matchupTagPrefix}${opp.abbr}</div>
-
-        <div style="position:absolute; left:0; right:0; top:1296px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.55);">
-          <span style="color:${GOLD};">Capitaine</span> — ${capt ? `${captainDisplay} · #${capt.jerseyDisplay}` : ''}
+        ${FB.bg()}
+        ${FB.photo(heroKPhoto)}
+        ${FB.scrim()}
+        ${FB.kicker('Imminent · Saison 26/27')}
+        ${FB.titre("COUP D'ENVOI", 126)}
+        ${FB.sub('Dans quelques instants', 430, 44)}
+        ${FB.compline(502)}
+        <div style="position:absolute; right:72px; top:296px; text-align:right;">
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:12px;">Coup d'envoi</div>
+          ${FB.timeBlock(150)}
         </div>
-        <div style="position:absolute; left:0; right:0; top:1372px; display:flex; align-items:center; justify-content:center; gap:34px;">
-          <div style="display:flex; align-items:center; gap:20px;">${leftCrest}<span style="${dispFontCss(leftName)} font-size:44px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${leftName}</span></div>
-          <span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:40px; color:${royal}; text-shadow:0 0 22px ${royal}88;">VS</span>
-          <div style="display:flex; align-items:center; gap:20px;"><span style="${dispFontCss(rightName)} font-size:44px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${rightName}</span>${rightCrest}</div>
-        </div>
-        ${sponsorRowK}
-        <div style="position:absolute; left:0; right:0; top:${sponsors.length ? 1660 : 1560}px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.55);">
-          <span style="color:${isHomeFB ? '#5E9BFF' : '#F87171'};">${isHomeFB ? 'Domicile' : 'Extérieur'}</span> — ${((state.venue && state.venue.trim()) || TENANT_CONFIG.venue.defaultHomeDisplayName)}${(state.venueCity || (isHomeFB ? TENANT_CONFIG.venue.defaultHomeCity : '')) ? ' · ' + ((state.venueCity && state.venueCity.trim()) || TENANT_CONFIG.venue.defaultHomeCity) : ''}
-        </div>
-        <div style="position:absolute; left:50%; margin-left:-170px; top:${sponsors.length ? 1712 : 1626}px; width:340px; height:3px; border-radius:2px; background:linear-gradient(90deg, #08417B 0%, #38BDF8 55%, #F5B82E 100%);"></div>
-        <div style="position:absolute; left:0; right:0; top:${sponsors.length ? 1730 : 1644}px; text-align:center; font-family:'Space Grotesk', 'Inter', sans-serif; font-weight:700; font-size:14px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.35);">fc-atlantic-vevey.ch</div>`;
+        ${FB.rail()}
+        <div style="position:absolute; left:0; right:0; top:1296px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.55);"><span style="color:${GOLD};">Capitaine</span> — ${capt ? `${captainDisplay} · #${capt.jerseyDisplay}` : ''}</div>
+        ${FB.matchup(1372)}
+        ${FB.bottom(true)}`;
       return { fullBleed: true, html };
     }
     const atlanticBlock = `
@@ -1634,6 +1660,27 @@
   function liveScorePoster() {
     const v = getVariant();
     const stateMsg = state.score.home > state.score.away ? 'On mène' : (state.score.home < state.score.away ? 'On est mené' : 'Tout reste à jouer');
+    /* Full-bleed système (DESIGN-SYSTEM-2627 §5) */
+    const heroL = heroPlayerFor(state.matchId);
+    const heroLPhoto = heroL && getCachedPhoto(heroL);
+    if (heroLPhoto) {
+      const html = `
+        ${FB.bg()}
+        ${FB.photo(heroLPhoto)}
+        ${FB.scrim()}
+        ${FB.kicker('<span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#EF4444; margin-right:14px;"></span>Match en cours · Saison 26/27')}
+        ${FB.titre('EN DIRECT', 140)}
+        ${FB.compline(470)}
+        <div style="position:absolute; right:72px; top:296px; text-align:right;">
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-bottom:12px;">Minute</div>
+          ${FB.chiffre(state.minute + "'", 140, '#FFFFFF')}
+        </div>
+        ${FB.rail()}
+        ${FB.scoreRow(1300, 172, 104)}
+        <div style="position:absolute; left:0; right:0; top:1496px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:19px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.6);">${stateMsg}</div>
+        ${FB.bottom(false)}`;
+      return { fullBleed: true, html };
+    }
     const minuteBlock = `
         <div style="text-align:right; margin-top:8px;">
           <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45);">Minute</div>
@@ -1665,7 +1712,12 @@
         ${venueFooter()}
       `;
     }
-    const sc = BY_ID[state.scorerId];
+    const sc = BY_ID[state.scorerId] || state.guests.find(g => g.id === state.scorerId);
+    /* Minute DU BUT (dernière réalisation de ce buteur), pas la minute
+       courante : le président avance le chrono après la saisie, le visuel
+       publierait sinon une minute fausse. Source unique : state.goals. */
+    const scGoal = [...(state.goals || [])].reverse().find(g => g.side === 'home' && g.playerId === state.scorerId);
+    const goalMinute = scGoal ? scGoal.minute : (state.minute || 0);
     // Guard: scorerSide='home' mais aucun buteur encore choisi -> placeholder
     // au lieu d'un crash TypeError sur sc.lastName.length.
     if (!sc) {
@@ -1688,39 +1740,20 @@
     /* Full-bleed Gil Vicente (Boss 11.08) : plus de carte panini à bordure —
        le buteur PLEIN CADRE, « BUT ! » et le score posés par-dessus. */
     if (photo) {
-      const isAwayG = state.homeAway === 'away';
-      const leftScoreG  = isAwayG ? state.score.away : state.score.home;
-      const rightScoreG = isAwayG ? state.score.home : state.score.away;
-      const leftCrestG  = isAwayG ? crestNode(getCachedCrest(getOpp()), getOpp().abbr, 84, 'transparent') : crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 84, 'transparent');
-      const rightCrestG = isAwayG ? crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 84, 'transparent') : crestNode(getCachedCrest(getOpp()), getOpp().abbr, 84, 'transparent');
-      const isHomeFB = state.homeAway === 'home';
       const html = `
-        <div style="position:absolute; inset:0; background:radial-gradient(135% 95% at 72% -14%, #17417F 0%, #133870 20%, #0F2E5C 38%, #0C264C 50%, #0A2040 60%, #071630 72%, #050C1C 84%, #04080F 96%);"></div>
-        <div style="position:absolute; inset:0; background:radial-gradient(90% 60% at 30% 110%, rgba(8,65,123,0.25) 0%, rgba(8,65,123,0.08) 50%, transparent 75%);"></div>
-        <div style="position:absolute; top:-220px; right:-180px; width:760px; height:760px; background:radial-gradient(circle, rgba(56,140,255,0.18) 0%, rgba(56,140,255,0.06) 45%, transparent 70%);"></div>
-        <div style="position:absolute; top:430px; left:50%; margin-left:-420px; width:840px; height:840px; background:radial-gradient(circle, rgba(46,123,255,0.28) 0%, rgba(46,123,255,0.1) 42%, transparent 68%);"></div>
-        <div style="position:absolute; left:50%; margin-left:-540px; top:480px; width:1080px; height:1440px; background-image:url('${photo}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>
-        <div style="position:absolute; left:0; right:0; top:1000px; bottom:0; background:linear-gradient(180deg, transparent 0%, rgba(4,8,15,0.32) 22%, rgba(4,8,15,0.66) 42%, rgba(4,8,15,0.9) 60%, rgba(4,8,15,1) 84%);"></div>
-
+        ${FB.bg()}
+        ${FB.photo(photo)}
+        ${FB.scrim(1000)}
         <div style="position:absolute; left:72px; top:246px; font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${compKicker()} · ${compLabel()}</div>
-        <div style="position:absolute; right:72px; top:210px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:124px; line-height:0.9; color:${GOLD}; text-shadow:0 0 32px rgba(245,184,46,0.6);">${state.minute}'</div>
-
-        <div style="position:absolute; left:0; right:0; top:392px; display:flex; align-items:center; justify-content:center; gap:36px;">
-          ${leftCrestG}
-          <span style="font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:104px; line-height:1; color:#fff; text-shadow:0 0 30px rgba(46,123,255,0.5);">${leftScoreG}<span style="opacity:0.55;"> – </span>${rightScoreG}</span>
-          ${rightCrestG}
+        <div style="position:absolute; right:72px; top:262px; text-align:right;">
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-bottom:12px;">Minute</div>
+          ${FB.chiffre(goalMinute + "'", 132, GOLD)}
         </div>
-
-        <div style="position:absolute; right:-186px; top:1050px; width:520px; transform:rotate(-90deg); font-family:'Inter', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.4em; text-transform:uppercase; color:rgba(255,255,255,0.32); text-align:center;">#${TENANT_CONFIG.social.matchupTagPrefix}${getOpp().abbr}</div>
-
-        <div style="position:absolute; left:0; right:0; top:1128px; text-align:center; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:196px; line-height:0.95; letter-spacing:0.06em; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.7), 0 0 20px rgba(255,255,255,0.2);">BUT !</div>
-        <div style="position:absolute; left:0; right:0; top:1352px; text-align:center; ${dispFontCss(sc.firstName + sc.lastName)} font-size:54px; line-height:1.1; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 18px rgba(4,8,15,0.9);">${sc.firstName} ${sc.lastName}</div>
-
-        <div style="position:absolute; left:0; right:0; top:1560px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.55);">
-          <span style="color:${isHomeFB ? '#5E9BFF' : '#F87171'};">${isHomeFB ? 'Domicile' : 'Extérieur'}</span> — ${((state.venue && state.venue.trim()) || TENANT_CONFIG.venue.defaultHomeDisplayName)}${(state.venueCity || (isHomeFB ? TENANT_CONFIG.venue.defaultHomeCity : '')) ? ' · ' + ((state.venueCity && state.venueCity.trim()) || TENANT_CONFIG.venue.defaultHomeCity) : ''}
-        </div>
-        <div style="position:absolute; left:50%; margin-left:-170px; top:1626px; width:340px; height:3px; border-radius:2px; background:linear-gradient(90deg, #08417B 0%, #38BDF8 55%, #F5B82E 100%);"></div>
-        <div style="position:absolute; left:0; right:0; top:1644px; text-align:center; font-family:'Space Grotesk', 'Inter', sans-serif; font-weight:700; font-size:14px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.35);">fc-atlantic-vevey.ch</div>`;
+        ${FB.scoreRow(376, 92, 76)}
+        ${FB.rail()}
+        <div style="position:absolute; left:0; right:0; top:1168px; text-align:center; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:196px; line-height:0.95; letter-spacing:0.04em; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.7), 0 0 20px rgba(255,255,255,0.2);">BUT<span style="padding-left:22px;">!</span></div>
+        <div style="position:absolute; left:0; right:0; top:1392px; text-align:center; ${dispFontCss(sc.firstName + sc.lastName)} font-size:54px; line-height:1.1; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 18px rgba(4,8,15,0.9);">${sc.firstName} ${sc.lastName}</div>
+        ${FB.bottom(false)}`;
       return { fullBleed: true, html };
     }
     const lastNameLen = sc.lastName.length;
@@ -1764,6 +1797,28 @@
 
   /* ---- Variant: Halftime ---- */
   function halftimePoster() {
+    heroPlayerFor._offset = 2;
+    const heroH = heroPlayerFor(state.matchId);
+    heroPlayerFor._offset = 0;
+    const heroHPhoto = heroH && getCachedPhoto(heroH);
+    if (heroHPhoto) {
+      const html = `
+        ${FB.bg()}
+        ${FB.photo(heroHPhoto)}
+        ${FB.scrim()}
+        ${FB.kicker('Pause · Saison 26/27')}
+        ${FB.titre('MI-TEMPS', 150)}
+        ${FB.compline(470)}
+        <div style="position:absolute; right:72px; top:296px; text-align:right;">
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-bottom:12px;">Pause</div>
+          ${FB.chiffre("45'", 140, '#F5B82E')}
+        </div>
+        ${FB.rail()}
+        ${FB.scoreRow(1300, 172, 104)}
+        <div style="position:absolute; left:0; right:0; top:1496px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:19px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.6);">45 minutes encore à jouer</div>
+        ${FB.bottom(false)}`;
+      return { fullBleed: true, html };
+    }
     return `
       ${broadcastHeader()}
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
@@ -1795,6 +1850,42 @@
           return `<div style="font-family:'Oswald',sans-serif; font-weight:700; font-size:22px; line-height:1.15; letter-spacing:0.03em; text-transform:uppercase; color:#fff; white-space:nowrap;"><span style="color:rgba(255,255,255,0.55); font-weight:500; margin-right:6px;">${g.minute}'</span>${p.lastName}</div>`;
         }).join('')}
       </div>`;
+    /* Full-bleed système : héros = dernier buteur FCA (photo), sinon rotation */
+    const lastScorer = [...fcaGoals].reverse().map(g => BY_ID[g.playerId]).find(p => p && getCachedPhoto(p));
+    const heroR = lastScorer || heroPlayerFor(state.matchId);
+    const heroRPhoto = heroR && getCachedPhoto(heroR);
+    if (heroRPhoto) {
+      const resultWord = win ? 'VICTOIRE' : (draw ? 'MATCH NUL' : 'DÉFAITE');
+      const resultCol = win ? '#F5B82E' : (draw ? '#FFFFFF' : '#F87171');
+      const shown = fcaGoals.slice(0, (state.matchBallSponsors || []).length ? 2 : 3);
+      const more = fcaGoals.length - shown.length;
+      const buteurRows = shown.map(g => {
+        const p = BY_ID[g.playerId];
+        if (!p) return '';
+        return `<div style="margin-top:8px;"><span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:28px; color:${GOLD}; margin-right:14px;">${g.minute}'</span><span style="${dispFontCss(p.lastName)} font-size:30px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.92);">${p.lastName}</span></div>`;
+      }).join('') + (more > 0 ? `<div style="margin-top:8px; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.2em; color:rgba(255,255,255,0.5);">+ ${more} autre${more > 1 ? 's' : ''}</div>` : '');
+      const html = `
+        ${FB.bg()}
+        ${FB.photo(heroRPhoto)}
+        ${FB.scrim()}
+        ${FB.kicker('Résultat final · Saison 26/27')}
+        ${FB.titre(resultWord, 150, 282, resultCol)}
+        ${FB.compline(470)}
+        <div style="position:absolute; right:72px; top:296px; text-align:right;">
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-bottom:12px;">Score final</div>
+          ${FB.chiffre(`${state.homeAway === 'away' ? state.score.away : state.score.home}<span style="opacity:0.55;"> – </span>${state.homeAway === 'away' ? state.score.home : state.score.away}`, 140, '#FFFFFF')}
+        </div>
+        ${FB.rail()}
+        ${FB.matchup(1284)}
+        ${fcaGoals.length ? `<div style="position:absolute; left:0; right:0; top:1396px; text-align:center;">
+          <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD};">Buteur${fcaGoals.length > 1 ? 's' : ''}</div>
+          ${buteurRows}
+        </div>` : ''}
+        ${FB.bottom(true) ? '' : ''}${(state.matchBallSponsors || []).length ? FB.sponsors(1556) : ''}
+        ${FB.venue(1660)}
+        ${FB.signature(1712)}`;
+      return { fullBleed: true, html };
+    }
     return `
       ${broadcastHeader()}
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
@@ -1881,24 +1972,17 @@
     }
 
     return `
-      <!-- Header -->
+      <!-- Header système (zéro chrome — DESIGN-SYSTEM-2627 §5/§6) -->
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
-        ${eyebrowPill(v)}
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:12px;">
-          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:18px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5);">${compLabel()}</div>
-          ${seasonPill()}
-        </div>
-      </div>
-
-      <!-- Info bar: formation + date -->
-      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:24px; position:relative; z-index:1;">
         <div>
-          <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:96px; line-height:0.9; color:${v.accent}; text-shadow:0 0 32px ${v.accent}66; letter-spacing:0.02em;">${state.formation}</div>
-          <div style="font-family:'Inter', sans-serif; font-size:16px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-top:6px; font-weight:500;">Formation · vs ${opp.shortName}</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:21px; letter-spacing:0.34em; text-transform:uppercase; color:#5E9BFF;">Composition · Saison 26/27</div>
+          <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:64px; letter-spacing:0.02em; text-transform:uppercase; color:#fff; margin-top:18px; line-height:1;">${state.kickoff.dayName}</div>
+          <div style="${dispFontCss(isTimeTbd() ? 'À' : state.kickoff.dateLabel)} font-size:26px; color:rgba(255,255,255,0.7); margin-top:10px; line-height:1;">${state.kickoff.dateLabel} · ${isTimeTbd() ? 'HEURE À CONFIRMER' : state.kickoff.time}</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:15px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-top:14px;">${compKicker()} · ${compLabel()}</div>
         </div>
         <div style="text-align:right;">
-          <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:34px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; line-height:1;">${state.kickoff.dayName}</div>
-          <div style="${dispFontCss(isTimeTbd() ? 'À' : state.kickoff.dateLabel)} font-size:24px; color:rgba(255,255,255,0.7); margin-top:6px; line-height:1;">${state.kickoff.dateLabel} · ${isTimeTbd() ? 'HEURE À CONFIRMER' : state.kickoff.time}</div>
+          <div style="font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:104px; line-height:0.9; color:${FB.royal}; text-shadow:0 0 14px ${FB.royal}77, 0 0 46px ${FB.royal}33; letter-spacing:0.02em;">${state.formation}</div>
+          <div style="font-family:'Inter', sans-serif; font-size:15px; letter-spacing:0.24em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-top:8px; font-weight:600;">Formation · vs ${opp.shortName}</div>
         </div>
       </div>
 
@@ -1935,8 +2019,8 @@
         </div>
       </div>
 
-      <!-- BENCH -->
-      <div style="margin-top:32px; position:relative; z-index:1; flex-shrink:0;">
+      <!-- BENCH (masqué si vide — pas de section fantôme) -->
+      ${bench.length ? `<div style="margin-top:32px; position:relative; z-index:1; flex-shrink:0;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;">
           <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:13px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.55);">Sur le banc</div>
           <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.35);">${bench.length} remplaçant${bench.length>1?'s':''}</div>
@@ -1944,13 +2028,17 @@
         <div style="display:flex; flex-wrap:wrap; gap:18px 14px; justify-content:flex-start;">
           ${bench.map(benchPill).join('')}
         </div>
-      </div>
+      </div>` : ''}
 
       ${customMessageBlock('')}
 
-      <!-- Footer pushed to bottom -->
-      <div style="margin-top:auto; position:relative; z-index:1;">
-        ${venueFooter()}
+      <!-- Pied système naked (venue centrée + signature) -->
+      <div style="margin-top:auto; position:relative; z-index:1; text-align:center; padding-bottom:6px;">
+        <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.55);">
+          <span style="color:${state.homeAway === 'home' ? '#5E9BFF' : '#F87171'};">${state.homeAway === 'home' ? 'Domicile' : 'Extérieur'}</span> — ${(state.venue && state.venue.trim()) || TENANT_CONFIG.venue.defaultHomeDisplayName}${((state.venueCity && state.venueCity.trim()) || (state.homeAway === 'home' ? TENANT_CONFIG.venue.defaultHomeCity : '')) ? ' · ' + ((state.venueCity && state.venueCity.trim()) || TENANT_CONFIG.venue.defaultHomeCity) : ''}
+        </div>
+        <div style="width:340px; height:3px; border-radius:2px; background:linear-gradient(90deg, #08417B 0%, #38BDF8 55%, #F5B82E 100%); margin:20px auto 0;"></div>
+        <div style="font-family:'Space Grotesk', 'Inter', sans-serif; font-weight:700; font-size:14px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-top:14px;">fc-atlantic-vevey.ch</div>
       </div>
     `;
   }
@@ -1966,7 +2054,7 @@
     }
     let inner, opts = {};
     if (v === 'matchday') inner = classicPoster();
-    else if (v === 'lineup') inner = lineupPoster();
+    else if (v === 'lineup') inner = { fullBleed: true, html: FB.bg() + '<div style="position:absolute; inset:0; padding:250px 76px 70px; display:flex; flex-direction:column;">' + lineupPoster() + '</div>' };
     else if (v === 'kickoff') inner = kickoffPoster();
     else if (v === 'live-score') inner = liveScorePoster();
     else if (v === 'goal') inner = goalPoster();

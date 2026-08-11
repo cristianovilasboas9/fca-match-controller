@@ -1,0 +1,83 @@
+# DESIGN SYSTEM 26/27 — Stories & posts FC Atlantic Vevey
+
+Référence : stories Gil Vicente FC (photo-led, type flocage, air, zéro chrome).
+Toute variante du Match Controller se construit sur CE système. Aucun élément
+hors-système sans décision explicite de Boss.
+
+## 1. Identité
+
+| Rôle | Valeur |
+|---|---|
+| Fond | Bleu nuit `#04080F` → `#071630`, source lumineuse haut-droite `#17417F` |
+| Accent | Bleu ROI maillot `#2E7BFF` (texte teinté `#5E9BFF`) |
+| Célébration | Or `#F5B82E` — réservé : BUT, minute, parrains ballon, étoiles TBD, VICTOIRE |
+| Alerte | Rouge doux `#F87171` — EXTÉRIEUR, but encaissé, DÉFAITE |
+| Texte | Blanc, opacités 1 / .82 / .55 / .45 / .35 |
+
+## 2. Typographie (les polices du MAILLOT)
+
+| Usage | Police | Poids/taille |
+|---|---|---|
+| Titres display (jour, COUP D'ENVOI, EN DIRECT, MI-TEMPS, VICTOIRE, BUT !) | **Portugal2025 solid** | 120–200px |
+| Grands chiffres (heure, score, minute) | **Portugal2025 Outlined** (barre 1969 native) | 96–158px |
+| Sous-titres, dates, noms de clubs/joueurs | Portugal2025 solid | 40–58px |
+| Micro-labels (kickers, venue, capitaine) | Inter 600/700, letter-spacing .26–.34em | 15–21px |
+| Signature URL | Space Grotesk 700 | 14px |
+
+**Garde-fou glyphes** : Portugal2025 n'a PAS Ê È À Ä Î Ï → tout texte dynamique
+passe par `dispFontCss(texte)` (fallback Oswald 700). Jamais de Portugal2025
+en dur sur un nom de club/joueur/lieu.
+
+## 3. Grille story 1080×1920 (full-bleed, zéro cadre)
+
+```
+   0–230   SAFE ZONE Instagram (vide)
+ 238–560   HEADER — kicker micro + titre display à GAUCHE ;
+           grand chiffre (heure/minute) à DROITE (right:72, text-align:right)
+ 480–1920  PHOTO HÉROS pleine largeur (1080×1440, contain, center top)
+           → le visage tombe entre y850 et y1050
+1020–1920  SCRIM bleu nuit (transparent → opaque, 5 paliers)
+1290–1660  INFO STACK centrée (rangées selon variante)
+1548       Rangée parrains ballon (si parrains)
+1560/1660  Ligne venue (sans/avec parrains)
+1626/1712  Signature tricolore 340×3px centrée
+1644/1730  fc-atlantic-vevey.ch
+   rail    #hashtag vertical, rotation -90°, x≈1044, y≈1050
+```
+
+Post 4:5 : MÊME composition dans un canvas virtuel scalé (ancres left/right).
+
+## 4. Composants (implémentés dans `FB` — index.html)
+
+- `FB.bg()` — radial nuit 9 paliers + nappe basse + aura haut-droite (TOUJOURS bleues)
+- `FB.photo(dataUrl)` — halo royal derrière la tête + photo (dataURL only)
+- `FB.scrim(topY)` — fondu bas 5 paliers → noir plein
+- `FB.kicker(txt)` / `FB.titre(txt, size)` / `FB.chiffre(txt, size, color)` (Outlined)
+- `FB.rail()` — hashtag vertical
+- `FB.matchup(y)` — crest 96 + nom + VS roi + nom + crest 96 (home à gauche)
+- `FB.scoreRow(y, size)` — crest 84 + score Outlined + crest 84
+- `FB.sponsors(y)` — label or + logos blancs nus 150×46 (fallback nom flocage)
+- `FB.venue(y)` + `FB.signature(y)` — pied standard
+- `FB.timeBlock()` — heure Outlined roi OU –:– + ★★★ « heure à confirmer » (loi TBD)
+
+## 5. Blueprints par variante
+
+| Variante | Header gauche | Header droite | Info stack (sur scrim) | Héros photo |
+|---|---|---|---|---|
+| **matchday** | MATCHDAY·SAISON / JOUR / date / compét° | heure (timeBlock) | matchup · parrains · venue | rotation (stable/match) |
+| **kickoff** | IMMINENT / COUP D'ENVOI / sous-titre / compét° | heure | capitaine (ligne discrète) · matchup · parrains · venue | rotation +1 |
+| **live** | EN DIRECT (point rouge) / compét° | minute Outlined blanc | score géant · message d'état · venue | rotation |
+| **halftime** | MI-TEMPS / compét° | 45' fixe | score géant · message · venue | rotation |
+| **goal** | compét° micro | minute or | BUT ! or · nom buteur · venue | LE BUTEUR |
+| **recap** | RÉSULTAT FINAL / mot résultat (or/blanc/rouge) | score Outlined | buteurs (minutes or) · parrains · venue | dernier buteur FCA, sinon rotation |
+| **lineup** | COMPOSITION / jour+date | formation Outlined | terrain tactique (pas de photo héros) · banc · venue | — |
+
+## 6. Lois non négociables
+
+- **Zéro chrome** : pas de cadre, pas de pastille décorative, pas de tuile bordée.
+- **Heure inventée = interdite** : TBD → `–:–` + ★★★ SVG or + « heure à confirmer ».
+- **Photos/logos = dataURL du cache uniquement** (jamais d'URL distante → taint export).
+- **html2canvas-safe** : jamais `filter:`, `mix-blend`, `object-fit` sur img,
+  `translate(-50%)` sur image débordante. Glows = text-shadow + radial-divs.
+- **Fallback offline** : pas de photo cachée → layout carte historique.
+- Vérité terrain : export PNG jugé, jamais le preview seul.
