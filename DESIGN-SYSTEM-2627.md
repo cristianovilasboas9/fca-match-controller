@@ -123,6 +123,12 @@ exposée par le bundle en `photoCutoutUrl`).
   et perd son décalage.
 - Sans découpe en cache (offline) → cadrage centré + nappe qui masque la boîte.
 
+- **Décors du club** (`bundle.scenes`) : 5 plateaux vides générés pour le FCA
+  (mur néon au blason, tunnel de stade, vestiaire, faisceau de projecteur,
+  cyclorama studio), servis depuis `/decors/`. Choisis dans l'onglet Match,
+  ils remplacent le radial bleu nuit et passent **derrière** le joueur, avec
+  un voile de lecture — le visage et le texte restent les points d'entrée.
+
 **Régénérer les découpes** après une nouvelle photo :
 `python3 scripts/cutouts.py` côté site, puis `vercel --prod`.
 

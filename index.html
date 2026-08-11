@@ -87,7 +87,11 @@
   /* PREVIEW */
   .preview-wrap { position:relative; margin:0 auto 12px; background:#000; border-radius:18px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06); max-width:320px; }
   .preview-ratio { position:relative; width:100%; padding-top:177.78%; transition:padding-top 0.3s ease; }
-  .preview-ratio.fmt-post { padding-top:125%; max-width:280px; margin:0 auto; }
+  /* PAS de max-width ici : padding-top en % se calcule sur la largeur du
+     PARENT (.preview-wrap, 320px), pas sur la sienne. Avec max-width:280 le
+     cadre faisait 400px de haut pour un visuel de 350 → bande noire visible
+     au milieu de la prévisualisation en 4:5 (Boss 11.08). */
+  .preview-ratio.fmt-post { padding-top:125%; }
   .preview-inner { position:absolute; inset:0; overflow:hidden; }
   .preview-scaled { position:absolute; top:0; left:0; transform-origin:top left; }
   .preview-loader { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.5); font-family:'Inter', sans-serif; font-size:12px; }
@@ -672,6 +676,8 @@
     homeAway: 'away',
     // 'championnat' → eyebrow 4E LIGUE · GROUPE 6 + #4eLigue · 'coupe' → BCV CUP + #BCVCup · 'amical' → MATCH AMICAL
     competition: 'coupe',
+    // Décor du club en fond (bundle.scenes) — le joueur reste DEVANT.
+    sceneId: '',
     // Image de fond importée par le président (dataURL JPEG réduite).
     // Quand elle est posée, elle remplace le joueur sur toutes les variantes
     // sauf « But » (là, c'est toujours le buteur).
@@ -767,6 +773,13 @@
     toast('Image retirée', 'blue');
     renderPanel(); refresh();
   };
+  window.setScene = function(id) {
+    state.sceneId = id || '';
+    const s = currentScene();
+    if (s) ensureScene(s);
+    toast(s ? `Décor : ${s.label}` : 'Décor : bleu nuit', 'blue');
+    renderPanel(); refresh();
+  };
   window.setHeroPlayer = function(id) {
     state.customHeroImage = '';
     state.heroPlayerId = id || '';
@@ -842,6 +855,23 @@
     fetchAsDataUrl(p.cutoutUrl).then(d => {
       _cutoutFetching.delete(p.cutoutUrl);
       if (d) { CUTOUT_CACHE[p.cutoutUrl] = d; refresh(); }
+    });
+  }
+
+  /* Décors du club (plateaux vides générés pour recevoir un joueur devant).
+     Même règle que tout le reste : dataURL du cache, jamais d'URL distante. */
+  let SCENES = [];
+  const SCENE_CACHE = {};
+  const _sceneFetching = new Set();
+  function currentScene() {
+    return state.sceneId ? SCENES.find(s => s.id === state.sceneId) : null;
+  }
+  function ensureScene(s) {
+    if (!s || !s.url || SCENE_CACHE[s.url] || _sceneFetching.has(s.url)) return;
+    _sceneFetching.add(s.url);
+    fetchAsDataUrl(s.url).then(d => {
+      _sceneFetching.delete(s.url);
+      if (d) { SCENE_CACHE[s.url] = d; refresh(); }
     });
   }
 
@@ -1451,6 +1481,16 @@
        (canvas virtuel scalé). Posée par shellWrap avant chaque rendu. */
     vw: 1080,
     bg() {
+      /* Décor du club choisi : il remplace le radial et passe DERRIÈRE le
+         joueur, assombri et désaturé pour rester un fond (loi : le visage et
+         le texte restent les points d'entrée). */
+      const sc = currentScene();
+      const scData = sc && SCENE_CACHE[sc.url];
+      if (scData) {
+        return `<div style="position:absolute; inset:0; background-image:url('${scData}'); background-size:cover; background-position:center 38%; background-repeat:no-repeat;"></div>
+      <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,10,24,0.68) 0%, rgba(4,10,24,0.44) 34%, rgba(4,8,15,0.55) 68%, rgba(4,8,15,0.82) 100%);"></div>
+      <div style="position:absolute; inset:0; background:radial-gradient(120% 80% at 72% -10%, rgba(23,65,127,0.42) 0%, rgba(10,32,64,0.2) 45%, transparent 78%);"></div>`;
+      }
       return `<div style="position:absolute; inset:0; background:radial-gradient(135% 95% at 72% -14%, #17417F 0%, #133870 20%, #0F2E5C 38%, #0C264C 50%, #0A2040 60%, #071630 72%, #050C1C 84%, #04080F 96%);"></div>
       <div style="position:absolute; inset:0; background:radial-gradient(90% 60% at 30% 110%, rgba(8,65,123,0.25) 0%, rgba(8,65,123,0.08) 50%, transparent 75%);"></div>
       <div style="position:absolute; top:-220px; right:-180px; width:760px; height:760px; background:radial-gradient(circle, rgba(56,140,255,0.2) 0%, rgba(56,140,255,0.06) 45%, transparent 70%);"></div>`;
@@ -2411,6 +2451,23 @@
       </div>
       <div class="match-note">Le visage des visuels. « But » utilise toujours le buteur.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
 
+      <!-- DÉCOR — passe DERRIÈRE le joueur -->
+      <div class="panel-label" style="margin-top:18px;">Décor en fond
+        <span class="b blue">${state.sceneId ? (SCENES.find(s => s.id === state.sceneId) || {}).label || 'choisi' : 'aucun'}</span>
+      </div>
+      <div class="hero-grid">
+        <div class="hero-mini ${state.sceneId ? '' : 'on'}" onclick="setScene('')">
+          <div class="hero-auto">—</div>
+          <div class="hero-name">Bleu nuit</div>
+        </div>
+        ${SCENES.map(s => `
+          <div class="hero-mini ${state.sceneId === s.id ? 'on' : ''}" onclick="setScene('${s.id}')">
+            <div class="hero-img"><img src="${s.url}" loading="lazy"></div>
+            <div class="hero-name">${s.label}</div>
+          </div>`).join('')}
+      </div>
+      <div class="match-note">Le joueur reste devant le décor.</div>
+
       <!-- BALLONS DE MATCH — sponsors qui apparaîtront sur matchday / kickoff / recap -->
       <div class="panel-label" style="margin-top:18px;">Ballons de match <span class="b">${state.matchBallSponsors.length}</span></div>
       ${state.matchBallSponsors.length > 0 ? `
@@ -3072,7 +3129,7 @@
   const LIVE_KEY_PREFIX = 'fca-mc:v1:live:';
   const LAST_KEY = 'fca-mc:v1:last';
   const LIVE_TTL_MS = 12 * 3600 * 1000;
-  const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage',
+  const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage','sceneId',
     'competitionSub','matchId','_userPickedMatch','opponentSlug','matchNumber','venue','venueCity',
     'kickoff','matchBallSponsors','score','minute','scorerId','scorerSide','formation','captainId',
     'lineupStarters','lineupBench','guests','goals','customMessage','captionOverride'];
@@ -3134,6 +3191,7 @@
       ensureCutout(heroPlayerFor(state.matchId));
       heroPlayerFor._offset = 0;
     });
+    ensureScene(currentScene());
     if (state.scorerId) ensureCutout(BY_ID[state.scorerId]);
     /* dernier buteur FCA = héros du recap : sans lui, le recap retombe en
        silence sur la photo à fond studio et perd son décalage */
@@ -3403,6 +3461,7 @@
   function applyBundleData(data) {
     if (!data || !Array.isArray(data.matches) || !data.matches.length) return false;
     BUNDLE = data;
+    if (Array.isArray(data.scenes)) SCENES = data.scenes;
     /* OPPONENTS — noms officiels du site (désambiguïsés « FC Vignoble II ») ;
        shortName/abbr curés conservés ; inconnus ajoutés, dédup par slug. */
     data.matches.forEach(m => {
