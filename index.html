@@ -504,7 +504,7 @@
   const compLabel  = () =>
     state.competition === 'coupe' ? 'BCV CUP'
     : state.competition === 'amical' ? 'MATCH AMICAL'
-    : `${TENANT_CONFIG.league.label} · ACVF`;
+    : `ACVF · ${TENANT_CONFIG.league.label}`;
   /* Ligne unique de compétition — celle que lisent les posters. */
   const compLine = () => compLabel();
   /* Accent FAMILLE de compétition (loi président : les 3 familles se
@@ -1231,7 +1231,6 @@
         <div style="display:flex; flex-direction:column; gap:${pf(10,8)}px; min-width:0;">
           <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:${pf(17,15)}px; letter-spacing:0.34em; text-transform:uppercase; color:${fam}; line-height:1;">${trophy}${compKicker()}</div>
           ${compLabel() !== compKicker() ? `<div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(29,26)}px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.88); line-height:1.12;">${compLabel()}</div>` : ''}
-          ${state.matchNumber ? `<div style="font-family:'Inter', sans-serif; font-weight:500; font-size:${pf(12,11)}px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.38); line-height:1;">N° MATCH ${state.matchNumber}</div>` : ''}
           <div style="display:flex;">${seasonPill()}</div>
         </div>
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:10px; flex-shrink:0;">
@@ -1653,7 +1652,7 @@
       return `<div style="position:absolute; left:74px; top:${y}px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${size}px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.82);">${txt}</div>`;
     },
     compline(y) {
-      return `<div style="position:absolute; left:75px; top:${y}px; font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.66);">${compLine()}${state.matchNumber ? ` · N° ${state.matchNumber}` : ''}</div>`;
+      return `<div style="position:absolute; left:75px; top:${y}px; font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.66);">${compLine()}</div>`;
     },
     chiffre(txt, size, color) {
       return `<div style="font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:${size}px; line-height:0.88; letter-spacing:0.03em; color:${color}; text-shadow:0 2px 12px rgba(4,8,15,0.9);">${txt}</div>`;
@@ -1806,15 +1805,14 @@
     }
     return `
       ${broadcastHeader()}
-      <!-- Hero date — broadcast : jour géant pleine largeur, hairline, année en chip filaire, heure = accent le plus fort -->
+      <!-- Hero date — broadcast : jour géant pleine largeur, hairline, date + année d'un seul tenant, heure = accent le plus fort -->
       <div style="margin-top:${pf(46,34)}px; position:relative; z-index:1;">
         <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(158,142)}px; line-height:0.92; letter-spacing:0.015em; text-transform:uppercase; color:#FFFFFF; text-shadow:0 0 28px rgba(46,123,255,0.4), 0 0 90px rgba(46,123,255,0.2);">${state.kickoff.dayName}</div>
         <div style="height:1px; background:linear-gradient(90deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08) 55%, transparent); margin-top:${pf(22,18)}px;"></div>
         <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:${pf(24,20)}px; margin-top:${pf(24,20)}px;">
-          <div style="display:flex; align-items:baseline; gap:${pf(18,14)}px; min-width:0;">
-            <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(54,50)}px; line-height:1; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.88); white-space:nowrap;">${state.kickoff.dateLabel}</div>
-            <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(28,26)}px; line-height:1; letter-spacing:0.14em; color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.22); border-radius:8px; padding:${pf(7,6)}px ${pf(13,11)}px; flex-shrink:0;">${state.kickoff.year}</div>
-          </div>
+          <!-- Boss 15.08 · l'année ne se distingue JAMAIS du reste de la
+               date : même fonte, même taille, même couleur, sur une ligne. -->
+          <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(54,50)}px; line-height:1; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.88); white-space:nowrap; min-width:0;">${state.kickoff.dateLabel} ${state.kickoff.year}</div>
           <div style="text-align:right; flex-shrink:0;">
             <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(16,15)}px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-bottom:${pf(10,8)}px;">Coup d'envoi</div>
             ${isTimeTbd()
@@ -2006,7 +2004,10 @@
         ${venueFooter()}
       `;
     }
-    const photo = heroImage(sc);
+    /* Boss 15.08 · la carte BUT montre LE BUTEUR, toujours. Une photo de
+       shooting, un upload ou « aucun visage » choisis pour le matchday ne
+       doivent jamais remplacer le joueur qui vient de marquer. */
+    const photo = heroImage(sc, false);
     /* Full-bleed Gil Vicente (Boss 11.08) : plus de carte panini à bordure —
        le buteur PLEIN CADRE, « BUT ! » et le score posés par-dessus. */
     if (photo) {
@@ -2127,7 +2128,9 @@
     /* Full-bleed système : héros = dernier buteur FCA (photo), sinon rotation */
     const lastScorer = [...fcaGoals].reverse().map(g => BY_ID[g.playerId]).find(p => p && getCachedPhoto(p));
     const heroR = lastScorer || heroPlayerFor(state.matchId);
-    const heroRImg = heroImage(heroR);
+    /* Même loi que la carte BUT : s'il y a un buteur, c'est lui qu'on voit —
+       la personnalisation du héros ne s'applique qu'au recap sans buteur. */
+    const heroRImg = lastScorer ? heroImage(lastScorer, false) : heroImage(heroR);
     if (heroRImg) {
       const resultWord = win ? 'VICTOIRE' : (draw ? 'MATCH NUL' : 'DÉFAITE');
       const resultCol = win ? '#F5B82E' : (draw ? '#FFFFFF' : '#F87171');
