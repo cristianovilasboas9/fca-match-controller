@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-15b</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-15c</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -357,7 +357,7 @@
       <strong>📲 Install :</strong> Safari → Partage → « Sur l'écran d'accueil »
     </div>
 
-    <div class="preview-wrap">
+    <div class="preview-wrap" id="preview-tap" role="button" aria-label="Exporter la carte" style="cursor:pointer;">
       <div class="preview-ratio">
         <div class="preview-inner">
           <div class="preview-scaled" id="poster-root">
@@ -365,25 +365,21 @@
           </div>
         </div>
       </div>
+      <div style="text-align:center; margin-top:8px; font-family:'Inter',sans-serif; font-weight:600; font-size:10.5px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.4);">Tape la carte pour exporter</div>
     </div>
 
     <div class="tabs" id="section-tabs"></div>
     <div id="panel-content"></div>
   </div>
 
+  <!-- Boss 15.08 · plus de boutons PNG/SHARE : le TAP SUR LA CARTE ouvre
+       directement le tiroir d'export (aperçu + Partager/Enregistrer).
+       Seul reste COPIER pour la caption Instagram. -->
   <div class="actions-bar">
     <div class="actions">
-      <button class="btn btn-primary" id="download-btn" onclick="downloadPoster()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13m-5-5l5 5 5-5M5 21h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span id="download-label">PNG</span>
-      </button>
-      <button class="btn btn-gold" onclick="copyCaption()">
+      <button class="btn btn-gold" onclick="copyCaption()" style="flex:1;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>
-        Copier
-      </button>
-      <button class="btn btn-ghost" onclick="sharePoster()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13m-5-8l5-5 5 5M5 21h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Share
+        Copier la caption
       </button>
     </div>
   </div>
@@ -3599,101 +3595,83 @@
      déclenche « Enregistrer dans Photos », et le bouton Partager repart
      d'un tap FRAIS (nouveau geste) → navigator.share redevient fiable. */
   let _overlayUrl = null;
-  function showPosterOverlay(blob) {
-    const old = document.getElementById('poster-overlay');
-    if (old) old.remove();
+  let _exporting = false;
+  function closePosterOverlay() {
+    const ov = document.getElementById('poster-overlay');
+    if (ov) ov.remove();
     if (_overlayUrl) { URL.revokeObjectURL(_overlayUrl); _overlayUrl = null; }
-    _overlayUrl = URL.createObjectURL(blob);
-    const file = new File([blob], posterFileName(), { type: 'image/png' });
-    const canNativeShare = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+  }
+  /* Ouvre le tiroir TOUT DE SUITE (spinner) — le PNG arrive dedans quand le
+     rendu finit. Le tap sur la carte est ainsi toujours suivi d'un retour
+     visuel immédiat, et Partager repart d'un tap frais (geste valide). */
+  function openExportOverlay() {
+    closePosterOverlay();
     const ov = document.createElement('div');
     ov.id = 'poster-overlay';
     ov.style.cssText = 'position:fixed; inset:0; z-index:300; background:rgba(2,5,12,0.96); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px);';
     ov.innerHTML = `
-      <div style="font-family:'Inter',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.85); text-align:center;">📷 Appui long sur l'image → Enregistrer dans Photos</div>
-      <img src="${_overlayUrl}" alt="Poster" style="max-width:100%; max-height:70vh; border-radius:12px; box-shadow:0 12px 48px rgba(0,0,0,0.7);">
-      <div style="display:flex; gap:10px;">
-        ${canNativeShare ? `<button id="overlay-share" style="font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:0.08em; padding:12px 22px; border-radius:12px; border:0; background:#2E7BFF; color:#fff;">Partager / Enregistrer</button>` : ''}
+      <div id="overlay-hint" style="font-family:'Inter',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.85); text-align:center;">Génération de la carte…</div>
+      <div id="overlay-body" style="display:flex; align-items:center; justify-content:center; max-width:100%; max-height:70vh; min-height:200px;"><span class="spinner"></span></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+        <span id="overlay-actions"></span>
         <button id="overlay-close" style="font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:0.08em; padding:12px 22px; border-radius:12px; border:1px solid rgba(255,255,255,0.25); background:transparent; color:rgba(255,255,255,0.85);">Fermer</button>
       </div>`;
     document.body.appendChild(ov);
-    const close = () => { ov.remove(); if (_overlayUrl) { URL.revokeObjectURL(_overlayUrl); _overlayUrl = null; } };
-    ov.querySelector('#overlay-close').addEventListener('click', close);
+    ov.querySelector('#overlay-close').addEventListener('click', closePosterOverlay);
+    return ov;
+  }
+  function fillExportOverlay(ov, blob) {
+    if (!document.getElementById('poster-overlay')) return; // fermé pendant le rendu
+    _overlayUrl = URL.createObjectURL(blob);
+    const file = new File([blob], posterFileName(), { type: 'image/png' });
+    const canNativeShare = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+    ov.querySelector('#overlay-hint').textContent = isIOS()
+      ? "📷 Appui long sur l'image → Enregistrer dans Photos"
+      : 'Ta carte est prête';
+    ov.querySelector('#overlay-body').innerHTML =
+      `<img src="${_overlayUrl}" alt="Poster" style="max-width:100%; max-height:70vh; border-radius:12px; box-shadow:0 12px 48px rgba(0,0,0,0.7);">`;
+    const actions = ov.querySelector('#overlay-actions');
+    const btnCss = "font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:0.08em; padding:12px 22px; border-radius:12px; border:0; background:#2E7BFF; color:#fff;";
+    let html = '';
+    if (canNativeShare) html += `<button id="overlay-share" style="${btnCss}">Partager / Enregistrer</button>`;
+    if (!isIOS()) html += `<button id="overlay-dl" style="${btnCss} background:#F5B82E; color:#04080F; margin-left:${canNativeShare ? '10px' : '0'};">Télécharger</button>`;
+    actions.innerHTML = html;
     const shareBtn = ov.querySelector('#overlay-share');
     if (shareBtn) shareBtn.addEventListener('click', async () => {
-      /* Tap frais = geste valide : share fiable même après un rendu long. */
       try { await navigator.share({ files: [file] }); toast('✅ Partagé'); }
       catch (e) { if (!e || e.name !== 'AbortError') toast('❌ Partage refusé — appui long sur l\'image', 'red'); }
     });
+    const dlBtn = ov.querySelector('#overlay-dl');
+    if (dlBtn) dlBtn.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = _overlayUrl; a.download = posterFileName();
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      toast('✅ PNG téléchargé');
+    });
   }
-
-  async function downloadPoster() {
-    const btn = document.getElementById('download-btn');
-    const lbl = document.getElementById('download-label');
-    btn.disabled = true;
-    lbl.innerHTML = '<span class="spinner"></span>';
+  /* Tap sur la carte (Boss 15.08 : « tu fais le clic directement ») —
+     remplace les anciens boutons PNG / SHARE. */
+  async function exportFromCard() {
+    if (_exporting) return;
+    _exporting = true;
+    const ov = openExportOverlay();
     try {
       const { blob } = await buildPosterBlob();
-      const url = URL.createObjectURL(blob);
-      const fileName = posterFileName();
-      if (isIOS()) {
-        /* Plus JAMAIS window.open après l'await (geste expiré → bloqué en
-           silence sur les cartes lourdes). Aperçu in-app + appui long. */
-        URL.revokeObjectURL(url);
-        showPosterOverlay(blob);
-      } else {
-        const a = document.createElement('a');
-        a.href = url; a.download = fileName;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        toast('✅ PNG téléchargé');
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-      }
+      fillExportOverlay(ov, blob);
     } catch (e) {
-      console.error('[FCA] downloadPoster failed :', e);
+      console.error('[FCA] exportFromCard failed :', e);
+      closePosterOverlay();
       const msg = (e && e.message) ? e.message.slice(0, 80) : 'Erreur inconnue';
       toast(`❌ ${msg}`, 'red');
-    }
-    finally { btn.disabled = false; lbl.textContent = 'PNG'; }
+    } finally { _exporting = false; }
   }
 
-  async function sharePoster() {
-    const btn = document.querySelector('.btn-ghost');
-    const original = btn ? btn.innerHTML : '';
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
-    try {
-      const { blob } = await buildPosterBlob();
-      const file = new File([blob], posterFileName(), { type:'image/png' });
-      // Path 1 — native share with file ONLY. iOS sometimes fails silently
-      // when title+text are present alongside a file; we keep it minimal.
-      if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
-        try {
-          await navigator.share({ files:[file] });
-          toast('✅ Partagé');
-          return;
-        } catch (shareErr) {
-          // User cancelled the share sheet — that's fine, no fallback.
-          if (shareErr && shareErr.name === 'AbortError') { return; }
-          console.warn('[FCA] navigator.share failed, falling back to open-in-tab', shareErr);
-          // Fall through to Path 2.
-        }
-      }
-      // Path 2 — aperçu in-app (le partage direct a échoué : geste expiré
-      // après un rendu long, ou pas de support). Le bouton de l'overlay
-      // relance navigator.share depuis un tap frais.
-      showPosterOverlay(blob);
-    } catch (e) {
-      console.error('[FCA] sharePoster failed :', e);
-      const msg = (e && e.message) ? e.message.slice(0, 80) : 'Erreur inconnue';
-      toast(`❌ ${msg}`, 'red');
-    }
-    finally { if (btn) { btn.disabled = false; btn.innerHTML = original; } }
-  }
+
   async function copyCaption() {
     try { await navigator.clipboard.writeText(captionToString()); toast('✅ Caption copiée'); }
     catch (e) { toast('❌ Copie impossible','red'); }
   }
-  window.downloadPoster = downloadPoster;
-  window.sharePoster = sharePoster;
+  window.exportFromCard = exportFromCard;
   window.copyCaption = copyCaption;
 
   /* ---------- INIT -------------------------------------------- */
@@ -3861,6 +3839,7 @@
   /* Poignée de debug/E2E (lecture seule par convention — rien dans l'app ne
      passe par elle). Permet aux tests Playwright d'observer l'état réel. */
   window.__mc = { state, MATCHES, OPPONENTS, ROSTER, buildPosterBlob };
+  document.getElementById('preview-tap').addEventListener('click', exportFromCard);
   window.addEventListener('load', init);
   window.addEventListener('resize', () => updatePreview());
   /* iOS tue la PWA en arrière-plan sans prévenir — on persiste au moment
