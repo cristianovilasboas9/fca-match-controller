@@ -99,14 +99,17 @@ Toute nouvelle brique s'ajoute à `FB` ET au document.
 2. **Badges jersey/capitaine clippés** — pattern actuel : conteneur extérieur `position:relative; width:Xpx; height:Xpx;` + wrapper photo intérieur `position:absolute; inset:0; border-radius:50%; overflow:hidden;` + badges en `position:absolute` SIBLINGS du wrapper photo (pas dedans) avec `z-index:3`. Si tu re-fusionnes en un seul div avec `overflow:hidden`, les badges disparaissent.
 3. **Score glow** — `unifiedScoreRow` utilise `getVariant().accent`, pas la constante `ACCENT`. Garder pour cohérence chromatique entre halftime (orange), recap (vert), kickoff (violet).
 4. **COUP D'ENVOI** — taille `108px` (pas 120px ni 150px) : à 150px overflow horizontal avec `white-space:nowrap` à 1080px de large, et à 120px le 'I' final clippait au pixel près (commentaire in-file au-dessus de la ligne `font-size:108px`).
-5. **Compteurs par poste** — `panelLineup` parse la formation via `FORMATION_ROWS` (6 formations : 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 5-3-2, 3-4-3 ; ex. 4-3-3 → G:1 DEF:4 MIL:3 AT:3) et affiche pastilles vert/orange/rouge. Si la compo ne matche pas la formation, warning visible. Le `lineupPoster` fait du bucketing par `p.position` et place les surplus dans les rangs vides — un défenseur en surplus peut donc finir ailier (warning UI prévient).
+5. **Jamais de `window.open()` / `navigator.share()` après un await** — iOS expire le geste utilisateur pendant le rendu html2canvas (plusieurs secondes dès qu'une photo est sur la carte) → popup/partage bloqués EN SILENCE. Tout export passe par l'overlay in-app (`openExportOverlay`/`fillExportOverlay`) : appui long → Photos, bouton Partager = tap frais. Le tap sur la CARTE (`#preview-tap`) est le seul déclencheur (les boutons PNG/SHARE ont été supprimés le 15.08).
+6. **Tout fetch d'asset a un timeout** — `fetchAsDataUrl` porte un AbortController 10 s par tentative. Sans ça, un réseau de stade qui flanche gèle l'export pour toujours (spinner infini, verrou `_exporting` bloqué — bug du 15.08). `exportFromCard` a en plus un watchdog 45 s, et fermer le tiroir relâche le verrou (jeton `_exportSeq` posé APRÈS `openExportOverlay()` qui bumpe le jeton en fermant l'ancien tiroir).
+7. **BUILD_TAG dans l'appbar** (`v2026-08-15d`) — à BUMPER à chaque déploiement. Les PWA iOS servent des snapshots HTML périmés ; le tampon est le seul moyen de savoir ce que le téléphone exécute. Symptôme classique : « ça ne marche pas » alors que WebKit headless passe → vieille version en cache, tuer/réinstaller la PWA.
+8. **Compteurs par poste** — `panelLineup` parse la formation via `FORMATION_ROWS` (6 formations : 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 5-3-2, 3-4-3 ; ex. 4-3-3 → G:1 DEF:4 MIL:3 AT:3) et affiche pastilles vert/orange/rouge. Si la compo ne matche pas la formation, warning visible. Le `lineupPoster` fait du bucketing par `p.position` et place les surplus dans les rangs vides — un défenseur en surplus peut donc finir ailier (warning UI prévient).
 
 ## Backlog non bloquant
 
 - Safe zones Insta : story actuelle a 80px de padding interne, Insta demande ~220px haut + 250px bas. `venueFooter` risque d'être masqué par UI Insta sur certains devices.
 - Post format = story scalée à 70%, pas un vrai 4:5 retravaillé. Si Boss fait surtout des stories : low priority.
 - Surplus par poste : warning UI visible mais le placement final reste imparfait. Pourrait bloquer le clic sur un poste plein au lieu d'avertir.
-- Emoji recap (🏆 🤝) rendus via emoji font système → variabilité macOS/iOS/Android. Remplacer par SVG inline pour exports cross-device.
+- ~~Emoji recap~~ : réglé le 15.08 — tous les emojis des posters sont des SVG inline (posterIcon/trophyIcon/handshakeIcon/ballIcon/flameIcon).
 
 ## Si Boss demande un nouveau match (workflow type)
 
