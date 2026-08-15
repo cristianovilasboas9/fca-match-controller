@@ -540,6 +540,15 @@
     const star = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="display:block;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z" fill="#F5B82E"/></svg>`;
     return `<span style="display:inline-flex; gap:${Math.round(size * 0.25)}px;">${star}${star}${star}</span>`;
   };
+  /* Icônes poster en SVG INLINE — même loi que les étoiles TBD : un emoji
+     (🏆 🤝 ⚽ 🔥) passe par la police emoji SYSTÈME → rendu différent selon
+     macOS/iOS/Android dans les PNG exportés. Le vertical-align négatif cale
+     l'icône sur la ligne de texte qui la porte. */
+  const posterIcon = (size, inner) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="display:inline-block; vertical-align:${-Math.round(size * 0.14)}px;">${inner}</svg>`;
+  const trophyIcon = (size) => posterIcon(size, `<path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" fill="#F5B82E"/>`);
+  const handshakeIcon = (size) => posterIcon(size, `<path d="M12.22 19.85c-.18.18-.5.21-.71 0a.504.504 0 0 1 0-.71l3.39-3.39-1.41-1.41-3.39 3.39c-.19.2-.51.19-.71 0-.21-.21-.18-.53 0-.71l3.39-3.39-1.41-1.41-3.39 3.39c-.18.18-.5.21-.71 0-.19-.19-.19-.51 0-.71l3.39-3.39-1.42-1.41-3.39 3.39c-.18.18-.5.21-.71 0-.19-.2-.19-.51 0-.71L9.52 8.4l1.87 1.86c.95.95 2.59.94 3.54 0 .98-.98.98-2.56 0-3.54l-1.86-1.86.28-.28c.78-.78 2.05-.78 2.83 0l4.24 4.24c.78.78.78 2.05 0 2.83l-8.2 8.2zm9.61-6.78a4.008 4.008 0 0 0 0-5.66l-4.24-4.24a4.008 4.008 0 0 0-5.66 0l-.28.28-.28-.28a4.008 4.008 0 0 0-5.66 0L2.17 6.71a3.992 3.992 0 0 0-.4 5.19l1.45-1.45a2 2 0 0 1 .37-2.33l3.54-3.54c.78-.78 2.05-.78 2.83 0l3.56 3.56c.18.18.21.5 0 .71-.21.21-.53.18-.71 0L9.52 5.57l-5.8 5.79c-.98.97-.98 2.56 0 3.54.39.39.89.63 1.42.7a2.458 2.458 0 0 0 2.12 2.12 2.458 2.458 0 0 0 2.12 2.12c.07.54.31 1.03.7 1.42.47.47 1.1.73 1.77.73.67 0 1.3-.26 1.77-.73l8.21-8.19z" fill="#FFFFFF"/>`);
+  const ballIcon = (size) => posterIcon(size, `<circle cx="12" cy="12" r="10" fill="#FFFFFF"/><path d="M12 8.2l3.61 2.63-1.38 4.24H9.77l-1.38-4.24z" fill="#04080F"/><g stroke="#04080F" stroke-width="1.5" stroke-linecap="round"><path d="M12 8.2V3.4"/><path d="M15.61 10.83l4.36-1.42"/><path d="M14.23 15.07l2.7 3.71"/><path d="M9.77 15.07l-2.7 3.71"/><path d="M8.39 10.83L4.03 9.41"/></g>`);
+  const flameIcon = (size) => posterIcon(size, `<path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" fill="#F5B82E"/>`);
 
   /* === 2. CREST_DATAURL ========================================
      Logo du club en SVG base64. Pour swap : exporter le SVG du nouveau
@@ -1225,7 +1234,7 @@
     opts = opts || {};
     const v = getVariant();
     const fam = compAccent();
-    const trophy = state.competition === 'coupe' ? '🏆 ' : '';
+    const trophy = state.competition === 'coupe' ? trophyIcon(pf(20, 18)) + ' ' : '';
     return `
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
         <div style="display:flex; flex-direction:column; gap:${pf(10,8)}px; min-width:0;">
@@ -1927,7 +1936,7 @@
             <div style="${dispFontCss(captainDisplay)} font-size:52px; color:#fff; line-height:1; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;">${captainDisplay} · #${capt.jerseyDisplay}</div>
           </div>
         ` : ''}
-        ${customMessageBlock(`Allez les ${TENANT_CONFIG.club.nickname} ! 🔥`)}
+        ${customMessageBlock(`Allez les ${TENANT_CONFIG.club.nickname} ! ${flameIcon(26)}`)}
       </div>
       ${matchBallSponsorsBlock()}
       ${venueFooter()}
@@ -2006,7 +2015,7 @@
         </div>
         <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1; padding:${pf(60,40)}px;">
           <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(110,90)}px; line-height:0.95; color:${GOLD}; text-shadow:0 0 50px rgba(245,184,46,0.5); letter-spacing:0.04em; text-align:center;">BUT !</div>
-          <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:${pf(22,20)}px; color:rgba(255,255,255,0.7); margin-top:${pf(20,16)}px; text-align:center; max-width:${pf(640,520)}px; line-height:1.4;">Sélectionne le buteur dans l'onglet <b style="color:${GOLD};">Buts ⚽</b> pour générer le visuel complet.</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:${pf(22,20)}px; color:rgba(255,255,255,0.7); margin-top:${pf(20,16)}px; text-align:center; max-width:${pf(640,520)}px; line-height:1.4;">Sélectionne le buteur dans l'onglet <b style="color:${GOLD};">Buts ${ballIcon(pf(22, 20))}</b> pour générer le visuel complet.</div>
         </div>
         ${venueFooter()}
       `;
@@ -2108,7 +2117,8 @@
   function recapPoster() {
     const win = state.score.home > state.score.away;
     const draw = state.score.home === state.score.away;
-    const resultMsg = win ? '🏆 VICTOIRE' : (draw ? '🤝 MATCH NUL' : 'DÉFAITE COURAGEUSE');
+    const resultIcon = win ? trophyIcon(54) : (draw ? handshakeIcon(54) : '');
+    const resultMsg = win ? 'VICTOIRE' : (draw ? 'MATCH NUL' : 'DÉFAITE COURAGEUSE');
     const resultColor = win ? '#22C55E' : (draw ? '#F59E0B' : '#EF4444');
     // FCA goal list — plain text under the Atlantic crest block, no border/bg.
     // Sorted by minute. Only FCA scorers; opponent goals never shown.
@@ -2181,7 +2191,7 @@
     return `
       ${broadcastHeader()}
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
-        <div style="${dispFontCss(resultMsg)} font-size:60px; letter-spacing:0.08em; color:${resultColor}; margin-bottom:48px; text-shadow:0 0 32px ${resultColor}88;">${resultMsg}</div>
+        <div style="${dispFontCss(resultMsg)} font-size:60px; letter-spacing:0.08em; color:${resultColor}; margin-bottom:48px; text-shadow:0 0 32px ${resultColor}88;">${resultIcon ? `<span style="margin-right:16px;">${resultIcon}</span>` : ''}${resultMsg}</div>
         ${unifiedScoreRow({ atlSubBlock })}
         ${customMessageBlock(`${state.kickoff.dayName} ${state.kickoff.dateLabel} ${state.kickoff.year}`)}
       </div>
@@ -3575,6 +3585,45 @@
     return `${prefix}_${state.variant}_${date}_${fmtName}.png`;
   }
 
+  /* ── Overlay d'export — LE correctif iOS (Boss 15.08, URGENT) ─────────
+     window.open() et navigator.share() exigent un geste utilisateur ACTIF.
+     Or le rendu html2canvas prend plusieurs secondes dès qu'une photo de
+     shooting/décor est sur la carte : à la fin de l'await, iOS a expiré le
+     geste → popup et partage bloqués EN SILENCE (et l'ancien code affichait
+     quand même « ✅ »). Les cartes légères passaient, les cartes shooting
+     jamais — d'où « plein de cartes ne se téléchargent pas ».
+     Remède : zéro popup. On affiche le PNG DANS l'app ; l'appui long
+     déclenche « Enregistrer dans Photos », et le bouton Partager repart
+     d'un tap FRAIS (nouveau geste) → navigator.share redevient fiable. */
+  let _overlayUrl = null;
+  function showPosterOverlay(blob) {
+    const old = document.getElementById('poster-overlay');
+    if (old) old.remove();
+    if (_overlayUrl) { URL.revokeObjectURL(_overlayUrl); _overlayUrl = null; }
+    _overlayUrl = URL.createObjectURL(blob);
+    const file = new File([blob], posterFileName(), { type: 'image/png' });
+    const canNativeShare = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+    const ov = document.createElement('div');
+    ov.id = 'poster-overlay';
+    ov.style.cssText = 'position:fixed; inset:0; z-index:300; background:rgba(2,5,12,0.96); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px);';
+    ov.innerHTML = `
+      <div style="font-family:'Inter',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.85); text-align:center;">📷 Appui long sur l'image → Enregistrer dans Photos</div>
+      <img src="${_overlayUrl}" alt="Poster" style="max-width:100%; max-height:70vh; border-radius:12px; box-shadow:0 12px 48px rgba(0,0,0,0.7);">
+      <div style="display:flex; gap:10px;">
+        ${canNativeShare ? `<button id="overlay-share" style="font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:0.08em; padding:12px 22px; border-radius:12px; border:0; background:#2E7BFF; color:#fff;">Partager / Enregistrer</button>` : ''}
+        <button id="overlay-close" style="font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:0.08em; padding:12px 22px; border-radius:12px; border:1px solid rgba(255,255,255,0.25); background:transparent; color:rgba(255,255,255,0.85);">Fermer</button>
+      </div>`;
+    document.body.appendChild(ov);
+    const close = () => { ov.remove(); if (_overlayUrl) { URL.revokeObjectURL(_overlayUrl); _overlayUrl = null; } };
+    ov.querySelector('#overlay-close').addEventListener('click', close);
+    const shareBtn = ov.querySelector('#overlay-share');
+    if (shareBtn) shareBtn.addEventListener('click', async () => {
+      /* Tap frais = geste valide : share fiable même après un rendu long. */
+      try { await navigator.share({ files: [file] }); toast('✅ Partagé'); }
+      catch (e) { if (!e || e.name !== 'AbortError') toast('❌ Partage refusé — appui long sur l\'image', 'red'); }
+    });
+  }
+
   async function downloadPoster() {
     const btn = document.getElementById('download-btn');
     const lbl = document.getElementById('download-label');
@@ -3585,26 +3634,17 @@
       const url = URL.createObjectURL(blob);
       const fileName = posterFileName();
       if (isIOS()) {
-        // iOS: open in new tab so user can long-press → Save to Photos.
-        // <a download> on iOS Safari triggers a viewer that hides the image.
-        const win = window.open(url, '_blank');
-        if (win) {
-          toast('📷 Long-press l\'image → Enregistrer');
-        } else {
-          // Popup blocked (rare) — fall back to classic download.
-          const a = document.createElement('a');
-          a.href = url; a.download = fileName;
-          document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          toast('✅ PNG ouvert');
-        }
+        /* Plus JAMAIS window.open après l'await (geste expiré → bloqué en
+           silence sur les cartes lourdes). Aperçu in-app + appui long. */
+        URL.revokeObjectURL(url);
+        showPosterOverlay(blob);
       } else {
         const a = document.createElement('a');
         a.href = url; a.download = fileName;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         toast('✅ PNG téléchargé');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
       }
-      // Delay revoke so the new tab has time to load the blob
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
       console.error('[FCA] downloadPoster failed :', e);
       const msg = (e && e.message) ? e.message.slice(0, 80) : 'Erreur inconnue';
@@ -3634,20 +3674,10 @@
           // Fall through to Path 2.
         }
       }
-      // Path 2 — open blob in a new tab so user can long-press to save.
-      // Works everywhere (iOS Safari, Android Chrome, desktop browsers).
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, '_blank');
-      if (win) {
-        toast(isIOS() ? '📷 Long-press → Enregistrer' : '✅ Ouvert dans un onglet');
-      } else {
-        // Popup blocked — last resort: classic download.
-        const a = document.createElement('a');
-        a.href = url; a.download = posterFileName();
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        toast('✅ Téléchargé');
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      // Path 2 — aperçu in-app (le partage direct a échoué : geste expiré
+      // après un rendu long, ou pas de support). Le bouton de l'overlay
+      // relance navigator.share depuis un tap frais.
+      showPosterOverlay(blob);
     } catch (e) {
       console.error('[FCA] sharePoster failed :', e);
       const msg = (e && e.message) ? e.message.slice(0, 80) : 'Erreur inconnue';
