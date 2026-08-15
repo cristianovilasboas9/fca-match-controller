@@ -1707,12 +1707,19 @@
       return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center;">
         <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD}; margin-bottom:16px;">${TENANT_CONFIG.copy.matchBallLabel}</div>
         <div style="display:flex; align-items:center; justify-content:center; gap:38px;">
-          ${list.map(s => {
-            const lg = s.logoUrl && SPONSOR_CACHE[s.logoUrl];
-            return lg
-              ? `<div style="width:150px; height:46px; background-image:url('${lg}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>`
-              : `<span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:26px; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.88);">${s.name}</span>`;
-          }).join('')}
+          ${(() => {
+            /* Boss 15.08 · la tuile 150x46 était taillée pour les wordmarks
+               larges : un logo CARRÉ (Prost) y tombait à 46px, illisible.
+               Hauteur selon le nombre de parrains — contain fait le reste,
+               les logos larges restent bornés par la largeur. */
+            const th = list.length === 1 ? 80 : 56;
+            return list.map(s => {
+              const lg = s.logoUrl && SPONSOR_CACHE[s.logoUrl];
+              return lg
+                ? `<div style="width:${th * 3}px; height:${th}px; background-image:url('${lg}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>`
+                : `<span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:26px; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.88);">${s.name}</span>`;
+            }).join('');
+          })()}
         </div>
       </div>`;
     },
@@ -1736,7 +1743,7 @@
        variantes gardent la grille validée. */
     bottom(withSponsors, dy = 0) {
       const has = withSponsors && (state.matchBallSponsors || []).length > 0;
-      return `${has ? FB.sponsors(1436 + dy) : ''}${FB.venue((has ? 1556 : 1500) + dy)}${FB.signature((has ? 1606 : 1560) + dy)}`;
+      return `${has ? FB.sponsors(1420 + dy) : ''}${FB.venue((has ? 1556 : 1500) + dy)}${FB.signature((has ? 1606 : 1560) + dy)}`;
     },
   };
 
