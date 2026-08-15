@@ -495,10 +495,18 @@
     state.competition === 'coupe' ? 'BCV CUP'
     : state.competition === 'amical' ? 'MATCH AMICAL'
     : 'CHAMPIONNAT';
+  /* Boss 14.08 · une compétition = UNE ligne, sans redite. Avant, kicker et
+     label se cumulaient et donnaient « BCV CUP · BCV CUP COUPE DES ACTIFS ·
+     TOUR PRÉLIMINAIRE », qui cassait sur deux lignes et mordait sur le
+     terrain. Loi : coupe = BCV CUP · championnat = 4E LIGUE · GROUPE 6 ·
+     ACVF · amical = MATCH AMICAL. Le sous-titre du fixture (tour de coupe)
+     n'est plus imprimé. */
   const compLabel  = () =>
-    state.competition === 'coupe' ? (state.competitionSub || 'COUPE DES ACTIFS')
-    : state.competition === 'amical' ? (state.competitionSub || 'PRÉ-SAISON')
-    : TENANT_CONFIG.league.label;
+    state.competition === 'coupe' ? 'BCV CUP'
+    : state.competition === 'amical' ? 'MATCH AMICAL'
+    : `${TENANT_CONFIG.league.label} · ACVF`;
+  /* Ligne unique de compétition — celle que lisent les posters. */
+  const compLine = () => compLabel();
   /* Accent FAMILLE de compétition (loi président : les 3 familles se
      reconnaissent au premier regard) — Championnat bleu · BCV Cup or (+ trophée
      dans le kicker) · Amical slate discret. Utilisé par le kicker, le sweep
@@ -1222,7 +1230,7 @@
       <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
         <div style="display:flex; flex-direction:column; gap:${pf(10,8)}px; min-width:0;">
           <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:${pf(17,15)}px; letter-spacing:0.34em; text-transform:uppercase; color:${fam}; line-height:1;">${trophy}${compKicker()}</div>
-          <div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(29,26)}px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.88); line-height:1.12;">${compLabel()}</div>
+          ${compLabel() !== compKicker() ? `<div style="font-family:'Oswald', sans-serif; font-weight:500; font-size:${pf(29,26)}px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.88); line-height:1.12;">${compLabel()}</div>` : ''}
           ${state.matchNumber ? `<div style="font-family:'Inter', sans-serif; font-weight:500; font-size:${pf(12,11)}px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.38); line-height:1;">N° MATCH ${state.matchNumber}</div>` : ''}
           <div style="display:flex;">${seasonPill()}</div>
         </div>
@@ -1583,7 +1591,7 @@
        côté opposé. Si seule la photo d'origine est en cache (fond studio
        cuit dans l'image), on retombe sur le cadrage centré + la nappe qui
        masque sa boîte. */
-    photo(img, side = 'center') {
+    photo(img, side = 'center', frame = null) {
       if (!img) return '';
       /* Image importée par le président : plein cadre, cadrée au centre. */
       if (img.mode === 'bg') {
@@ -1600,7 +1608,10 @@
       /* Boss 11.08 : le joueur occupe QUASIMENT toute la hauteur. Le buste
          déborde donc largement du cadre en largeur — on positionne par la
          FACE (elle est centrée dans la découpe), pas par le bord. */
-      const h = 1700, w = Math.round(h * 0.79), top = 330;
+      /* Boss 14.08 · sur la carte BUT le crâne arrivait dans la ligne
+         compétition. Le cadrage devient paramétrable : la variante qui en a
+         besoin descend son buste sous le header au lieu de le chevaucher. */
+      const h = (frame && frame.h) || 1700, w = Math.round(h * 0.79), top = (frame && frame.top) || 330;
       const faceX = side === 'right' ? 0.63 : side === 'left' ? 0.37 : 0.5;
       const left = Math.round(faceX * FB.vw - w / 2);
       /* Le buste monte maintenant jusque dans la bande du titre : un voile
@@ -1642,7 +1653,7 @@
       return `<div style="position:absolute; left:74px; top:${y}px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${size}px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.82);">${txt}</div>`;
     },
     compline(y) {
-      return `<div style="position:absolute; left:75px; top:${y}px; font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.66);">${compKicker()} · ${compLabel()}${state.matchNumber ? ` · N° ${state.matchNumber}` : ''}</div>`;
+      return `<div style="position:absolute; left:75px; top:${y}px; font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.66);">${compLine()}${state.matchNumber ? ` · N° ${state.matchNumber}` : ''}</div>`;
     },
     chiffre(txt, size, color) {
       return `<div style="font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:${size}px; line-height:0.88; letter-spacing:0.03em; color:${color}; text-shadow:0 2px 12px rgba(4,8,15,0.9);">${txt}</div>`;
@@ -1721,9 +1732,12 @@
     /* Pied standard de la grille : parrains éventuels + venue + signature. */
     /* Instagram masque ~250px en bas : la dernière ligne ne dépasse jamais
        y1650 (mesure du panel : le pied tombait à y1744). */
-    bottom(withSponsors) {
+    /* dy · descend le pied (Boss 14.08 : la carte BUT s'aligne sur le pied du
+       poster Composition, qui vit ~170px plus bas). 0 par défaut : les autres
+       variantes gardent la grille validée. */
+    bottom(withSponsors, dy = 0) {
       const has = withSponsors && (state.matchBallSponsors || []).length > 0;
-      return `${has ? FB.sponsors(1436) : ''}${FB.venue(has ? 1556 : 1500)}${FB.signature(has ? 1606 : 1560)}`;
+      return `${has ? FB.sponsors(1436 + dy) : ''}${FB.venue((has ? 1556 : 1500) + dy)}${FB.signature((has ? 1606 : 1560) + dy)}`;
     },
   };
 
@@ -1998,16 +2012,16 @@
     if (photo) {
       const html = `
         ${FB.bg()}
-        ${FB.photo(photo, 'center')}
-        ${FB.scrim(1000)}
+        ${FB.photo(photo, 'center', { top: 470, h: 1450 })}
+        ${FB.scrim(1120)}
         ${FB.kicker('But · Saison 26/27')}
         ${FB.titre('BUT<span style="padding-left:26px;">!</span>', 156, 282, GOLD)}
         ${FB.colDroite('Minute', FB.chiffre(goalMinute + "'", 140, GOLD))}
         ${FB.compline(470)}
         ${FB.rail()}
-        <div style="position:absolute; left:0; right:0; top:1210px; text-align:center; ${dispFontCss(sc.firstName + sc.lastName)} font-size:62px; line-height:1.1; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 18px rgba(4,8,15,0.95);">${sc.firstName} ${nameWithC(sc)}</div>
-        ${FB.scoreRow(1330, 150, 92)}
-        ${FB.bottom(false)}`;
+        <div style="position:absolute; left:0; right:0; top:1350px; text-align:center; ${dispFontCss(sc.firstName + sc.lastName)} font-size:62px; line-height:1.1; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 18px rgba(4,8,15,0.95);">${sc.firstName} ${nameWithC(sc)}</div>
+        ${FB.scoreRow(1455, 150, 92)}
+        ${FB.bottom(false, 175)}`;
       return { fullBleed: true, html };
     }
     const paniniPhoto = photo && photo.src;
@@ -2187,7 +2201,9 @@
 
     // Vertical positions: G near top (own goal), AT near bottom (opponent goal)
     const N = rows.length;
-    const yTop = 8, yBottom = 88;
+    /* Boss 14.08 · à 8 % le token du gardien remontait au-dessus du terrain
+       (overflow:hidden) et mordait la ligne compétition. */
+    const yTop = 11, yBottom = 88;
     const yPositions = [];
     for (let i = 0; i < N; i++) {
       yPositions.push(yTop + (yBottom - yTop) * (i / Math.max(1, N - 1)));
@@ -2248,7 +2264,7 @@
           <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:21px; letter-spacing:0.34em; text-transform:uppercase; color:#5E9BFF;">Composition · Saison 26/27</div>
           <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:126px; letter-spacing:0.015em; text-transform:uppercase; color:#fff; margin-top:14px; line-height:0.95; text-shadow:0 0 16px rgba(46,123,255,0.28);">${state.kickoff.dayName}</div>
           <div style="${dispFontCss(isTimeTbd() ? 'À' : state.kickoff.dateLabel)} font-size:26px; color:rgba(255,255,255,0.7); margin-top:10px; line-height:1;">${state.kickoff.dateLabel} · ${isTimeTbd() ? 'HEURE À CONFIRMER' : state.kickoff.time}</div>
-          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:15px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.66); margin-top:14px;">${compKicker()} · ${compLabel()}</div>
+          <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:15px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.66); margin-top:14px;">${compLine()}</div>
         </div>
         <div style="text-align:right; flex-shrink:0; margin-left:28px;">
           <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:17px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.66); margin-bottom:16px;">Formation</div>
