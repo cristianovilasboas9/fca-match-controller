@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-15c</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-15d</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -988,8 +988,13 @@
     });
   }
   async function fetchAsDataUrl(url, allowProxy = true) {
+    /* Boss 15.08 (bug spinner infini au 2e but) : sur le réseau du stade, un
+       fetch qui ne répond JAMAIS gelait l'export pour toujours — fetch() n'a
+       pas de timeout natif. 10 s max par tentative, sinon fallback/null. */
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
     try {
-      const resp = await fetch(url, { mode: 'cors', cache: 'force-cache' });
+      const resp = await fetch(url, { mode: 'cors', cache: 'force-cache', signal: ctrl.signal });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const blob = await resp.blob();
       return await blobToDataUrl(blob);
@@ -1001,7 +1006,7 @@
         return await fetchAsDataUrl(proxyUrl, false);
       }
       return null;
-    }
+    } finally { clearTimeout(timer); }
   }
   // Return cached data URL only — null triggers initial/abbr fallback in render.
   function getCachedPhoto(p) { return p && p.photoUrl ? (PHOTO_CACHE[p.photoUrl] || null) : null; }
@@ -3596,10 +3601,15 @@
      d'un tap FRAIS (nouveau geste) → navigator.share redevient fiable. */
   let _overlayUrl = null;
   let _exporting = false;
+  let _exportSeq = 0;
   function closePosterOverlay() {
     const ov = document.getElementById('poster-overlay');
     if (ov) ov.remove();
     if (_overlayUrl) { URL.revokeObjectURL(_overlayUrl); _overlayUrl = null; }
+    /* Fermer = abandonner le rendu en cours : le tap suivant repart de zéro
+       au lieu d'être bloqué par le verrou d'un export fantôme. */
+    _exportSeq++;
+    _exporting = false;
   }
   /* Ouvre le tiroir TOUT DE SUITE (spinner) — le PNG arrive dedans quand le
      rendu finit. Le tap sur la carte est ainsi toujours suivi d'un retour
@@ -3653,17 +3663,29 @@
      remplace les anciens boutons PNG / SHARE. */
   async function exportFromCard() {
     if (_exporting) return;
-    _exporting = true;
+    /* Ordre vital : openExportOverlay() ferme l'ancien tiroir, et cette
+       fermeture bumpe _exportSeq + relâche le verrou. On pose donc le
+       verrou et on capture le jeton APRÈS — sinon le rendu tout juste
+       lancé est déjà « périmé » et le spinner ne se remplit jamais. */
     const ov = openExportOverlay();
+    _exporting = true;
+    const run = _exportSeq;
     try {
-      const { blob } = await buildPosterBlob();
+      /* Watchdog : quoi qu'il arrive (réseau du stade, asset zombie), le
+         tiroir ne tourne JAMAIS plus de 45 s — on sort en erreur claire. */
+      const { blob } = await Promise.race([
+        buildPosterBlob(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('Rendu trop long — réessaie')), 45000)),
+      ]);
+      if (run !== _exportSeq) return; // tiroir fermé entre-temps : rendu jeté
       fillExportOverlay(ov, blob);
     } catch (e) {
+      if (run !== _exportSeq) return;
       console.error('[FCA] exportFromCard failed :', e);
       closePosterOverlay();
       const msg = (e && e.message) ? e.message.slice(0, 80) : 'Erreur inconnue';
       toast(`❌ ${msg}`, 'red');
-    } finally { _exporting = false; }
+    } finally { if (run === _exportSeq) _exporting = false; }
   }
 
 
