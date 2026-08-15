@@ -335,7 +335,10 @@
 <body>
   <div class="appbar">
     <div>
-      <div class="sub">Match Controller</div>
+      <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
+           version la PWA sert (les PWA iOS cachent agressivement le HTML ;
+           Boss 15.08 : exports « cassés » = vieille version en cache). -->
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-15b</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
