@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-15d</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-17a</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -841,6 +841,15 @@
     const s = SCENES.find(x => x.id === state.heroSceneId);
     if (s) ensureScene(s);
     toast(s ? `Visuel : ${s.label}` : 'Visuel : rotation automatique', 'blue');
+    renderPanel(); refresh();
+  };
+  /* Boss 17.08 · l'import n'avait AUCUN moyen d'être retiré. Le ✕ vit
+     dans le <label> du file input : stopPropagation + preventDefault
+     obligatoires, sinon le clic rouvre le sélecteur de fichier. */
+  window.clearHeroUpload = function(ev) {
+    if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+    state.customHeroImage = '';
+    toast('Photo importée retirée', 'blue');
     renderPanel(); refresh();
   };
   window.setCaptain = function(id) {
@@ -1808,7 +1817,10 @@
        Sans photo cachée (offline) → layout carte historique ci-dessous. */
     const heroP = heroPlayerFor(state.matchId);
     const heroImg = heroImage(heroP);
-    if (heroImg) {
+    /* Boss 17.08 · « aucun visage » garde le LAYOUT plein-cadre et son
+       FOND (décor) — avant, sans photo on retombait sur l'ancienne carte
+       et le fond disparaissait. FB.photo(null) rend simplement rien. */
+    if (heroImg || state.heroOff) {
       const html = `
         ${FB.bg()}
         ${FB.photo(heroImg, FB.side('matchday'))}
@@ -1882,7 +1894,10 @@
     const heroK = heroPlayerFor(state.matchId);
     heroPlayerFor._offset = 0;
     const heroKImg = heroImage(heroK);
-    if (heroKImg) {
+    /* Boss 17.08 · « aucun visage » garde le LAYOUT plein-cadre et son
+       FOND (décor) — avant, sans photo on retombait sur l'ancienne carte
+       et le fond disparaissait. FB.photo(null) rend simplement rien. */
+    if (heroKImg || state.heroOff) {
       const html = `
         ${FB.bg()}
         ${FB.photo(heroKImg, FB.side('kickoff'))}
@@ -1954,7 +1969,10 @@
     /* Full-bleed système (DESIGN-SYSTEM-2627 §5) */
     const heroL = heroPlayerFor(state.matchId);
     const heroLImg = heroImage(heroL);
-    if (heroLImg) {
+    /* Boss 17.08 · « aucun visage » garde le LAYOUT plein-cadre et son
+       FOND (décor) — avant, sans photo on retombait sur l'ancienne carte
+       et le fond disparaissait. FB.photo(null) rend simplement rien. */
+    if (heroLImg || state.heroOff) {
       const html = `
         ${FB.bg()}
         ${FB.photo(heroLImg, FB.side('live-score'))}
@@ -2091,7 +2109,10 @@
     const heroH = heroPlayerFor(state.matchId);
     heroPlayerFor._offset = 0;
     const heroHImg = heroImage(heroH);
-    if (heroHImg) {
+    /* Boss 17.08 · « aucun visage » garde le LAYOUT plein-cadre et son
+       FOND (décor) — avant, sans photo on retombait sur l'ancienne carte
+       et le fond disparaissait. FB.photo(null) rend simplement rien. */
+    if (heroHImg || state.heroOff) {
       const html = `
         ${FB.bg()}
         ${FB.photo(heroHImg, FB.side('halftime'))}
@@ -2151,8 +2172,12 @@
     const heroR = lastScorer || heroPlayerFor(state.matchId);
     /* Même loi que la carte BUT : s'il y a un buteur, c'est lui qu'on voit —
        la personnalisation du héros ne s'applique qu'au recap sans buteur. */
-    const heroRImg = lastScorer ? heroImage(lastScorer, false) : heroImage(heroR);
-    if (heroRImg) {
+    /* Boss 17.08 · heroOff (choix explicite « aucun visage ») prime sur le
+       dernier buteur : récap plein-cadre avec le FOND seul. */
+    const heroRImg = state.heroOff
+      ? null
+      : (lastScorer ? heroImage(lastScorer, false) : heroImage(heroR));
+    if (heroRImg || state.heroOff) {
       const resultWord = win ? 'VICTOIRE' : (draw ? 'MATCH NUL' : 'DÉFAITE');
       const resultCol = win ? '#F5B82E' : (draw ? '#FFFFFF' : '#F87171');
       /* Boss 11.08 : TOUS les buteurs, jamais de « + 2 autres ». Un joueur qui
@@ -2603,13 +2628,14 @@
           <div class="hero-auto" style="border-style:solid; border-color:rgba(245,184,46,0.55); background:rgba(245,184,46,0.14); color:#F5B82E;">📸</div>
           <div class="hero-name">Shooting</div>
         </div>
-        <label class="hero-mini ${state.customHeroImage ? 'on' : ''}" style="cursor:pointer;">
+        <label class="hero-mini ${state.customHeroImage ? 'on' : ''}" style="cursor:pointer; position:relative;">
           <div class="hero-img" style="display:flex; align-items:center; justify-content:center; border:1px dashed rgba(255,255,255,0.35);">
             ${state.customHeroImage
               ? `<img src="${state.customHeroImage}">`
               : `<span style="font-family:'Inter',sans-serif; font-weight:700; font-size:16px; color:rgba(255,255,255,0.6);">+</span>`}
           </div>
           <div class="hero-name">${state.customHeroImage ? 'Ma photo' : 'Importer'}</div>
+          ${state.customHeroImage ? `<button type="button" onclick="clearHeroUpload(event)" aria-label="Retirer la photo importée" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:1px solid rgba(255,255,255,0.35); background:#0A1628; color:#fff; font-size:12px; line-height:1; z-index:2;">✕</button>` : ''}
           <input type="file" accept="image/*" id="hero-upload" style="display:none;">
         </label>
         ${heroCandidates().map(p => `
