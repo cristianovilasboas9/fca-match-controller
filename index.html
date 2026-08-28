@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-29 · 01h15</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-29 · 01h50</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -3657,13 +3657,21 @@
     // STEP 5b — Decode every <img> so html2canvas sees fully-rasterized bitmaps.
     // Si decode() échoue, on compte aussi : le bitmap sera partiel ou vide.
     let decodeFailures = 0;
-    await Promise.all([...imgs].map(img => {
-      if (typeof img.decode !== 'function') return Promise.resolve();
-      return img.decode().catch(err => {
-        decodeFailures++;
-        console.warn('[FCA] img.decode failed :', (img.src || '').slice(0, 100), err && err.message);
-      });
-    }));
+    /* BORNÉ 3 s (Boss 29.08) : img.decode() sur des <img> hors-écran ne
+       résout parfois JAMAIS (Chrome/WebKit récents) → l'export pendait
+       jusqu'au watchdog 45 s (« rendu trop long » sur toutes les cartes).
+       Le load de l'étape 4 garantit déjà les bitmaps ; decode n'est qu'une
+       optimisation — on ne la laisse plus bloquer. */
+    await Promise.race([
+      Promise.all([...imgs].map(img => {
+        if (typeof img.decode !== 'function') return Promise.resolve();
+        return img.decode().catch(err => {
+          decodeFailures++;
+          console.warn('[FCA] img.decode failed :', (img.src || '').slice(0, 100), err && err.message);
+        });
+      })),
+      new Promise(r => setTimeout(r, 1200)),
+    ]);
 
     // Si trop d'images cassées, on signale à l'utilisateur AVANT de capturer
     // (le toast warning sera visible quelques secondes pendant le rendu).
