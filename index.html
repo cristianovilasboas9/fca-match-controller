@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-29 · 00h45</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-29 · 01h15</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -1351,14 +1351,16 @@
   function scoreSizing() {
     const h = String(state.score.home), a = String(state.score.away);
     const maxD = Math.max(h.length, a.length);
+    /* Boss 29.08 · le score = l'info n°1 → tailles montées d'un cran
+       dans les DEUX formats (noms de clubs nettement plus lisibles). */
     if (state.format === 'post') {
-      if (maxD === 1) return { scoreFS: 230, crestSize: 230, nameSize: 32, dashW: 64 };
-      if (maxD === 2) return { scoreFS: 190, crestSize: 215, nameSize: 30, dashW: 58 };
-      return { scoreFS: 155, crestSize: 195, nameSize: 28, dashW: 52 };
+      if (maxD === 1) return { scoreFS: 260, crestSize: 250, nameSize: 40, dashW: 70 };
+      if (maxD === 2) return { scoreFS: 215, crestSize: 232, nameSize: 37, dashW: 64 };
+      return { scoreFS: 175, crestSize: 212, nameSize: 34, dashW: 58 };
     }
-    if (maxD === 1) return { scoreFS: 200, crestSize: 200, nameSize: 28, dashW: 60 };
-    if (maxD === 2) return { scoreFS: 160, crestSize: 180, nameSize: 26, dashW: 55 };
-    return { scoreFS: 130, crestSize: 160, nameSize: 24, dashW: 50 };
+    if (maxD === 1) return { scoreFS: 230, crestSize: 224, nameSize: 34, dashW: 66 };
+    if (maxD === 2) return { scoreFS: 185, crestSize: 202, nameSize: 31, dashW: 60 };
+    return { scoreFS: 150, crestSize: 180, nameSize: 29, dashW: 54 };
   }
 
   /* Unified score row — v9 GUARANTEED CENTERED
@@ -1755,17 +1757,19 @@
         <div style="position:relative; z-index:1;">${crestHtml}</div>
       </div>`;
     },
+    /* Boss 29.08 : l'affiche (équipes/écussons/VS) est L'INFO n°1 de la
+       carte — tailles ~1.5× (crest 96→148, noms 44→64, VS 40→56). */
     matchup(y = 1372) {
       const opp = getOpp();
       const isAway = state.homeAway === 'away';
       const leftName  = isAway ? opp.shortName : 'ATLANTIC';
       const rightName = isAway ? 'ATLANTIC' : opp.shortName;
-      const atl = FB.haloCrest(crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 96, 'transparent'), 96);
-      const oc  = FB.haloCrest(crestNode(getCachedCrest(opp), opp.abbr, 96, 'transparent'), 96);
-      return `<div style="position:absolute; left:0; right:0; top:${y}px; display:flex; align-items:center; justify-content:center; gap:34px;">
-        <div style="display:flex; align-items:center; gap:20px;">${isAway ? oc : atl}<span style="${dispFontCss(leftName)} font-size:44px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${leftName}</span></div>
-        <span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:40px; color:${FB.royal}; text-shadow:0 0 22px ${FB.royal}88;">VS</span>
-        <div style="display:flex; align-items:center; gap:20px;"><span style="${dispFontCss(rightName)} font-size:44px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${rightName}</span>${isAway ? atl : oc}</div>
+      const atl = FB.haloCrest(crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 148, 'transparent'), 148);
+      const oc  = FB.haloCrest(crestNode(getCachedCrest(opp), opp.abbr, 148, 'transparent'), 148);
+      return `<div style="position:absolute; left:0; right:0; top:${y}px; display:flex; align-items:center; justify-content:center; gap:40px;">
+        <div style="display:flex; align-items:center; gap:24px;">${isAway ? oc : atl}<span style="${dispFontCss(leftName)} font-size:64px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${leftName}</span></div>
+        <span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:56px; color:${FB.royal}; text-shadow:0 0 22px ${FB.royal}88;">VS</span>
+        <div style="display:flex; align-items:center; gap:24px;"><span style="${dispFontCss(rightName)} font-size:64px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${rightName}</span>${isAway ? atl : oc}</div>
       </div>`;
     },
     scoreRow(y, fs = 118, crest = 88) {
@@ -1785,19 +1789,19 @@
       const list = state.matchBallSponsors || [];
       if (!list.length) return '';
       return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center;">
-        <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD}; margin-bottom:16px;">${TENANT_CONFIG.copy.matchBallLabel}</div>
+        <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:20px; letter-spacing:0.3em; text-transform:uppercase; color:${GOLD}; margin-bottom:18px;">${TENANT_CONFIG.copy.matchBallLabel}</div>
         <div style="display:flex; align-items:center; justify-content:center; gap:38px;">
           ${(() => {
             /* Boss 15.08 · la tuile 150x46 était taillée pour les wordmarks
                larges : un logo CARRÉ (Prost) y tombait à 46px, illisible.
                Hauteur selon le nombre de parrains — contain fait le reste,
                les logos larges restent bornés par la largeur. */
-            const th = list.length === 1 ? 80 : 56;
+            const th = list.length === 1 ? 104 : 76;
             return list.map(s => {
               const lg = s.logoUrl && SPONSOR_CACHE[s.logoUrl];
               return lg
                 ? `<div style="width:${th * 3}px; height:${th}px; background-image:url('${lg}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>`
-                : `<span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:26px; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.88);">${s.name}</span>`;
+                : `<span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:36px; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.88);">${s.name}</span>`;
             }).join('');
           })()}
         </div>
@@ -1807,13 +1811,13 @@
       const isHome = state.homeAway === 'home';
       const vn = (state.venue && state.venue.trim()) || TENANT_CONFIG.venue.defaultHomeDisplayName;
       const vc = (state.venueCity && state.venueCity.trim()) || (isHome ? TENANT_CONFIG.venue.defaultHomeCity : '');
-      return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.72);">
+      return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:23px; letter-spacing:0.24em; text-transform:uppercase; color:rgba(255,255,255,0.75);">
         <span style="color:${isHome ? '#5E9BFF' : '#F87171'};">${isHome ? 'Domicile' : 'Extérieur'}</span> — ${vn}${vc ? ' · ' + vc : ''}
       </div>`;
     },
     signature(y) {
-      return `<div style="position:absolute; left:50%; margin-left:-170px; top:${y}px; width:340px; height:3px; border-radius:2px; background:linear-gradient(90deg, #08417B 0%, #38BDF8 55%, #F5B82E 100%);"></div>
-      <div style="position:absolute; left:0; right:0; top:${y + 18}px; text-align:center; font-family:'Space Grotesk', 'Inter', sans-serif; font-weight:700; font-size:14px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.55);">fc-atlantic-vevey.ch</div>`;
+      return `<div style="position:absolute; left:50%; margin-left:-200px; top:${y}px; width:400px; height:3px; border-radius:2px; background:linear-gradient(90deg, #08417B 0%, #38BDF8 55%, #F5B82E 100%);"></div>
+      <div style="position:absolute; left:0; right:0; top:${y + 20}px; text-align:center; font-family:'Space Grotesk', 'Inter', sans-serif; font-weight:700; font-size:17px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.6);">fc-atlantic-vevey.ch</div>`;
     },
     /* Pied standard de la grille : parrains éventuels + venue + signature. */
     /* Instagram masque ~250px en bas : la dernière ligne ne dépasse jamais
@@ -1823,7 +1827,8 @@
        variantes gardent la grille validée. */
     bottom(withSponsors, dy = 0) {
       const has = withSponsors && (state.matchBallSponsors || []).length > 0;
-      return `${has ? FB.sponsors(1420 + dy) : ''}${FB.venue((has ? 1556 : 1500) + dy)}${FB.signature((has ? 1606 : 1560) + dy)}`;
+      /* Boss 29.08 · pied agrandi — la dernière ligne reste ≤ y1650. */
+      return `${has ? FB.sponsors(1392 + dy) : ''}${FB.venue((has ? 1546 : 1512) + dy)}${FB.signature((has ? 1600 : 1574) + dy)}`;
     },
   };
 
@@ -1883,13 +1888,13 @@
         ${FB.bg()}
         ${FB.photo(heroImg, FB.side('matchday'))}
         ${FB.scrim()}
-        ${FB.kicker('Matchday · Saison 26/27')}
+        ${FB.kicker(jMinusLabel() ? `${jMinusLabel()} · Saison 26/27` : 'Matchday · Saison 26/27')}
         ${FB.titre(state.kickoff.dayName, 168)}
         ${FB.sub(`${state.kickoff.dateLabel} ${state.kickoff.year}`, 462)}
         ${FB.compline(545)}
         ${FB.colDroite("Coup d'envoi", FB.timeBlock(150))}
         ${FB.rail()}
-        ${FB.matchup(1300)}
+        ${FB.matchup(1236)}
         ${FB.bottom(true)}`;
       return { fullBleed: true, html };
     }
@@ -1967,7 +1972,7 @@
         ${FB.colDroite('Heure', FB.timeBlock(150))}
         ${FB.rail()}
         <div style="position:absolute; left:0; right:0; top:1226px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.72);"><span style="color:#5E9BFF;">Capitaine</span> — ${capt ? `${captainDisplay} · #${capt.jerseyDisplay}` : ''}</div>
-        ${FB.matchup(1300)}
+        ${FB.matchup(1236)}
         ${FB.bottom(true)}`;
       return { fullBleed: true, html };
     }
@@ -2040,7 +2045,7 @@
         ${FB.compline(470)}
         ${FB.colDroite('Minute', FB.chiffre(state.minute + "'", 140, '#FFFFFF'))}
         ${FB.rail()}
-        ${FB.scoreRow(1240, 180, 104)}
+        ${FB.scoreRow(1222, 210, 124)}
         <div style="position:absolute; left:0; right:0; top:1436px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:19px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.75);">${stateMsg}</div>
         ${FB.bottom(false)}`;
       return { fullBleed: true, html };
@@ -2117,7 +2122,7 @@
         ${FB.compline(470)}
         ${FB.rail()}
         <div style="position:absolute; left:0; right:0; top:1350px; text-align:center; ${dispFontCss(sc.firstName + sc.lastName)} font-size:62px; line-height:1.1; letter-spacing:0.05em; text-transform:uppercase; color:#fff; text-shadow:0 2px 18px rgba(4,8,15,0.95);">${sc.firstName} ${nameWithC(sc)}</div>
-        ${FB.scoreRow(1455, 150, 92)}
+        ${FB.scoreRow(1448, 168, 102)}
         ${FB.bottom(false, 175)}`;
       return { fullBleed: true, html };
     }
@@ -2180,7 +2185,7 @@
         ${FB.compline(470)}
         ${FB.colDroite('Minute', FB.chiffre("45'", 140, '#FFFFFF'))}
         ${FB.rail()}
-        ${FB.scoreRow(1240, 180, 104)}
+        ${FB.scoreRow(1222, 210, 124)}
         <div style="position:absolute; left:0; right:0; top:1436px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:19px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.75);">45 minutes encore à jouer</div>
         ${FB.bottom(false)}`;
       return { fullBleed: true, html };
@@ -2567,6 +2572,18 @@
   }
   /* Prochain match par date réelle — un match reste « courant » ~3h après le
      coup d'envoi (recap post-match). Fallback : dernier match de la saison. */
+  /* « J-3 » dynamique (Boss 29.08) · le matchday posté en avance annonce
+     J-N (jours calendaires jusqu'au match) ; jour J ou passé → null
+     (le kicker retombe sur « Matchday »). Borné à J-9. */
+  function jMinusLabel() {
+    const m = MATCHES.find(x => x.id === state.matchId);
+    if (!m) return null;
+    const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+    const d1 = new Date(matchDate(m).getTime()); d1.setHours(0, 0, 0, 0);
+    const n = Math.round((d1 - d0) / 86400000);
+    return n >= 1 && n <= 9 ? `J-${n}` : null;
+  }
+
   function nextUpcomingMatch() {
     const cutoff = Date.now() - 3 * 3600 * 1000;
     const upcoming = MATCHES
