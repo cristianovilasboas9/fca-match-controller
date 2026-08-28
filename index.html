@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-28 · 17h50</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-29 · 00h10</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -3905,7 +3905,9 @@
     } catch (e) { return false; }
   }
 
+  let _lastBundleLoad = 0;
   async function loadBundle(restored) {
+    _lastBundleLoad = Date.now();
     let data = null;
     try {
       /* PAS de ?ts ni no-store : le CDN (s-maxage 120 s) sert enfin des HIT. */
@@ -3957,6 +3959,13 @@
   window.addEventListener('pagehide', persistLive);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') persistLive();
+    /* Retour au premier plan → re-fetch du bundle (throttle 60 s) : une
+       convocation confirmée par le coach APRÈS l'ouverture de l'app arrive
+       sans devoir la relancer (piège vu le 28.08 — bundle chargé au boot
+       uniquement). loadBundle(true) ne touche pas au match sélectionné. */
+    if (document.visibilityState === 'visible' && Date.now() - _lastBundleLoad > 60000) {
+      loadBundle(true);
+    }
   });
   init();
   </script>
