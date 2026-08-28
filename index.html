@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-29 · 00h10</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-29 · 00h45</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -3561,8 +3561,11 @@
 
     // STEP 0 — Rasterize the FCA SVG crest to PNG for reliable html2canvas export
     await ensureAtlCrestPng();
-    // STEP 1 — Make sure all external assets are pre-cached as data URLs
-    await preloadAllAssets();
+    // STEP 1 — Préchargement global BORNÉ (Boss 29.08 : l'export attendait
+    // les ~30 photos du roster et crevait le watchdog 45 s sur réseau
+    // faible). 3 s de grâce (résout instantanément si déjà chaud), puis on
+    // continue — STEP 3b va chercher UNIQUEMENT les images de cette carte.
+    await Promise.race([preloadAllAssets(), new Promise(r => setTimeout(r, 3000))]);
     // STEP 1b — Le buste détouré et le décor arrivent par leur propre fetch :
     // sans cette attente, un export lancé dans les premières secondes partait
     // avec l'ancienne photo à fond studio, DIFFÉRENTE de l'aperçu à l'écran.
@@ -3593,6 +3596,27 @@
     });
     if (untaintable.length > 0) {
       console.warn('[FCA] %d <img> sans dataURL caché (risque CORS taint) :', untaintable.length, untaintable);
+      /* STEP 3b — Fetch ciblé : SEULEMENT les images de CETTE carte,
+         budget global 15 s. Ensuite toute image encore externe est
+         neutralisée (pixel transparent) : la carte s'exporte TOUJOURS —
+         cercle vide au pire — au lieu de tainter le canvas ou de crever
+         le watchdog (Boss 29.08 : « peu importe le contenu, ça doit
+         toujours générer »). */
+      const BLANK_PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+      const pending = [...imgs].filter(im => !(im.getAttribute('src') || '').startsWith('data:'));
+      await Promise.race([
+        Promise.all(pending.map(async im => {
+          const src = im.getAttribute('src') || '';
+          const d = await fetchAsDataUrl(src);
+          if (d) { PHOTO_CACHE[src] = d; im.src = d; }
+        })),
+        new Promise(r => setTimeout(r, 15000)),
+      ]);
+      let neutralized = 0;
+      imgs.forEach(im => {
+        if (!(im.src || '').startsWith('data:')) { im.src = BLANK_PX; neutralized++; }
+      });
+      if (neutralized > 0) console.warn(`[FCA] ${neutralized} image(s) neutralisée(s) (réseau) — export dégradé mais garanti`);
     }
 
     // STEP 4 — Wait for ALL images in the offscreen tree to be fully loaded.
@@ -3906,7 +3930,10 @@
   }
 
   let _lastBundleLoad = 0;
-  async function loadBundle(restored) {
+  /* light=true (retour au premier plan) : données seulement — on ne
+     ré-invalide PAS le cache d'assets, sinon un export juste après le
+     retour re-télécharge 30 photos et crève le watchdog (Boss 29.08). */
+  async function loadBundle(restored, light) {
     _lastBundleLoad = Date.now();
     let data = null;
     try {
@@ -3926,9 +3953,11 @@
       if (!state.matchBallSponsors.length) state.matchBallSponsors = ballSponsorsFor(state.matchId);
     }
     ensureCrest(getOpp());
-    /* Nouvelles photos/crests éventuels (recrues, logos à jour) → re-preload. */
-    invalidatePreloadCache();
-    preloadAllAssets().then(() => refresh());
+    if (!light) {
+      /* Nouvelles photos/crests éventuels (recrues, logos à jour) → re-preload. */
+      invalidatePreloadCache();
+      preloadAllAssets().then(() => refresh());
+    }
     renderAll();
   }
 
@@ -3964,7 +3993,7 @@
        sans devoir la relancer (piège vu le 28.08 — bundle chargé au boot
        uniquement). loadBundle(true) ne touche pas au match sélectionné. */
     if (document.visibilityState === 'visible' && Date.now() - _lastBundleLoad > 60000) {
-      loadBundle(true);
+      loadBundle(true, true);
     }
   });
   init();
