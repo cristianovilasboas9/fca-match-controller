@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-17a</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-08-28 · 17h50</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -835,6 +835,53 @@
     persistLive();
     refresh();
   };
+
+  /* Pinch-to-zoom du visuel (Boss 28.08) · remplace le slider. */
+  let _pinch = null;
+  let _pinchRefreshAt = 0;
+  let _suppressTapUntil = 0;
+  function _applyPinchZoom(z) {
+    state.visualZoom = Math.max(100, Math.min(220, Math.round(z)));
+    const now = Date.now();
+    if (now - _pinchRefreshAt > 90) { _pinchRefreshAt = now; refresh(); }
+  }
+  window.addEventListener('DOMContentLoaded', () => {
+    const wrap = document.getElementById('preview-tap');
+    if (!wrap) return;
+    wrap.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        _pinch = { d0: Math.hypot(dx, dy), z0: state.visualZoom || 100 };
+      }
+    }, { passive: true });
+    wrap.addEventListener('touchmove', (e) => {
+      if (_pinch && e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        _applyPinchZoom(_pinch.z0 * (Math.hypot(dx, dy) / _pinch.d0));
+      }
+    }, { passive: false });
+    const endPinch = () => {
+      if (_pinch) {
+        _pinch = null;
+        _suppressTapUntil = Date.now() + 450;
+        persistLive();
+        refresh();
+      }
+    };
+    wrap.addEventListener('touchend', endPinch);
+    wrap.addEventListener('touchcancel', endPinch);
+    /* Trackpad Mac : pincer = wheel avec ctrlKey. */
+    wrap.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      _applyPinchZoom((state.visualZoom || 100) - e.deltaY);
+      clearTimeout(window._wheelPersist);
+      window._wheelPersist = setTimeout(() => { persistLive(); refresh(); }, 250);
+    }, { passive: false });
+  });
 
   window.toggleShooting = function() {
     state._shootingOpen = !state._shootingOpen;
@@ -2669,16 +2716,6 @@
         ? 'Carte nette : aucun visage.'
         : 'Le visage des visuels. « But » utilise toujours le buteur.'} Retape la case active pour la désélectionner.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
 
-      <!-- ZOOM DU VISUEL (Boss 28.08) — variantes de cadrage -->
-      <div class="panel-label" style="margin-top:14px;">Zoom du visuel
-        <span class="b blue" id="zoom-val">${state.visualZoom || 100}%</span>
-      </div>
-      <input type="range" min="100" max="200" step="5" value="${state.visualZoom || 100}"
-        style="width:100%; accent-color:#38BDF8; margin:4px 0 2px;"
-        oninput="document.getElementById('zoom-val').textContent = this.value + '%'"
-        onchange="setVisualZoom(this.value)">
-      <div class="match-note">S'applique au visuel principal et au décor. 100 % = cadrage d'origine.</div>
-
       <!-- DÉCOR — passe DERRIÈRE le joueur -->
       <div class="panel-label" style="margin-top:18px;">Décor en fond
         <span class="b blue">${state.sceneId ? (SCENES.find(s => s.id === state.sceneId) || {}).label || 'choisi' : 'aucun'}</span>
@@ -3908,7 +3945,11 @@
   /* Poignée de debug/E2E (lecture seule par convention — rien dans l'app ne
      passe par elle). Permet aux tests Playwright d'observer l'état réel. */
   window.__mc = { state, MATCHES, OPPONENTS, ROSTER, buildPosterBlob };
-  document.getElementById('preview-tap').addEventListener('click', exportFromCard);
+  document.getElementById('preview-tap').addEventListener('click', () => {
+    /* Un pinch qui se termine ne doit pas déclencher l'export (Boss 28.08). */
+    if (Date.now() < _suppressTapUntil) return;
+    exportFromCard();
+  });
   window.addEventListener('load', init);
   window.addEventListener('resize', () => updatePreview());
   /* iOS tue la PWA en arrière-plan sans prévenir — on persiste au moment
