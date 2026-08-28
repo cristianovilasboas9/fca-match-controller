@@ -708,6 +708,7 @@
     competition: 'coupe',
     // Décor du club en fond (bundle.scenes) — le joueur reste DEVANT.
     sceneId: '',
+    visualZoom: 100,   // Boss 28.08 · zoom du visuel principal + décor (100-200 %)
     // true = AUCUN visage (carte nette : juste le fond et le texte).
     heroOff: false,
     // Photo du shooting maillots utilisée comme visuel principal.
@@ -827,6 +828,14 @@
     toast(s ? `Décor : ${s.label}` : 'Décor : bleu nuit', 'blue');
     renderPanel(); refresh();
   };
+  /* Boss 28.08 · zoom du visuel (variantes de cadrage avec les mêmes
+     images). Appliqué au visuel principal (mode bg) ET au décor. */
+  window.setVisualZoom = function(v) {
+    state.visualZoom = Math.max(100, Math.min(200, Math.round(+v || 100)));
+    persistLive();
+    refresh();
+  };
+
   window.toggleShooting = function() {
     state._shootingOpen = !state._shootingOpen;
     if (state._shootingOpen) SCENES.filter(s => s.group === 'shooting').slice(0, 4).forEach(ensureScene);
@@ -1599,7 +1608,8 @@
       const sc = currentScene();
       const scData = sc && SCENE_CACHE[sc.url];
       if (scData) {
-        return `<div style="position:absolute; inset:0; background-image:url('${scData}'); background-size:cover; background-position:center 38%; background-repeat:no-repeat;"></div>
+        const zi = -((Math.max(100, state.visualZoom || 100) - 100) / 2);
+        return `<div style="position:absolute; inset:${zi}%; background-image:url('${scData}'); background-size:cover; background-position:center 38%; background-repeat:no-repeat;"></div>
       <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,10,24,0.68) 0%, rgba(4,10,24,0.44) 34%, rgba(4,8,15,0.55) 68%, rgba(4,8,15,0.82) 100%);"></div>
       <div style="position:absolute; inset:0; background:radial-gradient(120% 80% at 72% -10%, rgba(23,65,127,0.42) 0%, rgba(10,32,64,0.2) 45%, transparent 78%);"></div>`;
       }
@@ -1616,7 +1626,8 @@
       if (!img) return '';
       /* Image importée par le président : plein cadre, cadrée au centre. */
       if (img.mode === 'bg') {
-        return `<div style="position:absolute; inset:0; background-image:url('${img.src}'); background-size:cover; background-position:center 22%; background-repeat:no-repeat; opacity:0.96;"></div>
+        const zi = -((Math.max(100, state.visualZoom || 100) - 100) / 2);
+        return `<div style="position:absolute; inset:${zi}%; background-image:url('${img.src}'); background-size:cover; background-position:center 22%; background-repeat:no-repeat; opacity:0.96;"></div>
         <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,8,15,0.72) 0%, rgba(4,8,15,0.3) 22%, transparent 44%);"></div>`;
       }
       const haloX = side === 'right' ? '60%' : side === 'left' ? '40%' : '50%';
@@ -2658,6 +2669,16 @@
         ? 'Carte nette : aucun visage.'
         : 'Le visage des visuels. « But » utilise toujours le buteur.'} Retape la case active pour la désélectionner.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
 
+      <!-- ZOOM DU VISUEL (Boss 28.08) — variantes de cadrage -->
+      <div class="panel-label" style="margin-top:14px;">Zoom du visuel
+        <span class="b blue" id="zoom-val">${state.visualZoom || 100}%</span>
+      </div>
+      <input type="range" min="100" max="200" step="5" value="${state.visualZoom || 100}"
+        style="width:100%; accent-color:#38BDF8; margin:4px 0 2px;"
+        oninput="document.getElementById('zoom-val').textContent = this.value + '%'"
+        onchange="setVisualZoom(this.value)">
+      <div class="match-note">S'applique au visuel principal et au décor. 100 % = cadrage d'origine.</div>
+
       <!-- DÉCOR — passe DERRIÈRE le joueur -->
       <div class="panel-label" style="margin-top:18px;">Décor en fond
         <span class="b blue">${state.sceneId ? (SCENES.find(s => s.id === state.sceneId) || {}).label || 'choisi' : 'aucun'}</span>
@@ -3360,7 +3381,7 @@
   const LIVE_KEY_PREFIX = 'fca-mc:v1:live:';
   const LAST_KEY = 'fca-mc:v1:last';
   const LIVE_TTL_MS = 12 * 3600 * 1000;
-  const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage','sceneId','heroOff','heroSceneId',
+  const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage','sceneId','visualZoom','heroOff','heroSceneId',
     'competitionSub','matchId','_userPickedMatch','opponentSlug','matchNumber','venue','venueCity',
     'kickoff','matchBallSponsors','score','minute','scorerId','scorerSide','formation','captainId',
     'lineupStarters','lineupBench','guests','goals','customMessage','captionOverride'];
