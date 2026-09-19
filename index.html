@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-09-19 · 16h10</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-09-19 · 16h50</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -3436,7 +3436,11 @@
   const LAST_KEY = 'fca-mc:v1:last';
   const LIVE_TTL_MS = 12 * 3600 * 1000;
   const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage','sceneId','visualZoom','heroOff','heroSceneId',
-    'competitionSub','matchId','_userPickedMatch','opponentSlug','matchNumber','venue','venueCity',
+    /* venue/venueCity ABSENTS volontairement (Boss 19.09) : le lieu appartient
+       au fixture, jamais au téléphone. Persisté, un snapshot écrit AVANT une
+       correction de terrain rejouait l'ancien lieu par-dessus le fixture
+       corrigé — « Stade de Chailly » restait affiché malgré le fix. */
+    'competitionSub','matchId','_userPickedMatch','opponentSlug','matchNumber',
     'kickoff','matchBallSponsors','score','minute','scorerId','scorerSide','formation','captainId',
     'lineupStarters','lineupBench','guests','goals','customMessage','captionOverride'];
   function liveKey() {
@@ -3462,6 +3466,11 @@
   }
   function applySnap(snap) {
     PERSIST_FIELDS.forEach(k => { if (snap[k] !== undefined) state[k] = snap[k]; });
+    /* Le lieu se re-dérive TOUJOURS du calendrier — y compris pour les
+       snapshots déjà stockés sur le téléphone, qui portent encore l'ancien
+       terrain. Sans ça, corriger un lieu n'atteint jamais l'appareil de Boss. */
+    const fixture = MATCHES.find(x => x.id === state.matchId);
+    if (fixture) { state.venue = fixture.venue; state.venueCity = fixture.venueCity; }
     syncScoreFromGoals();
   }
   /* Reprise au démarrage : dernier match travaillé, snapshot < 12 h. */
