@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-09-19 · 17h05</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-09-28 · photos</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -1056,14 +1056,25 @@
     /* Boss 15.08 (bug spinner infini au 2e but) : sur le réseau du stade, un
        fetch qui ne répond JAMAIS gelait l'export pour toujours — fetch() n'a
        pas de timeout natif. 10 s max par tentative, sinon fallback/null. */
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10000);
+    /* Boss 28.09 : 'force-cache' seul servait À VIE la photo déjà en cache —
+       une photo remplacée sur le site (même URL) n'atteignait jamais le
+       téléphone. 'no-cache' revalide (ETag → 304, quasi gratuit) ; si le
+       réseau lâche, la copie en cache reste le filet avant le proxy. */
+    const attempt = async (cacheMode, ms) => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), ms);
+      try {
+        const resp = await fetch(url, { mode: 'cors', cache: cacheMode, signal: ctrl.signal });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return await blobToDataUrl(await resp.blob());
+      } finally { clearTimeout(timer); }
+    };
     try {
-      const resp = await fetch(url, { mode: 'cors', cache: 'force-cache', signal: ctrl.signal });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const blob = await resp.blob();
-      return await blobToDataUrl(blob);
+      return await attempt('no-cache', 10000);
     } catch (e) {
+      /* 2,5 s : c'est une lecture du cache local, pas un 2e aller réseau —
+         le budget total reste sous le watchdog d'export (45 s). */
+      try { return await attempt('force-cache', 2500); } catch (e2) { /* rien en cache */ }
       if (allowProxy) {
         // Fallback via images.weserv.nl proxy (CORS-safe). Strips http(s):// prefix.
         const stripped = url.replace(/^https?:\/\//, '');
@@ -1071,7 +1082,7 @@
         return await fetchAsDataUrl(proxyUrl, false);
       }
       return null;
-    } finally { clearTimeout(timer); }
+    }
   }
   // Return cached data URL only — null triggers initial/abbr fallback in render.
   function getCachedPhoto(p) { return p && p.photoUrl ? (PHOTO_CACHE[p.photoUrl] || null) : null; }
@@ -2389,7 +2400,11 @@
         <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:13px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-bottom:12px;">Onze de départ</div>
         <div style="position:relative; width:100%; height:840px; background:radial-gradient(ellipse 92% 82% at 50% 48%, rgba(16,48,97,0.55) 0%, rgba(7,22,48,0.35) 58%, transparent 88%); overflow:hidden;">
           <!-- Tactical lines (thin accent-blue, no fill) -->
-          <svg viewBox="0 0 100 120" preserveAspectRatio="none" style="position:absolute; inset:28px; width:calc(100% - 56px); height:calc(100% - 56px); stroke:rgba(46,123,255,0.42); fill:none; stroke-width:0.22; pointer-events:none;">
+          <!-- Boss 28.09 : html2canvas lisait mal inset + calc() sur le <svg> et
+               coupait le bas du terrain à l'export (ligne de but + surfaces).
+               Le cadre vit dans un div aux 4 bords explicites, le svg le remplit. -->
+          <div style="position:absolute; top:28px; left:28px; right:28px; bottom:28px; pointer-events:none;">
+          <svg viewBox="0 0 100 120" preserveAspectRatio="none" style="position:absolute; top:0; left:0; width:100%; height:100%; stroke:rgba(46,123,255,0.42); fill:none; stroke-width:0.22; pointer-events:none;">
             <rect x="0.5" y="0.5" width="99" height="119"/>
             <line x1="0.5" y1="60" x2="99.5" y2="60"/>
             <circle cx="50" cy="60" r="9"/>
@@ -2410,6 +2425,7 @@
             <path d="M 99.5 118 A 1.5 1.5 0 0 0 98 119.5"/>
             <path d="M 2 119.5 A 1.5 1.5 0 0 0 0.5 118"/>
           </svg>
+          </div>
           <!-- Subtle blue glow -->
           <div style="position:absolute; inset:0; background:radial-gradient(ellipse 60% 50% at 50% 50%, rgba(46,123,255,0.06), transparent 70%); pointer-events:none;"></div>
           <!-- Players -->
