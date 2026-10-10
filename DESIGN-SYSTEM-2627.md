@@ -47,6 +47,42 @@ en dur sur un nom de club/joueur/lieu.
 
 Post 4:5 : MÊME composition dans un canvas virtuel scalé (ancres left/right).
 
+### 3bis. Cartes d'AFFICHE — matchday + coup d'envoi (Boss 10.10)
+
+« Les logos doivent être le centre de l'affiche, plus grands, plus en valeur,
+avec le nom en dessous en plus petit, une belle carte avec un VS. » Sur ces deux
+cartes le héros n'est plus la photo : ce sont les deux écussons.
+
+```
+STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1536×1920)
+ 238       kicker (gauche) · label (droite)    138   header remonté de 100 : pas de zone
+ 282       titre 92 px · heure 96 px (droite)        morte Instagram en 4:5
+ 266–606   PORTRAIT centré, tête 340 px,       166–566  portrait, tête 400 px
+           ENTRE le titre et l'heure                   titre 126 px · heure 118 px
+ ≈556→836  nuit : les épaules s'éteignent
+ ≈770–1190 ÉCUSSONS 420 px, domicile à gauche  ÉCUSSONS 560 px (394 px réels)
+           VS (fonte du maillot) + 2 filets
+ +36       NOMS OFFICIELS 45 px, même corps    60 px
+ +30       lignes micro : capitaine, message
+ 1392…     pied standard (parrains, lieu,      pied descendu de 128
+           signature) — inchangé
+ rail      #hashtag à y1420 (sous l'écusson)   y1530
+```
+
+- **L'affiche se centre** entre le bas de la bande du header (menton du
+  portrait, ou bas du header s'il n'y a pas de portrait) et le haut du pied :
+  elle descend quand il n'y a pas de parrains, remonte en « carte nette ».
+- **Le visuel devient l'atmosphère**, jamais le concurrent des écussons.
+  Joueur : portrait à 0.74 d'opacité, la tête entièrement AU-DESSUS des
+  écussons (aucun visage derrière un logo). Photo plein cadre (shooting,
+  import) : voilée d'un seul tenant. Aucun visuel → la carte tient seule.
+- **Halos** : plaque nuit + lumière, cyan néon de la saison pour nous, bleu roi
+  pour l'adversaire. Aucun cadre, aucune pastille.
+- **Un seul layout** : l'ancienne « carte de secours » du matchday et du coup
+  d'envoi a disparu — l'affiche n'a besoin d'aucune photo pour exister.
+- Le message du président (onglet Personnaliser) s'affiche en ligne micro sous
+  les noms ; il n'apparaissait sur aucune carte photo auparavant.
+
 ## 4. Composants (implémentés dans `FB` — index.html)
 
 - `FB.bg()` — radial nuit 9 paliers + nappe basse + aura haut-droite (TOUJOURS bleues)
@@ -54,7 +90,15 @@ Post 4:5 : MÊME composition dans un canvas virtuel scalé (ancres left/right).
 - `FB.scrim(topY)` — fondu bas 5 paliers → noir plein
 - `FB.kicker(txt)` / `FB.titre(txt, size)` / `FB.chiffre(txt, size, color)` (Outlined)
 - `FB.rail()` — hashtag vertical
-- `FB.matchup(y)` — crest 96 + nom + VS roi + nom + crest 96 (home à gauche)
+- `FB.duel(top, crest)` — L'AFFICHE : deux écussons face à face (home à
+  gauche) sur leur halo, nom officiel dessous (même corps des deux côtés,
+  ajusté par `fitDuel`), VS au centre. `crest` 420 (story) / 560 (post) pour
+  les cartes d'affiche, 104 en simple rappel sur le recap. `FB.duelH(crest)`
+  donne la hauteur du bloc.
+- `FB.atmosphere(img, band)` — le visuel en atmosphère des cartes d'affiche
+  (portrait centré dans la bande du header, ou photo plein cadre voilée) + la
+  nuit sous lui. `FB.isPortrait(img)` dit si un portrait sera rendu.
+- `FB.note(html, y)` — ligne micro centrée (capitaine, message du président)
 - `FB.scoreRow(y, size)` — crest 84 + score Outlined + crest 84
 - `FB.sponsors(y)` — label or + logos blancs nus 150×46 (fallback nom flocage)
 - `FB.venue(y)` + `FB.signature(y)` — pied standard
@@ -64,12 +108,12 @@ Post 4:5 : MÊME composition dans un canvas virtuel scalé (ancres left/right).
 
 | Variante | Header gauche | Header droite | Info stack (sur scrim) | Héros photo |
 |---|---|---|---|---|
-| **matchday** | MATCHDAY·SAISON / JOUR / date / compét° | heure (timeBlock) | matchup · parrains · venue | rotation (stable/match) |
-| **kickoff** | IMMINENT / COUP D'ENVOI / sous-titre / compét° | heure | capitaine (ligne discrète) · matchup · parrains · venue | rotation +1 |
+| **matchday** | J-N·SAISON / JOUR / date / compét° | heure (timeBlock) | **AFFICHE héros** (`FB.duel`) · message · parrains · venue | portrait d'atmosphère (rotation, stable/match) |
+| **kickoff** | IMMINENT / COUP · D'ENVOI (2 lignes) / sous-titre / compét° | heure | **AFFICHE héros** · capitaine (ligne micro) · message · parrains · venue | portrait d'atmosphère (rotation +1) |
 | **live** | EN DIRECT (point rouge) / compét° | minute Outlined blanc | score géant · message d'état · venue | rotation |
 | **halftime** | MI-TEMPS / compét° | 45' fixe | score géant · message · venue | rotation |
 | **goal** | compét° micro | minute or | BUT ! or · nom buteur · venue | LE BUTEUR |
-| **recap** | RÉSULTAT FINAL / mot résultat (or/blanc/rouge) | score Outlined | buteurs (minutes or) · parrains · venue | dernier buteur FCA, sinon rotation |
+| **recap** | RÉSULTAT FINAL / mot résultat (or/blanc/rouge) | score Outlined | affiche en rappel (`FB.duel(y, 104)`, repliée si les buteurs manquent de place) · buteurs (minutes or) · parrains · venue | dernier buteur FCA, sinon rotation |
 | **lineup** | COMPOSITION / jour+date | formation Outlined | terrain tactique (pas de photo héros) · banc · venue | — |
 
 ## 5bis. Grille verrouillée (audit panel DA, 11.08)
@@ -80,7 +124,7 @@ mesuré les dérives qu'elles corrigent.
 | Élément | Ancre | Règle |
 |---|---|---|
 | Kicker gauche | y238 | bleu `#5E9BFF`, Inter 700, 21px, .34em |
-| Titre display | y282 | rampe FIXE : 156px, ou 126px si > 10 caractères. Jamais d'autre valeur |
+| Titre display | y282 | rampe FIXE : 156px, ou 126px si > 10 caractères. Jamais d'autre valeur. Exception décidée par Boss le 10.10 : cartes d'affiche en story = 92px (heure 96px), le portrait vit entre les deux |
 | Colonne droite | y238 (label) | `FB.colDroite(label, chiffre)` — micro-label sur la MÊME ligne de base que le kicker |
 | Ligne compétition | y470-545 | opacité .66 minimum (mesuré 4.4:1 avant, ≥7:1 après) |
 | Info stack | grandit vers le HAUT | dernier pixel de contenu ≤ **y1650** (Instagram masque les 250 derniers px) |
@@ -113,8 +157,9 @@ exposée par le bundle en `photoCutoutUrl`).
   sinon le quota localStorage explose et l'état du match est perdu.
 - **Décalage par variante** (`FB.side`) — deux stories publiées à la suite ne
   montrent jamais l'image au même endroit :
-  matchday **droite** · kickoff **gauche** · live **droite** ·
-  mi-temps **gauche** · recap **droite** · but **centré** (c'est le buteur).
+  live **droite** · mi-temps **gauche** · recap **droite** · but **centré**
+  (c'est le buteur). Matchday et coup d'envoi n'ont plus de buste latéral :
+  portrait centré dans la bande du header (§3bis).
 - **Choix du visage** : le président peut fixer le joueur de fond
   (`state.heroPlayerId`, onglet Match). Vide = rotation automatique sans
   répétition. La variante **But** ignore ce choix — son héros est le buteur.
@@ -132,6 +177,28 @@ exposée par le bundle en `photoCutoutUrl`).
 **Régénérer les découpes** après une nouvelle photo :
 `python3 scripts/cutouts.py` côté site, puis `vercel --prod`.
 
+## 5quater. Noms de clubs (loi Boss 10.10)
+
+Un club s'écrit avec son **nom officiel**, sur chaque poster, chaque caption,
+chaque libellé de l'interface.
+
+| Club | 1er choix | Repli | Dernier repli |
+|---|---|---|---|
+| Nous | FC ATLANTIC VEVEY | FC ATLANTIC | — jamais « ATLANTIC » seul |
+| Adversaire | `OPPONENTS[].name` : FC SLAVIA LS, RACING CLUB LAUSANNE II | `mediumName` curé, le préfixe de club reste : RACING CLUB LS II, FC MONTREUX II, CS LA TOUR II | `shortName` : RACING II, MONTREUX II, LA TOUR II |
+
+- **Le chiffre d'équipe (I, II, III, IA…) ne se perd jamais** : `clubNames()` le
+  rend d'office à toute forme qui l'aurait oublié.
+- **Le choix se fait à la mesure, pas au compte de lettres** : `fitName()` /
+  `fitDuel()` prennent le plus long nom qui tient dans la largeur réelle, mesurée
+  dans la fonte embarquée, à un corps acceptable (≥ 78 % du corps nominal).
+  Face à face, les deux clubs ont le même corps.
+- Sur les cartes d'affiche, tous les noms officiels de la saison tiennent en
+  entier (45 px en story, 60 px en post).
+- `abbr` (3-4 lettres) ne sert **qu'aux hashtags**.
+- Interface : l'élément porte ses candidats (`data-names`), `fitUiNames()`
+  descend d'un cran tant que le texte déborde.
+
 ## 6. Lois non négociables
 
 - **Zéro chrome** : pas de cadre, pas de pastille décorative, pas de tuile bordée.
@@ -139,5 +206,13 @@ exposée par le bundle en `photoCutoutUrl`).
 - **Photos/logos = dataURL du cache uniquement** (jamais d'URL distante → taint export).
 - **html2canvas-safe** : jamais `filter:`, `mix-blend`, `object-fit` sur img,
   `translate(-50%)` sur image débordante. Glows = text-shadow + radial-divs.
-- **Fallback offline** : pas de photo cachée → layout carte historique.
+  Dans un dégradé, jamais le mot-clé `transparent` à côté d'une couleur : le
+  canvas l'interpole vers du NOIR transparent (frange sale au bord du halo) —
+  on fond vers la même couleur à alpha 0. Une image en `background-size`
+  redimensionnée laisse filer sa dernière rangée en liseré au-dessus d'elle :
+  la rogner de 3px dans un cadre `overflow:hidden`.
+- **Fallback offline** : pas de photo cachée → layout carte historique (live,
+  mi-temps, but, recap). Matchday et coup d'envoi n'en ont plus besoin.
+- **Une ligne reste une ligne** : nom de club, lieu → corps ajusté à la largeur
+  mesurée, jamais de retour à la ligne improvisé sur l'élément du dessous.
 - Vérité terrain : export PNG jugé, jamais le preview seul.
