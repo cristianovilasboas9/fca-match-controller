@@ -91,11 +91,12 @@ for (const engine of engines) {
     await page.locator('#preview-tap').tap({ position: { x: 60, y: 60 } });
     const shown = await page.waitForSelector('#poster-overlay [data-export-error]', { timeout: 30000 }).then(() => true, () => false);
     if (shown) {
+      const hint = await page.evaluate(() => document.getElementById('overlay-hint').textContent + ' — ' + document.querySelector('[data-export-error]').textContent);
       await page.screenshot({ path: path.join(OUT_DIR, `export-failure-${engine}.png`) });
       net.profile = PROFILES.ok;
       await page.locator('#overlay-retry').tap();
       const ok = await page.waitForFunction(() => { const im = document.querySelector('#poster-overlay #overlay-body img'); return im && im.complete && im.naturalWidth > 0; }, null, { timeout: 30000 }).then(() => true, () => false);
-      say(engine, 'E2', `tiroir d'erreur affiché (« ${await page.evaluate(() => document.getElementById('overlay-hint').textContent)} ») → bouton Réessayer → ${ok ? 'carte générée' : 'ÉCHEC'}`);
+      say(engine, 'E2', `tiroir d'erreur affiché (« ${hint} ») → bouton Réessayer → ${ok ? 'carte générée' : 'ÉCHEC'}`);
     } else {
       say(engine, 'E2', 'aucun tiroir d\'erreur (le tiroir se referme sur un toast de 1,8 s)');
     }

@@ -338,7 +338,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-03 · accents</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-10 · affiche</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -568,7 +568,7 @@
   /* Une mesure prise avant l'arrivée des fontes vaut pour la fonte de repli :
      on les charge d'entrée, puis on oublie les mesures et on redessine. */
   const _fontsLoaded = (document.fonts && document.fonts.load)
-    ? Promise.all(["400 100px 'Portugal2025'", "700 100px 'Oswald'"].map(f => document.fonts.load(f)))
+    ? Promise.all(["400 100px 'Portugal2025'", "700 100px 'Oswald'", "600 100px 'Inter'"].map(f => document.fonts.load(f)))
         .then(() => { _unitWidths.clear(); scheduleRefresh(); }, () => {})
     : Promise.resolve();
   /* Le plus LONG nom qui tient dans maxW à un corps acceptable (entre max et
@@ -621,7 +621,6 @@
   const trophyIcon = (size) => posterIcon(size, `<path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" fill="#F5B82E"/>`);
   const handshakeIcon = (size) => posterIcon(size, `<path d="M12.22 19.85c-.18.18-.5.21-.71 0a.504.504 0 0 1 0-.71l3.39-3.39-1.41-1.41-3.39 3.39c-.19.2-.51.19-.71 0-.21-.21-.18-.53 0-.71l3.39-3.39-1.41-1.41-3.39 3.39c-.18.18-.5.21-.71 0-.19-.19-.19-.51 0-.71l3.39-3.39-1.42-1.41-3.39 3.39c-.18.18-.5.21-.71 0-.19-.2-.19-.51 0-.71L9.52 8.4l1.87 1.86c.95.95 2.59.94 3.54 0 .98-.98.98-2.56 0-3.54l-1.86-1.86.28-.28c.78-.78 2.05-.78 2.83 0l4.24 4.24c.78.78.78 2.05 0 2.83l-8.2 8.2zm9.61-6.78a4.008 4.008 0 0 0 0-5.66l-4.24-4.24a4.008 4.008 0 0 0-5.66 0l-.28.28-.28-.28a4.008 4.008 0 0 0-5.66 0L2.17 6.71a3.992 3.992 0 0 0-.4 5.19l1.45-1.45a2 2 0 0 1 .37-2.33l3.54-3.54c.78-.78 2.05-.78 2.83 0l3.56 3.56c.18.18.21.5 0 .71-.21.21-.53.18-.71 0L9.52 5.57l-5.8 5.79c-.98.97-.98 2.56 0 3.54.39.39.89.63 1.42.7a2.458 2.458 0 0 0 2.12 2.12 2.458 2.458 0 0 0 2.12 2.12c.07.54.31 1.03.7 1.42.47.47 1.1.73 1.77.73.67 0 1.3-.26 1.77-.73l8.21-8.19z" fill="#FFFFFF"/>`);
   const ballIcon = (size) => posterIcon(size, `<circle cx="12" cy="12" r="10" fill="#FFFFFF"/><path d="M12 8.2l3.61 2.63-1.38 4.24H9.77l-1.38-4.24z" fill="#04080F"/><g stroke="#04080F" stroke-width="1.5" stroke-linecap="round"><path d="M12 8.2V3.4"/><path d="M15.61 10.83l4.36-1.42"/><path d="M14.23 15.07l2.7 3.71"/><path d="M9.77 15.07l-2.7 3.71"/><path d="M8.39 10.83L4.03 9.41"/></g>`);
-  const flameIcon = (size) => posterIcon(size, `<path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" fill="#F5B82E"/>`);
 
   /* === 2. CREST_DATAURL ========================================
      Logo du club en SVG base64. Pour swap : exporter le SVG du nouveau
@@ -1807,8 +1806,7 @@
     /* Côté du buste par variante : deux stories publiées à la suite ne
        présentent jamais la même image au même endroit. */
     side(v) {
-      return { matchday: 'right', kickoff: 'left', 'live-score': 'right',
-               halftime: 'left', recap: 'right', goal: 'center' }[v] || 'center';
+      return { 'live-score': 'right', halftime: 'left', recap: 'right', goal: 'center' }[v] || 'center';
     },
     /* Le buste détouré monte plus haut dans le cadre et le maillot est GRIS
        CLAIR : sans un voile qui mord tôt, l'info stack tombe à 2-3:1 (mesuré).
@@ -1827,8 +1825,8 @@
     },
     /* Colonne droite du header : micro-label sur la MÊME ligne de base que
        le kicker gauche (y238), grand chiffre ancré à y286. */
-    colDroite(label, chiffreHtml) {
-      return `<div style="position:absolute; right:72px; top:238px; text-align:right;">
+    colDroite(label, chiffreHtml, y = 238) {
+      return `<div style="position:absolute; right:72px; top:${y}px; text-align:right;">
         <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:17px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.66); margin-bottom:16px;">${label}</div>
         ${chiffreHtml}
       </div>`;
@@ -1836,8 +1834,13 @@
     sub(txt, y, size = 58) {
       return `<div style="position:absolute; left:74px; top:${y}px; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${size}px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.82);">${txt}</div>`;
     },
-    compline(y) {
-      return `<div style="position:absolute; left:75px; top:${y}px; font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.66);">${compLine()}</div>`;
+    compline(y, tracking = 0.3) {
+      return `<div style="position:absolute; left:75px; top:${y}px; font-family:'Inter', sans-serif; font-weight:600; font-size:16px; letter-spacing:${tracking}em; text-transform:uppercase; white-space:nowrap; color:rgba(255,255,255,0.66);">${compLine()}</div>`;
+    },
+    /* Ligne micro centrée (capitaine, message du président) — même registre
+       que la ligne d'état des cartes live. */
+    note(html, y) {
+      return `<div style="position:absolute; left:72px; right:72px; top:${y}px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:19px; line-height:1.3; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.75);">${html}</div>`;
     },
     chiffre(txt, size, color) {
       return `<div style="font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:${size}px; line-height:0.88; letter-spacing:0.03em; color:${color}; text-shadow:0 2px 12px rgba(4,8,15,0.9);">${txt}</div>`;
@@ -1851,8 +1854,8 @@
            </div>`
         : FB.chiffre(state.kickoff.time, size, FB.royal);
     },
-    rail() {
-      return `<div style="position:absolute; right:-186px; top:1050px; width:520px; transform:rotate(-90deg); font-family:'Inter', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.34em; text-transform:uppercase; color:rgba(255,255,255,0.5); text-align:center;">#${TENANT_CONFIG.social.matchupTagPrefix}${getOpp().abbr}</div>`;
+    rail(y = 1050) {
+      return `<div style="position:absolute; right:-186px; top:${y}px; width:520px; transform:rotate(-90deg); font-family:'Inter', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.34em; text-transform:uppercase; color:rgba(255,255,255,0.5); text-align:center;">#${TENANT_CONFIG.social.matchupTagPrefix}${getOpp().abbr}</div>`;
     },
     haloCrest(crestHtml, size) {
       return `<div style="position:relative; width:${size}px; height:${size}px; flex-shrink:0;">
@@ -1860,25 +1863,90 @@
         <div style="position:relative; z-index:1;">${crestHtml}</div>
       </div>`;
     },
-    /* Boss 29.08 : l'affiche (équipes/écussons/VS) est L'INFO n°1 de la
-       carte — tailles ~1.5× (crest 96→148, noms 44→64, VS 40→56). */
-    matchup(y = 1372) {
+    /* Sur une carte d'AFFICHE (matchday, coup d'envoi), le visuel choisi —
+       joueur, photo de shooting, image importée — n'est plus le héros : il
+       devient l'atmosphère de l'affiche (Boss 10.10).
+       Joueur : portrait resserré, centré dans la bande du header ENTRE le
+       jour et l'heure, la tête entièrement au-dessus des écussons (aucun
+       visage ne passe derrière un logo) ; les épaules se perdent dans la nuit
+       avant la ligne des écussons — ils brillent sur du noir, pas sur un
+       maillot. Photo plein cadre (shooting, import) : voilée d'un seul tenant.
+       Sans buste détouré en cache (photo à fond studio seule) → pas de
+       portrait : sa boîte se verrait.
+       band = { top, visage } : haut et hauteur de la tête. */
+    isPortrait(img) { return !!(img && img.cut && img.mode !== 'bg'); },
+    atmosphere(img, band) {
+      const night = (y) => `<div style="position:absolute; left:0; right:0; top:${y}px; bottom:0; background:linear-gradient(180deg, rgba(4,8,15,0) 0px, rgba(4,8,15,0.52) 70px, rgba(4,8,15,0.92) 140px, rgba(4,8,15,0.99) 200px, #04080F 280px);"></div>`;
+      if (img && img.mode === 'bg') {
+        const zi = -((Math.max(100, state.visualZoom || 100) - 100) / 2);
+        return `<div style="position:absolute; inset:${zi}%; background-image:url('${img.src}'); background-size:cover; background-position:center 22%; background-repeat:no-repeat;"></div>
+        <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,8,15,0.78) 0%, rgba(4,8,15,0.60) 24%, rgba(4,8,15,0.72) 50%, rgba(4,8,15,0.92) 74%, #04080F 100%);"></div>`;
+      }
+      if (!FB.isPortrait(img)) return night(band.top + band.visage - 150);
+      /* Les découpes du site : la tête occupe ~46 % de la hauteur du buste. */
+      const h = Math.round(band.visage / 0.46), w = Math.round(h * 0.79);
+      /* Le cadre rogne 3px en haut : html2canvas peint un background redimensionné
+         par motif, et le motif laisse filer la dernière rangée de l'image (le
+         bas du maillot) en un liseré clair au-dessus des cheveux. */
+      return `<div style="position:absolute; left:${Math.round(FB.vw / 2 - w / 2)}px; top:${band.top + 3}px; width:${w}px; height:${h - 3}px; overflow:hidden;">
+        <div style="position:absolute; left:0; top:-3px; width:${w}px; height:${h}px; opacity:0.74; background-image:url('${img.src}'); background-size:contain; background-position:center top; background-repeat:no-repeat;"></div>
+      </div>
+      ${night(band.top + band.visage - 50)}`;
+    },
+    /* L'AFFICHE — Boss 10.10 : « les logos doivent être le centre de
+       l'affiche, plus grands, plus en valeur, avec le nom en dessous en plus
+       petit, une belle carte avec un VS ». Deux écussons face à face (domicile
+       à gauche), chacun sur son halo ; le nom OFFICIEL dessous, même corps des
+       deux côtés (fitDuel) ; le VS entre les deux, à mi-hauteur.
+         top   : haut des écussons
+         crest : côté d'un écusson — 420 en story, 560 en post (héros) ;
+                 104 quand l'affiche n'est qu'un rappel (recap)
+       FB.duelH(crest) donne la hauteur totale du bloc (écusson + nom). */
+    duelSpec(crest) {
+      const hero = crest >= 300;
+      return { hero,
+        spread: hero ? Math.round(crest * 0.63) : 236,        // demi-écart entre les centres des écussons
+        nameMax: hero ? Math.round(crest * 0.108) : 30,
+        gap: hero ? Math.round(crest * 0.085) : 10,           // écusson → nom
+        vs: hero ? Math.round(crest * 0.25) : 36 };
+    },
+    duelH(crest) {
+      const k = FB.duelSpec(crest);
+      return crest + k.gap + Math.round(k.nameMax * 1.1);
+    },
+    duel(top, crest = 420) {
+      const k = FB.duelSpec(crest);
       const opp = getOpp();
       const isAway = state.homeAway === 'away';
-      /* Place d'un nom : la largeur utile moins les deux écussons, le VS et
-         les blancs, partagée en deux. */
-      const room = Math.floor((FB.vw - 2 * 72 - 2 * 148 - 2 * 24 - 2 * 40 - 80) / 2);
-      const [atlName, oppName] = fitDuel(clubNames(ATL), clubNames(opp), room, 64, 30, 0.04);
-      const leftName  = isAway ? oppName : atlName;
-      const rightName = isAway ? atlName : oppName;
-      const nameCss = (n) => `${dispFontCss(n.text)} font-size:${n.size}px; letter-spacing:0.04em; white-space:nowrap; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);`;
-      const atl = FB.haloCrest(crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 148, 'transparent'), 148);
-      const oc  = FB.haloCrest(crestNode(getCachedCrest(opp), opp.abbr, 148, 'transparent'), 148);
-      return `<div style="position:absolute; left:0; right:0; top:${y}px; display:flex; align-items:center; justify-content:center; gap:40px;">
-        <div style="display:flex; align-items:center; gap:24px;">${isAway ? oc : atl}<span data-club-name style="${nameCss(leftName)}">${leftName.text}</span></div>
-        <span data-vs style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:56px; color:${FB.royal}; text-shadow:0 0 22px ${FB.royal}88;">VS</span>
-        <div style="display:flex; align-items:center; gap:24px;"><span data-club-name style="${nameCss(rightName)}">${rightName.text}</span>${isAway ? atl : oc}</div>
-      </div>`;
+      /* Un nom est centré sous son écusson : il peut déborder la colonne, pas
+         la marge du poster (72, celle du header — le rail hashtag vit au-delà)
+         ni l'axe central (24 de chaque côté). */
+      const cx = FB.vw / 2 - k.spread;
+      const room = 2 * Math.min(cx - 72, FB.vw / 2 - 24 - cx);
+      const [atlName, oppName] = fitDuel(clubNames(ATL), clubNames(opp), room, k.nameMax, Math.round(k.nameMax * 0.78));
+      /* Halo : une plaque nuit (détache l'écusson du visuel derrière lui) puis
+         la lumière — cyan néon de la saison pour nous, bleu roi pour eux.
+         Uniquement des radial-gradient (html2canvas ne connaît pas filter), et
+         jamais le mot-clé « transparent » : html2canvas l'interpole vers du
+         NOIR transparent et salit le bord du halo, là où le navigateur garde
+         la teinte. On fond vers la même couleur, alpha 0. */
+      const glow = (c1, c2) => `
+          <div style="position:absolute; left:${-crest * 0.2}px; top:${-crest * 0.2}px; width:${crest * 1.4}px; height:${crest * 1.4}px; background:radial-gradient(circle, rgba(4,8,15,0.72) 0%, rgba(4,8,15,0.46) 46%, rgba(4,8,15,0) 70%);"></div>
+          ${k.hero ? `<div style="position:absolute; left:${-crest * 0.36}px; top:${-crest * 0.36}px; width:${crest * 1.72}px; height:${crest * 1.72}px; background:radial-gradient(circle, ${c1} 0%, ${c2} 36%, ${ACCENT}00 68%);"></div>` : ''}`;
+      const side = (crestHtml, name, halo) => `
+        <div style="width:${crest}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center;">
+          <div style="position:relative; width:${crest}px; height:${crest}px;">${halo}
+            <div style="position:relative; z-index:1;">${crestHtml}</div>
+          </div>
+          <div data-club-name style="${dispFontCss(name.text)} margin-top:${k.gap}px; font-size:${name.size}px; line-height:1.1; letter-spacing:0.05em; white-space:nowrap; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.9);">${name.text}</div>
+        </div>`;
+      const atl = side(crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, crest, 'transparent'), atlName, glow(`${NEON}5c`, `${ACCENT}26`));
+      const oc  = side(crestNode(getCachedCrest(opp), opp.abbr, crest, 'transparent'), oppName, glow(`${ACCENT}4d`, `${ACCENT}1f`));
+      return `<div style="position:absolute; left:0; right:0; top:${top}px; display:flex; align-items:flex-start; justify-content:center; gap:${2 * k.spread - crest}px;">
+        ${isAway ? oc : atl}
+        ${isAway ? atl : oc}
+      </div>
+      <div style="position:absolute; left:0; right:0; top:${top}px; height:${crest}px; display:flex; align-items:center; justify-content:center; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${k.vs}px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 26px ${FB.royalDeep}cc, 0 2px 10px rgba(4,8,15,0.9);">${k.hero ? `<div style="position:absolute; left:50%; top:${Math.round(crest * 0.08)}px; width:2px; margin-left:-1px; height:${Math.round(crest * 0.24)}px; background:linear-gradient(180deg, ${FB.royal}00, ${FB.royal}99);"></div><div style="position:absolute; left:50%; bottom:${Math.round(crest * 0.08)}px; width:2px; margin-left:-1px; height:${Math.round(crest * 0.24)}px; background:linear-gradient(0deg, ${FB.royal}00, ${FB.royal}99);"></div>` : ''}<span data-vs>VS</span></div>`;
     },
     scoreRow(y, fs = 118, crest = 88) {
       const opp = getOpp();
@@ -1919,8 +1987,13 @@
       const isHome = state.homeAway === 'home';
       const vn = (state.venue && state.venue.trim()) || TENANT_CONFIG.venue.defaultHomeDisplayName;
       const vc = (state.venueCity && state.venueCity.trim()) || (isHome ? TENANT_CONFIG.venue.defaultHomeCity : '');
-      return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:23px; letter-spacing:0.24em; text-transform:uppercase; color:rgba(255,255,255,0.75);">
-        <span style="color:${isHome ? '#5E9BFF' : '#F87171'};">${isHome ? 'Domicile' : 'Extérieur'}</span> — ${vn}${vc ? ' · ' + vc : ''}
+      const label = isHome ? 'Domicile' : 'Extérieur', place = ` — ${vn}${vc ? ' · ' + vc : ''}`;
+      /* Toujours UNE ligne : un lieu long (« Centre sportif+ Stade de la
+         Tuilière · Lausanne ») passait à la ligne et écrivait sur la signature.
+         Il resserre son corps à la place. */
+      const size = fitName([label + place], FB.vw - 200, 23, 15, 0.24, "600 'Inter', sans-serif").size;
+      return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:${size}px; letter-spacing:0.24em; text-transform:uppercase; white-space:nowrap; color:rgba(255,255,255,0.75);">
+        <span style="color:${isHome ? '#5E9BFF' : '#F87171'};">${label}</span>${place}
       </div>`;
     },
     signature(y) {
@@ -1940,201 +2013,82 @@
     },
   };
 
-  /* ---- Variant: Preview J-3 + Matchday (big date + VS logos) ---- */
-  function classicPoster() {
-    const opp = getOpp();
-    const oppCrest = getCachedCrest(opp);
-    // Matchday = poster d'annonce → tous les gros accents portent la couleur
-    // FAMILLE (championnat bleu / coupe or / amical slate discret).
-    const acc = compAccent();
-    const isAway = state.homeAway === 'away';
-    // Tiers bas vide (ni sponsors ni message — cas amical typique) : le bloc VS
-    // reprend l'espace — écussons + colonne centrale agrandis, la bande vide
-    // entre VS et footer redevient une respiration voulue.
-    const sparse = !getCustomMessage() && (state.matchBallSponsors || []).length === 0;
-    const crestBox = sparse ? pf(344, 344) : pf(304, 310);
-    const crestIn  = sparse ? pf(272, 284) : pf(240, 256);
-    const vsRule   = sparse ? pf(158, 138) : pf(110, 100);
-    const [atlName, oppName] = fitDuel(clubNames(ATL), clubNames(opp), crestBox + 30, pf(36, 38), 29);
-    const nameCss = (n) => `${dispFontCss(n.text)} font-size:${n.size}px; letter-spacing:0.05em; white-space:nowrap; line-height:1.1; color:#fff; text-shadow:0 2px 16px rgba(4,8,15,0.92), 0 0 40px rgba(4,8,15,0.75); text-align:center;`;
-    // Block "Atlantic" (logo + name) — crests légèrement agrandis (broadcast 26/27)
-    const atlanticBlock = `
-          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(30,26)}px;">
-            <div style="position:relative; width:${crestBox}px; height:${crestBox}px; display:flex; align-items:center; justify-content:center;">
-              ${neonHalo()}
-              <div style="position:relative; z-index:1; display:flex;">${crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, crestIn, ACCENT+'66')}</div>
-            </div>
-            <div data-club-name style="${nameCss(atlName)}">${atlName.text}</div>
-          </div>`;
-    // Block "Opponent" (logo + name) — fallback abbr badge if crest missing
-    const oppBlock = `
-          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(30,26)}px;">
-            <div style="position:relative; width:${crestBox}px; height:${crestBox}px; display:flex; align-items:center; justify-content:center;">
-              <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${acc}55 0%, ${acc}22 25%, ${acc}0a 50%, transparent 75%);"></div>
-              ${crestNode(oppCrest, opp.abbr, crestIn, ACCENT+'66')}
-            </div>
-            <div data-club-name style="${nameCss(oppName)}">${oppName.text}</div>
-          </div>`;
-    // Home team always on the LEFT — if we are away, opponent is the home team
-    const leftBlock  = isAway ? oppBlock      : atlanticBlock;
-    const rightBlock = isAway ? atlanticBlock : oppBlock;
-    // VS fantôme filaire — text-shadow 1px 4 directions + REMPLISSAGE OPAQUE
-    // proche du fond (#060D18) pour masquer l'intérieur des shadows : c'est ce
-    // qui donne le rendu contour (pas de -webkit-text-stroke : html2canvas).
-    const ghostVS = `color:#060D18; text-shadow:-1px 0 0 rgba(255,255,255,0.45), 1px 0 0 rgba(255,255,255,0.45), 0 -1px 0 rgba(255,255,255,0.45), 0 1px 0 rgba(255,255,255,0.45), 0 0 60px ${acc}44;`;
-    /* ── FULL-BLEED PHOTO-LED (brief 10.08, réf Gil Vicente) ──────────
-       Un joueur aléatoire stable par match en PLEINE LARGEUR, son numéro
-       de maillot géant en Portugal2025 Outlined DERRIÈRE lui (profondeur),
-       zéro cadre/pastille (loi no-chrome), safe zones story respectées.
-       Rendu photo UNIQUEMENT depuis le cache dataURL (zéro taint export).
-       Sans photo cachée (offline) → layout carte historique ci-dessous. */
-    const heroP = heroPlayerFor(state.matchId);
-    const heroImg = heroImage(heroP);
-    /* Boss 17.08 · « aucun visage » garde le LAYOUT plein-cadre et son
-       FOND (décor) — avant, sans photo on retombait sur l'ancienne carte
-       et le fond disparaissait. FB.photo(null) rend simplement rien. */
-    if (heroImg || state.heroOff) {
-      const html = `
+  /* ---- Variants Matchday + Coup d'envoi — l'AFFICHE est le héros (Boss 10.10) ----
+     Écussons au centre, noms officiels dessous, VS ; le jour, l'heure, la
+     compétition, le lieu et les parrains passent au second plan, lisibles.
+     Le visuel choisi (joueur, shooting, import) devient l'atmosphère.
+     Un seul layout : l'ancienne « carte de secours » n'a plus lieu d'être,
+     l'affiche n'a besoin d'aucune photo pour exister.
+     o = { kicker, titre, sub, label, hero (joueur), notes (lignes micro sous l'affiche) } */
+  function affichePoster(o) {
+    const post = state.format === 'post';
+    /* Le 4:5 n'a pas les zones mortes d'une story Instagram : le header
+       monte, le pied descend, l'affiche prend la place libérée. */
+    const up = post ? 100 : 0, down = post ? 128 : 0;
+    const hasSponsors = (state.matchBallSponsors || []).length > 0;
+    const crest = post ? 560 : 420;
+    /* Bande du header : le titre à gauche, l'heure à droite, le portrait
+       entre les deux. En story la bande est étroite → corps réduits, et la
+       ligne compétition se resserre pour ne pas toucher le portrait. */
+    const h = post ? { titre: 126, sub: 46, heure: 118, visage: 400, comp: 0.3 }
+                   : { titre: 92,  sub: 40, heure: 96,  visage: 340, comp: 0.22 };
+    const lines = String(o.titre).split('<br>').length;
+    const subY = 282 - up + Math.round(h.titre * (0.95 * lines + 0.13));
+    const subSize = o.subSize ? Math.round(o.subSize * h.sub / 40) : h.sub;
+    const compY = subY + Math.round(subSize * 1.5);
+    const band = { top: 266 - up, visage: h.visage };
+    const img = heroImage(o.hero);
+    /* L'affiche se centre entre le bas de la bande (menton du portrait, ou
+       bas du header sans portrait) et le haut du pied. */
+    const bandBottom = FB.isPortrait(img) ? band.top + band.visage + 44 : compY + 76;
+    const notesH = o.notes.length * 50;
+    const footTop = (hasSponsors ? 1392 : 1512) + down;
+    const duelTop = Math.round((bandBottom + footTop - notesH - FB.duelH(crest)) / 2);
+    const html = `
         ${FB.bg()}
-        ${FB.photo(heroImg, FB.side('matchday'))}
-        ${FB.scrim()}
-        ${FB.kicker(jMinusLabel() ? `${jMinusLabel()} · Saison 26/27` : 'Matchday · Saison 26/27')}
-        ${FB.titre(state.kickoff.dayName, 168)}
-        ${FB.sub(`${state.kickoff.dateLabel} ${state.kickoff.year}`, 462)}
-        ${FB.compline(545)}
-        ${FB.colDroite("Coup d'envoi", FB.timeBlock(150))}
-        ${FB.rail()}
-        ${FB.matchup(1236)}
-        ${FB.bottom(true)}`;
-      return { fullBleed: true, html };
-    }
-    return `
-      ${broadcastHeader()}
-      <!-- Hero date — broadcast : jour géant pleine largeur, hairline, date + année d'un seul tenant, heure = accent le plus fort -->
-      <div style="margin-top:${pf(46,34)}px; position:relative; z-index:1;">
-        <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(158,142)}px; line-height:0.92; letter-spacing:0.015em; text-transform:uppercase; color:#FFFFFF; text-shadow:0 0 28px rgba(46,123,255,0.4), 0 0 90px rgba(46,123,255,0.2);">${state.kickoff.dayName}</div>
-        <div style="height:1px; background:linear-gradient(90deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08) 55%, transparent); margin-top:${pf(22,18)}px;"></div>
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:${pf(24,20)}px; margin-top:${pf(24,20)}px;">
-          <!-- Boss 15.08 · l'année ne se distingue JAMAIS du reste de la
-               date : même fonte, même taille, même couleur, sur une ligne. -->
-          <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(54,50)}px; line-height:1; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.88); white-space:nowrap; min-width:0;">${state.kickoff.dateLabel} ${state.kickoff.year}</div>
-          <div style="text-align:right; flex-shrink:0;">
-            <div style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(16,15)}px; letter-spacing:0.32em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-bottom:${pf(10,8)}px;">Coup d'envoi</div>
-            ${isTimeTbd()
-              ? `<div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(104,96)}px; line-height:0.9; letter-spacing:0.06em; color:rgba(255,255,255,0.34);">–:–</div>
-                 <div style="margin-top:${pf(14,12)}px; display:flex; align-items:center; justify-content:flex-end; gap:${pf(10,8)}px;">
-                   ${tbdStars(pf(24,22))}
-                   <span style="font-family:'Inter', sans-serif; font-weight:600; font-size:${pf(17,16)}px; letter-spacing:0.22em; text-transform:uppercase; color:#F5B82E;">heure à confirmer</span>
-                 </div>`
-              : `<div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(144,134)}px; line-height:0.85; letter-spacing:0.02em; color:${acc}; text-shadow:0 0 18px ${acc}cc, 0 0 80px ${acc}66;">${state.kickoff.time}</div>`}
-          </div>
-        </div>
-      </div>
-      <div style="flex:1; display:flex; align-items:center; justify-content:center; margin:${pf(52,42)}px 0; position:relative; z-index:1;">
-        <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:${pf(44,38)}px; width:100%;">
-          ${leftBlock}
-          <div style="display:flex; flex-direction:column; align-items:center; gap:${pf(24,22)}px;">
-            <div style="width:1px; height:${vsRule}px; background:linear-gradient(180deg, transparent, ${acc}99, transparent);"></div>
-            <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:${pf(116,124)}px; line-height:1; letter-spacing:0.06em; ${ghostVS}">VS</div>
-            <div style="width:1px; height:${vsRule}px; background:linear-gradient(180deg, transparent, ${acc}99, transparent);"></div>
-          </div>
-          ${rightBlock}
-        </div>
-      </div>
-      ${customMessageBlock('')}
-      ${matchBallSponsorsBlock()}
-      <div style="margin-top:auto;">
-        ${venueFooter()}
-      </div>
-    `;
+        ${FB.atmosphere(img, band)}
+        ${FB.kicker(o.kicker, 238 - up)}
+        ${FB.titre(o.titre, h.titre, 282 - up)}
+        ${FB.sub(o.sub, subY, subSize)}
+        ${FB.compline(compY, h.comp)}
+        ${FB.colDroite(o.label, FB.timeBlock(h.heure), 238 - up)}
+        ${FB.rail(post ? 1530 : 1420)}
+        ${FB.duel(duelTop, crest)}
+        ${o.notes.map((n, i) => FB.note(n, duelTop + FB.duelH(crest) + 30 + i * 50)).join('')}
+        ${FB.bottom(true, down)}`;
+    return { fullBleed: true, html };
   }
-
-  /* ---- Variant: Kickoff v6 — simplified: big logos, captain only ---- */
+  function classicPoster() {
+    const msg = getCustomMessage();
+    return affichePoster({
+      kicker: jMinusLabel() ? `${jMinusLabel()} · Saison 26/27` : 'Matchday · Saison 26/27',
+      titre: state.kickoff.dayName,
+      sub: `${state.kickoff.dateLabel} ${state.kickoff.year}`,
+      label: "Coup d'envoi",
+      hero: heroPlayerFor(state.matchId),
+      notes: msg ? [msg] : [],
+    });
+  }
   function kickoffPoster() {
-    const v = getVariant();
-    const opp = getOpp();
-    const oppCrest = getCachedCrest(opp);
-    const isAway = state.homeAway === 'away';
     const capt = BY_ID[state.captainId] || ROSTER.find(p => p.isCaptain);
     let captainDisplay = '';
     if (capt) {
       const full = `${capt.firstName} ${capt.lastName}`;
       captainDisplay = full.length <= 22 ? full.toUpperCase() : capt.lastName.toUpperCase();
     }
-    /* Full-bleed photo-led (Boss 11.08 : « redesign mieux, capi + discret »).
-       Joueur héros DIFFÉRENT du matchday (décalage +1 dans la rotation). */
+    /* Visage DIFFÉRENT du matchday (décalage +1 dans la rotation). */
     heroPlayerFor._offset = 1;
-    const heroK = heroPlayerFor(state.matchId);
+    const hero = heroPlayerFor(state.matchId);
     heroPlayerFor._offset = 0;
-    const heroKImg = heroImage(heroK);
-    /* Boss 17.08 · « aucun visage » garde le LAYOUT plein-cadre et son
-       FOND (décor) — avant, sans photo on retombait sur l'ancienne carte
-       et le fond disparaissait. FB.photo(null) rend simplement rien. */
-    if (heroKImg || state.heroOff) {
-      const html = `
-        ${FB.bg()}
-        ${FB.photo(heroKImg, FB.side('kickoff'))}
-        ${FB.scrim()}
-        ${FB.kicker('Imminent · Saison 26/27')}
-        ${FB.titre("COUP D'ENVOI", 126)}
-        ${FB.sub('Dans quelques instants', 430, 44)}
-        ${FB.compline(502)}
-        ${FB.colDroite('Heure', FB.timeBlock(150))}
-        ${FB.rail()}
-        <div style="position:absolute; left:0; right:0; top:1226px; text-align:center; font-family:'Inter', sans-serif; font-weight:600; font-size:17px; letter-spacing:0.26em; text-transform:uppercase; color:rgba(255,255,255,0.72);"><span style="color:#5E9BFF;">Capitaine</span> — ${capt ? `${captainDisplay} · #${capt.jerseyDisplay}` : ''}</div>
-        ${FB.matchup(1236)}
-        ${FB.bottom(true)}`;
-      return { fullBleed: true, html };
-    }
-    const [atlName, oppName] = fitDuel(clubNames(ATL), clubNames(opp), 330, 34, 27);
-    const nameCss = (n) => `${dispFontCss(n.text)} font-size:${n.size}px; letter-spacing:0.05em; color:#fff; text-align:center; white-space:nowrap;`;
-    const atlanticBlock = `
-        <div style="flex:1; max-width:340px; display:flex; flex-direction:column; align-items:center; gap:20px;">
-          <div style="position:relative; width:300px; height:300px; display:flex; align-items:center; justify-content:center;">
-            ${neonHalo()}
-            <div style="position:relative; z-index:1; display:flex;">${crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, 254, v.accent+'66')}</div>
-          </div>
-          <div data-club-name style="${nameCss(atlName)}">${atlName.text}</div>
-        </div>`;
-    const oppBlock = `
-        <div style="flex:1; max-width:340px; display:flex; flex-direction:column; align-items:center; gap:20px;">
-          <div style="position:relative; width:300px; height:300px; display:flex; align-items:center; justify-content:center;">
-            <div style="position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle, ${v.accent}66 0%, ${v.accent}2a 25%, ${v.accent}10 50%, transparent 75%);"></div>
-            ${crestNode(oppCrest, opp.abbr, 254, v.accent+'66')}
-          </div>
-          <div data-club-name style="${nameCss(oppName)}">${oppName.text}</div>
-        </div>`;
-    const leftBlock  = isAway ? oppBlock      : atlanticBlock;
-    const rightBlock = isAway ? atlanticBlock : oppBlock;
-    return `
-      ${broadcastHeader()}
-      <!-- Logos bigger (no score taking space) — VS fantôme filaire -->
-      <div style="margin-top:52px; display:flex; align-items:center; justify-content:center; gap:40px; position:relative; z-index:1; padding:0 20px;">
-        ${leftBlock}
-        <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:96px; line-height:1; letter-spacing:0.06em; color:#060D18; text-shadow:-1px 0 0 rgba(255,255,255,0.45), 1px 0 0 rgba(255,255,255,0.45), 0 -1px 0 rgba(255,255,255,0.45), 0 1px 0 rgba(255,255,255,0.45), 0 0 50px ${v.accent}44; flex-shrink:0;">VS</div>
-        ${rightBlock}
-      </div>
-      <!-- Center: COUP D'ENVOI + captain only -->
-      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1; gap:36px; margin-top:40px;">
-        <div style="text-align:center;">
-          <!-- 108px au lieu de 120px : à 120 + nowrap le 'I' final clippait au pixel près
-               selon le rendu de police lors de l'export html2canvas. -->
-          <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:96px; line-height:0.9; color:${v.accent}; text-shadow:0 0 60px ${v.accent}cc; letter-spacing:0.02em; white-space:nowrap;">COUP D'ENVOI</div>
-          <div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-weight:400; font-size:42px; letter-spacing:0.14em; color:rgba(255,255,255,0.75); text-transform:uppercase; margin-top:16px; white-space:nowrap;">Dans quelques instants</div>
-        </div>
-        ${capt ? `
-          <div style="margin-top:20px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); border-radius:28px; padding:32px 56px; max-width:760px; display:flex; flex-direction:column; align-items:center; gap:10px;">
-            <div style="font-family:'Inter', sans-serif; font-weight:500; font-size:22px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.5); white-space:nowrap;">Capitaine</div>
-            <!-- 52px au lieu de 58px + ellipsis : à 58 + nowrap les noms composés
-                 comme PINHEIRO DA SILVA dépassaient le bord du fichier exporté. -->
-            <div style="${dispFontCss(captainDisplay)} font-size:52px; color:#fff; line-height:1; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;">${captainDisplay} · #${capt.jerseyDisplay}</div>
-          </div>
-        ` : ''}
-        ${customMessageBlock(`Allez les ${TENANT_CONFIG.club.nickname} ! ${flameIcon(26)}`)}
-      </div>
-      ${matchBallSponsorsBlock()}
-      ${venueFooter()}
-    `;
+    const msg = getCustomMessage();
+    return affichePoster({
+      kicker: 'Imminent · Saison 26/27',
+      titre: "COUP<br>D'ENVOI",
+      sub: 'Dans quelques instants', subSize: 30,
+      label: 'Heure',
+      hero,
+      notes: [capt ? `<span style="color:#5E9BFF;">Capitaine</span> — ${captainDisplay} · #${capt.jerseyDisplay}` : '', msg].filter(Boolean),
+    });
   }
 
   /* ---- Variant: Live Score ---- */
@@ -2367,10 +2321,10 @@
          à l'export avec 5 buts). Le matchup se replie s'il n'y a plus la
          place — les buteurs priment sur les écussons. */
       const hasSponsors = (state.matchBallSponsors || []).length > 0;
-      const bottomTop = hasSponsors ? 1436 : 1500;      // 1re ligne du pied
+      const bottomTop = hasSponsors ? 1392 : 1512;      // 1re ligne du pied — les y de FB.bottom()
       const blocH = 24 + n * (fsNom + gap + 6);
       const buteursY = bottomTop - blocH - 26;
-      const matchupY = buteursY - 118 >= 1120 ? buteursY - 118 : null;
+      const matchupY = buteursY - (FB.duelH(104) + 22) >= 1040 ? buteursY - (FB.duelH(104) + 22) : null;
       const buteurRows = parMarqueur.map(({ p, minutes }) => {
         const mins = minutesOf(minutes);
         return `<div style="margin-top:${gap}px;"><span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${fsMin}px; color:${GOLD}; margin-right:14px;">${mins}</span><span style="${dispFontCss(p.lastName)} font-size:${fsNom}px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.92);">${nameWithC(p)}</span></div>`;
@@ -2384,7 +2338,7 @@
         ${FB.compline(470)}
         ${FB.colDroite('Score final', FB.chiffre(`${state.homeAway === 'away' ? state.score.away : state.score.home}<span style="opacity:0.55;"> – </span>${state.homeAway === 'away' ? state.score.home : state.score.away}`, 140, '#FFFFFF'))}
         ${FB.rail()}
-        ${matchupY !== null ? FB.matchup(matchupY) : ''}
+        ${matchupY !== null ? FB.duel(matchupY, 104) : ''}
         ${n ? `<div style="position:absolute; left:0; right:0; top:${buteursY}px; text-align:center;">
           <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD};">Buteur${n > 1 ? 's' : ''}</div>
           ${buteurRows}
