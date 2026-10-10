@@ -399,13 +399,20 @@ window.addEventListener('unhandledrejection', (e) => { console.error(e.reason); 
 
 /* ============================== IMAGES ============================== */
 const imgCache = new Map();
-function loadImage(url) {
+// Every download has a time limit: a stadium network that stalls must end in a message, never in an endless spinner.
+function loadImage(url, ms = 30000) {
   let p = imgCache.get(url);
   if (!p) {
     p = new Promise((res, rej) => {
       const im = new Image();
-      im.onload = () => res(im);
-      im.onerror = () => { imgCache.delete(url); rej(new Error('image ' + url)); };   // forget failures: a retry must hit the network again
+      const fail = (why) => {   // forget failures: a retry must hit the network again
+        clearTimeout(t); imgCache.delete(url);
+        im.onload = im.onerror = null; im.src = '';
+        rej(new Error(why + ' ' + url));
+      };
+      const t = setTimeout(() => fail('timeout'), ms);
+      im.onload = () => { clearTimeout(t); res(im); };
+      im.onerror = () => fail('error');
       im.src = url;
     });
     imgCache.set(url, p);
@@ -687,9 +694,10 @@ function place(st) {   // new stickers land in the centre, slightly cascaded so 
 }
 const newSticker = (props) => ({ id: 's' + (rt.seq++), x: W / 2, y: H / 2, s: 1, r: 0, ...props });
 
-async function addKit(ref) {
+async function addKit(ref, stillWanted) {
   const st = newSticker({ kind: 'kit', ref });
   try { await buildGfx(st); } catch (e) { console.warn(e); toast('Ce sticker n’a pas pu être chargé. Vérifie ta connexion puis réessaie.', 'err'); return null; }
+  if (stillWanted && !stillWanted()) { setGfx(st, null); return null; }   // the sheet was closed while the image was on its way
   place(st);
   return st;
 }
@@ -821,21 +829,27 @@ async function loadPhoto(file) {
 }
 
 /* ============================== MASK ============================== */
+let maskWait = 0, maskBusy = false;
+function maskSpinner(on) {   // shown only if the mask takes a moment; always owned by the latest choice
+  clearTimeout(maskWait); maskWait = 0;
+  if (on) maskWait = setTimeout(() => { maskBusy = true; busy(true, 'Chargement du masque…'); }, 250);
+  else if (maskBusy) { maskBusy = false; busy(false); }
+}
 async function applyMask() {
   const key = state.mask === 'none' ? '' : state.mask + '/' + state.win;
   if (key === rt.maskKey) return;
   rt.maskKey = key; rt.mask = null;
   invalidate();
+  maskSpinner(!!key);
   if (!key) return;
-  let shown = false;
-  const slow = setTimeout(() => { shown = true; busy(true, 'Chargement du masque…'); }, 250);
-  try {
-    const im = await loadImage(asset(KIT.masks[state.mask][state.win]));
-    if (rt.maskKey === key) { rt.mask = im; invalidate(); }
-  } catch (e) {
-    console.warn(e);
-    if (rt.maskKey === key) { rt.maskKey = ''; state.mask = 'none'; syncUI(); changed(); toast('Le masque n’a pas pu être chargé. Vérifie ta connexion puis réessaie.', 'err'); }
-  } finally { clearTimeout(slow); if (shown) busy(false); }
+  let im = null;
+  try { im = await loadImage(asset(KIT.masks[state.mask][state.win])); } catch (e) { console.warn(e); }
+  if (rt.maskKey !== key) return;   // another mask or window was chosen meanwhile: this answer no longer matters
+  maskSpinner(false);
+  if (im) { rt.mask = im; invalidate(); return; }
+  rt.maskKey = ''; state.mask = 'none';
+  syncUI(); changed();
+  toast('Le masque n’a pas pu être chargé. Vérifie ta connexion puis réessaie.', 'err');
 }
 
 /* ============================== RENDER ==============================
@@ -1157,6 +1171,7 @@ function exportStory() {
     const b = $('#pick'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge');
     return;
   }
+  if (state.mask !== 'none' && !rt.mask) { toast('Le masque finit de charger. Réessaie dans un instant.', 'err', 3000); return; }   // never a story without its mask
   let out;
   try { out = buildExport(); } catch (e) { console.error(e); toast('L’export a échoué. Réessaie, ou recharge la page.', 'err'); return; }
   select(null);
@@ -1299,7 +1314,7 @@ $('#sheet-stickers').addEventListener('click', async (e) => {
   if (!t || t.classList.contains('loading')) return;
   if (t.dataset.emoji) { if (addEmoji(t.dataset.emoji)) closeSheets(); return; }
   t.classList.add('loading');
-  const st = await addKit(t.dataset.id);
+  const sheet = openSheet, st = await addKit(t.dataset.id, () => openSheet === sheet);
   t.classList.remove('loading');
   if (st) closeSheets();
 });
@@ -1380,7 +1395,7 @@ async function init() {
 const ready = init();
 
 // handles for the Playwright tests (same idea as window.__mc in the Match Controller)
-window.__stories = { BUILD, KIT, W, H, WIN, state, rt, ready, renderStory, paint, buildExport, layoutPhrase, renderPhrase, addKit, addEmoji, addPhrase, loadPhoto, nearestWindow, photoGeom, toast };
+window.__stories = { BUILD, KIT, W, H, WIN, state, rt, ready, renderStory, paint, buildExport, layoutPhrase, renderPhrase, addKit, addEmoji, addPhrase, loadPhoto, loadImage, nearestWindow, photoGeom, toast };
 })();
 </script>
 </body>

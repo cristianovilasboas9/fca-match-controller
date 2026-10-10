@@ -629,6 +629,27 @@ async function run(name, engine) {
   await q.page.tap('#seg-mask [data-mask="vainqueur"]');
   check(await q.toastSays('Le masque n’a pas pu être chargé') && (await q.state()).mask === 'none', 'a mask that cannot be downloaded: clear message, back to no mask');
   await q.page.unroute('**/stories/masques/FCA-masque-vainqueur-photo-16x9.webp*');
+  // a SLOW mask (stadium network): no story may leave without it, and choosing "Aucun" meanwhile frees the screen at once
+  let release;
+  const held = new Promise((r) => { release = r; });
+  await q.page.route('**/stories/masques/FCA-masque-club-photo-16x9.webp*', async (r) => { await held; await r.continue(); });
+  await q.page.tap('#seg-mask [data-mask="club"]');
+  const sharedSoFar = await q.S(() => window.__shared.length);
+  await q.page.tap('#btn-export');
+  check(await q.toastSays('Le masque finit de charger') && await q.S((n) => window.__shared.length === n && !document.querySelector('.sheet.on'), sharedSoFar), 'export waits for a mask that is still loading');
+  await q.page.waitForFunction(() => !document.querySelector('#busy').hidden);
+  await q.page.tap('#seg-mask [data-mask="none"]');
+  check(await q.S(() => document.querySelector('#busy').hidden && window.__stories.state.mask === 'none'), 'choosing "Aucun" while a mask loads removes the spinner at once');
+  await q.page.tap('#seg-mask [data-mask="club"]');
+  release();
+  await q.page.waitForFunction(() => window.__stories.rt.mask && document.querySelector('#busy').hidden);
+  check((await q.state()).mask === 'club', 'the slow mask arrives and is applied');
+  await q.page.unroute('**/stories/masques/FCA-masque-club-photo-16x9.webp*');
+  // a download that never answers ends in an error (30 s in real life, shortened here), not in an endless wait
+  await q.page.route('**/stories/logos/FCA-logo-cyan.webp*', () => { /* never answered */ });
+  const stalled = await q.S(() => window.__stories.loadImage('stories/logos/FCA-logo-cyan.webp?stall', 400).then(() => 'loaded', (e) => e.message));
+  check(/^timeout/.test(stalled), 'a stalled download times out', stalled);
+  await q.page.unroute('**/stories/logos/FCA-logo-cyan.webp*');
   await q.setMask('vainqueur');
   await q.page.tap('#btn-stickers'); await q.page.tap('#tabs [data-tab="emojis"]'); await q.page.fill('#emoji-in', 'bravo'); await q.page.tap('#emoji-form button');
   check(await q.toastSays('seulement des emojis'), 'letters in the emoji field: pointed to the Phrase tab');
