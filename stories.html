@@ -1,0 +1,1402 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stories FCA">
+<meta name="theme-color" content="#04080F">
+<title>Stories · Match Controller</title>
+<!--
+  STORIES — the story composer of the Match Controller (FC Atlantic Vevey, DA 26/27).
+
+  One photo + one "Lame de lumière" mask + stickers (logos, words, ACVF, emojis, free
+  phrase in the club font) -> a 1080x1920 image, shared to Instagram from the phone.
+
+  Standalone page: its assets live in stories/ (built by tools/build-stories-kit.py),
+  nothing comes from a CDN, stories-sw.js keeps the whole kit available offline.
+  The export is drawn by hand on a <canvas> (renderStory): the preview IS that canvas,
+  so what you see is what you post. No html2canvas here.
+
+  Tests: node tests/stories-e2e.mjs (Chromium + WebKit, iPhone viewport).
+-->
+<link rel="preload" href="stories/fonts/Portugal2025.otf" as="font" type="font/otf" crossorigin>
+<style>
+  @font-face { font-family:'Portugal2025'; src:url('stories/fonts/Portugal2025.otf') format('opentype'); font-display:block; }
+  @font-face { font-family:'Inter'; font-weight:100 900; src:url('stories/fonts/Inter.woff2') format('woff2'); font-display:swap; }
+  /* Oswald only backs the few glyphs the club font lacks (Œ…), same fallback as the Match Controller. The file is
+     a single regular weight: declared as such, the browser thickens it when the lettering asks for bold. */
+  @font-face { font-family:'Oswald'; font-weight:400; src:url('stories/fonts/Oswald.woff2') format('woff2'); font-display:swap; }
+
+  :root { --night:#04080F; --panel:#0A1628; --royal:#2E7BFF; --cyan:#38BDF8; --gold:#F5B82E; --red:#F87171;
+          --club:'Portugal2025','Oswald',sans-serif; --soft:rgba(255,255,255,.07); }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; background:var(--night); color:#fff; overflow:hidden; overscroll-behavior:none; touch-action:pan-x pan-y;
+               font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; -webkit-text-size-adjust:100%; }
+  body { -webkit-user-select:none; user-select:none; }
+  button, input, textarea { font:inherit; color:inherit; }
+  input, textarea { -webkit-user-select:text; user-select:text; }
+  button { border:0; background:none; cursor:pointer; }
+  :focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+  [hidden] { display:none !important; }
+  .vh { position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; overflow:hidden; pointer-events:none; }
+
+  .app { position:relative; height:100vh; height:100dvh; height:var(--app-h, 100dvh); max-width:560px; margin:0 auto; display:flex; flex-direction:column;
+         background:radial-gradient(120% 60% at 88% -8%, rgba(23,65,127,.85) 0%, rgba(23,65,127,0) 60%), linear-gradient(180deg,#071630 0%,#04080F 55%); }
+
+  /* APP BAR — same family as the Match Controller: micro-label on top, club-font title, neon underline */
+  .bar { flex:none; display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
+         padding:calc(env(safe-area-inset-top) + 4px) 14px 6px 16px; }
+  .back { display:inline-flex; align-items:center; gap:6px; min-height:30px; margin-left:-4px; padding:0 4px; color:#7DD3FC; text-decoration:none;
+          font-weight:600; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; border-radius:8px; }
+  .back svg { width:14px; height:14px; flex:none; }
+  .bar h1 { font-family:var(--club); font-weight:400; font-size:24px; line-height:1; letter-spacing:.05em; text-transform:uppercase; text-shadow:0 0 18px rgba(56,189,248,.45); }
+  .bar h1::after { content:''; display:block; width:30px; height:2px; margin-top:4px; border-radius:2px; background:linear-gradient(90deg,#2E7BFF,#38BDF8); box-shadow:0 0 10px rgba(56,189,248,.7); }
+  .bar-r { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+  .meta { font-weight:600; font-size:8.5px; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.5); white-space:nowrap; }
+  .meta b { font-weight:600; color:#7DD3FC; }
+
+  /* STAGE — the story itself; sized by JS to the largest 9:16 box that fits */
+  .stage-wrap { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:4px 14px; }
+  .stage { position:relative; flex:none; border-radius:16px; overflow:hidden; background:var(--night); box-shadow:0 18px 44px rgba(0,0,0,.55); }
+  #story { display:block; width:100%; height:100%; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:grab; }
+  #story:active { cursor:grabbing; }
+  .overlay { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .safe { position:absolute; left:0; right:0; display:none; align-items:center; justify-content:center;
+          background:repeating-linear-gradient(135deg, rgba(4,8,15,.62) 0 7px, rgba(4,8,15,.42) 7px 14px);
+          font-weight:700; font-size:8.5px; letter-spacing:.18em; text-transform:uppercase; color:rgba(255,255,255,.85); }
+  .safe-top { top:0; height:11.98%; box-shadow:0 1px 0 rgba(56,189,248,.9); }
+  .safe-bot { bottom:0; height:17.19%; box-shadow:0 -1px 0 rgba(56,189,248,.9); }
+  .stage.show-safe .safe { display:flex; }
+  .guide { position:absolute; background:var(--cyan); box-shadow:0 0 8px rgba(56,189,248,.9); opacity:0; }
+  .guide.on { opacity:1; }
+  .guide-v { left:50%; top:0; bottom:0; width:1px; }
+  .guide-h { top:50%; left:0; right:0; height:1px; }
+  .sel { position:absolute; border:1.5px dashed var(--cyan); border-radius:8px; box-shadow:0 0 0 1px rgba(4,8,15,.4), 0 0 14px rgba(56,189,248,.35); }
+  .pick { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:76%; max-width:260px; padding:22px 12px; border-radius:20px;
+          background:rgba(4,8,15,.8); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+          display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
+  .pick svg { width:38px; height:38px; color:var(--cyan); }
+  .pick strong { font-family:var(--club); font-weight:400; font-size:21px; letter-spacing:.05em; text-transform:uppercase; }
+  .pick span { font-size:12px; line-height:1.4; color:rgba(255,255,255,.72); }
+  .pick.nudge { animation:nudge .5s; }
+  @keyframes nudge { 20%,60% { transform:translate(-50%,-50%) scale(1.05); } 40%,80% { transform:translate(-50%,-50%) scale(.98); } }
+  .busy { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+          background:rgba(4,8,15,.6); font-weight:600; font-size:12px; letter-spacing:.06em; }
+  .busy i { width:26px; height:26px; border-radius:50%; border:3px solid rgba(255,255,255,.25); border-top-color:var(--cyan); animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* DOCK — everything under the thumb */
+  .dock { flex:none; display:flex; flex-direction:column; gap:10px; padding:6px 14px calc(12px + env(safe-area-inset-bottom)); }
+  .ctx { height:64px; display:flex; align-items:flex-end; gap:10px; }
+  .ctl { display:flex; flex-direction:column; gap:5px; min-width:0; }
+  .ctl.grow { flex:1; }
+  .lbl { font-weight:700; font-size:9px; line-height:11px; letter-spacing:.18em; text-transform:uppercase; color:rgba(255,255,255,.62); padding-left:4px; }
+  .seg { flex:1; min-width:0; display:flex; gap:2px; padding:3px; border-radius:13px; background:var(--soft); }
+  .seg button { flex:1 1 auto; min-width:0; height:42px; padding:0 6px; border-radius:10px; font-weight:600; font-size:13px; color:rgba(255,255,255,.78); white-space:nowrap; transition:background .15s, color .15s;
+                display:flex; align-items:center; justify-content:center; }
+  .seg.shapes button { flex:none; width:42px; padding:0; }
+  .seg.shapes svg { height:22px; width:22px; }
+  .seg button[aria-checked="true"] { background:var(--royal); color:#fff; box-shadow:0 2px 10px rgba(46,123,255,.35); }
+  .seg button[data-mask="vainqueur"][aria-checked="true"], .seg button[data-c="or"][aria-checked="true"] { background:var(--gold); color:#04080F; box-shadow:0 2px 10px rgba(245,184,46,.35); }
+  .chip { flex:none; height:34px; padding:0 12px; border-radius:11px; background:var(--soft); font-weight:600; font-size:12px; color:rgba(255,255,255,.8); white-space:nowrap; }
+  .chip[aria-pressed="true"] { background:rgba(56,189,248,.2); color:#7DD3FC; }
+  .ctx-sticker { gap:8px; }
+  .sact { flex:1; min-width:0; height:64px; border-radius:15px; background:var(--soft); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; font-weight:600; font-size:10.5px; }
+  .sact svg { width:21px; height:21px; }
+  .sact.danger { color:var(--red); }
+  .sact.done { background:rgba(56,189,248,.16); color:#7DD3FC; }
+  .acts { display:flex; gap:10px; }
+  .act { flex:1; min-width:0; height:56px; border-radius:17px; background:var(--soft); display:flex; align-items:center; justify-content:center; gap:9px;
+         font-family:var(--club); font-size:18px; letter-spacing:.06em; text-transform:uppercase; }
+  .act svg { width:21px; height:21px; flex:none; }
+  .act.primary { flex:1.2; background:linear-gradient(135deg,#2E7BFF 0%,#38BDF8 100%); color:#04080F; box-shadow:0 8px 22px rgba(46,123,255,.35); }
+  .act.primary[aria-disabled="true"] { opacity:.45; box-shadow:none; }
+  .act:active, .sact:active, .chip:active, .tile:active, .btn:active { transform:scale(.97); }
+
+  /* SHEETS */
+  .scrim { position:fixed; inset:0; z-index:40; background:rgba(4,8,15,.62); opacity:0; pointer-events:none; transition:opacity .2s; }
+  .scrim.on { opacity:1; pointer-events:auto; }
+  .sheet { position:fixed; left:0; right:0; bottom:0; z-index:41; max-width:560px; margin:0 auto; display:flex; flex-direction:column;
+           background:var(--panel); border-radius:22px 22px 0 0; box-shadow:0 -18px 50px rgba(0,0,0,.55);
+           padding-bottom:env(safe-area-inset-bottom); transform:translateY(104%); visibility:hidden; transition:transform .26s cubic-bezier(.2,.8,.2,1), visibility 0s .26s; }
+  .sheet.on { transform:none; visibility:visible; transition:transform .26s cubic-bezier(.2,.8,.2,1); }
+  #sheet-stickers { height:74vh; }
+  .sheet-head { flex:none; display:flex; align-items:center; gap:6px; padding:8px 8px 0 12px; }
+  .sheet-head h2 { flex:1; font-family:var(--club); font-weight:400; font-size:22px; letter-spacing:.05em; text-transform:uppercase; padding:8px 4px; }
+  .tabs { flex:1; min-width:0; display:flex; overflow-x:auto; scrollbar-width:none; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tabs button { flex:1 0 auto; height:46px; padding:0 9px; font-family:var(--club); font-size:17px; letter-spacing:.05em; text-transform:uppercase; color:rgba(255,255,255,.6);
+                 border-bottom:2px solid transparent; }
+  .tabs button[aria-selected="true"] { color:#fff; border-bottom-color:var(--cyan); }
+  .x { flex:none; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.8); }
+  .x svg { width:20px; height:20px; }
+  .sheet-body { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:14px 14px 22px; }
+  .pane { display:flex; flex-direction:column; gap:12px; }
+  .grid { display:grid; gap:10px; }
+  .g3 { grid-template-columns:repeat(3,1fr); }
+  .g2 { grid-template-columns:repeat(2,1fr); }
+  .g6 { grid-template-columns:repeat(6,1fr); gap:6px; }
+  .tile { position:relative; border-radius:16px; background:radial-gradient(120% 120% at 50% 0%, #21406E 0%, #10233F 70%); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .tile img { position:absolute; inset:10px; width:calc(100% - 20px); height:calc(100% - 20px); object-fit:contain; pointer-events:none; }
+  .tile.light { background:radial-gradient(120% 120% at 50% 0%, #F6F8FB 0%, #C5D0E0 85%); }   /* dark stickers are shown on a light ground */
+  .g3 .tile { aspect-ratio:1; }
+  .g2 .tile { aspect-ratio:1.9; }
+  .g2.sq .tile { aspect-ratio:1.25; }
+  .g6 .tile { aspect-ratio:1; background:var(--soft); font-size:26px; line-height:1; border-radius:12px; }
+  .tile.loading::after { content:''; position:absolute; inset:0; background:rgba(4,8,15,.55); }
+  .tile.missing { padding:8px; font-size:11px; font-weight:600; line-height:1.25; text-align:center; color:rgba(255,255,255,.7); }
+  .tile.light.missing { color:#04080F; }
+  .field { display:flex; gap:8px; align-items:stretch; }
+  .field input, .field textarea { flex:1; min-width:0; border:0; border-radius:14px; background:rgba(255,255,255,.08); padding:13px 14px; font-size:17px; line-height:1.25; resize:none; }
+  .field input::placeholder, .field textarea::placeholder { color:rgba(255,255,255,.45); }
+  .field input:focus, .field textarea:focus { outline:2px solid var(--cyan); outline-offset:0; }
+  .btn { display:flex; align-items:center; justify-content:center; gap:8px; min-height:50px; padding:0 16px; border-radius:15px; background:var(--soft);
+         font-family:var(--club); font-size:17px; letter-spacing:.06em; text-transform:uppercase; text-decoration:none; color:#fff; text-align:center; }
+  .btn svg { width:19px; height:19px; flex:none; }
+  .btn.primary { background:linear-gradient(135deg,#2E7BFF 0%,#38BDF8 100%); color:#04080F; }
+  .btn.quiet { min-height:40px; background:none; font-family:inherit; font-weight:600; font-size:12.5px; letter-spacing:.04em; text-transform:none; color:rgba(255,255,255,.7); }
+  .hint { font-size:12.5px; line-height:1.45; color:rgba(255,255,255,.7); }
+  .looks { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .look { position:relative; height:78px; border-radius:14px; background:radial-gradient(120% 120% at 50% 0%, #21406E 0%, #10233F 70%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:8px 6px 6px; overflow:hidden; }
+  .look canvas { flex:1; min-height:0; max-width:100%; object-fit:contain; }
+  .look span { flex:none; font-weight:700; font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.7); }
+  .look[aria-checked="true"] { box-shadow:inset 0 0 0 2px var(--cyan); }
+  .look[aria-checked="true"] span { color:#7DD3FC; }
+  .export { display:flex; gap:14px; align-items:flex-start; }
+  .export img { flex:none; width:46%; max-width:230px; aspect-ratio:9/16; border-radius:14px; background:var(--night); box-shadow:0 10px 26px rgba(0,0,0,.5); -webkit-touch-callout:default; }
+  .export .side { flex:1; min-width:0; display:flex; flex-direction:column; gap:9px; }
+  .export .seg button { height:38px; font-size:12px; }
+
+  .toast { position:fixed; left:50%; bottom:calc(160px + env(safe-area-inset-bottom)); z-index:60; width:max-content; max-width:min(88vw,480px); padding:12px 18px; border-radius:16px;
+           background:#2E7BFF; color:#fff; font-weight:600; font-size:13.5px; line-height:1.35; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,.5);
+           transform:translate(-50%,16px); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; }
+  .toast.show { opacity:1; transform:translate(-50%,0); }
+  .toast.ok { background:#22C55E; color:#04080F; }
+  .toast.err { background:#DC2626; }
+  .fatal { position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center; padding:32px; background:var(--night); text-align:center; font-size:15px; line-height:1.5; }
+  /* short screens (Safari with its bars, small iPhones): the story keeps the room */
+  @media (max-height: 600px) {
+    .bar h1 { font-size:20px; } .bar h1::after { margin-top:3px; }
+    .dock { gap:8px; padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
+    .act { height:50px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .sheet, .scrim, .toast { transition:none; } .pick.nudge { animation:none; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="bar">
+    <div>
+      <a class="back" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        Retour au Match Controller
+      </a>
+      <h1>Stories</h1>
+    </div>
+    <div class="bar-r">
+      <button type="button" class="chip" id="btn-safe" aria-pressed="false" aria-label="Afficher les zones masquées par Instagram">Zones Insta</button>
+      <div class="meta"><b id="kit-status" aria-live="polite"></b> <span id="build-tag"></span></div>
+    </div>
+  </header>
+
+  <main class="stage-wrap" id="stage-wrap">
+    <div class="stage" id="stage">
+      <canvas id="story" width="1080" height="1920" tabindex="0" role="img" aria-label="Aperçu de la story. Glisse un sticker pour le déplacer, deux doigts pour l'agrandir ou le tourner."></canvas>
+      <div class="overlay" aria-hidden="true">
+        <div class="safe safe-top">Haut masqué par Instagram</div>
+        <div class="safe safe-bot">Bas masqué par Instagram</div>
+        <div class="guide guide-v" id="guide-v"></div>
+        <div class="guide guide-h" id="guide-h"></div>
+        <div class="sel" id="sel" hidden></div>
+      </div>
+      <button class="pick" id="pick" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z"/><circle cx="12" cy="13.2" r="3.6"/></svg>
+        <strong>Choisir une photo</strong>
+        <span id="pick-sub">Photothèque ou appareil photo</span>
+      </button>
+      <div class="busy" id="busy" hidden><i></i><span id="busy-txt">Chargement…</span></div>
+    </div>
+  </main>
+
+  <footer class="dock">
+    <div class="ctx" id="ctx-main">
+      <div class="ctl grow">
+        <span class="lbl" id="lbl-mask">Masque</span>
+        <div class="seg" id="seg-mask" role="radiogroup" aria-labelledby="lbl-mask">
+          <button type="button" role="radio" data-mask="none">Aucun</button>
+          <button type="button" role="radio" data-mask="club">Club</button>
+          <button type="button" role="radio" data-mask="vainqueur">Vainqueur</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="lbl" id="lbl-win">Cadre photo</span>
+        <div class="seg shapes" id="seg-win" role="radiogroup" aria-labelledby="lbl-win">
+          <button type="button" role="radio" data-win="9x16" aria-label="Photo verticale, plein écran"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="7.5" y="3" width="9" height="18" rx="2"/></svg></button>
+          <button type="button" role="radio" data-win="1x1" aria-label="Photo carrée"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4.5" y="4.5" width="15" height="15" rx="2"/></svg></button>
+          <button type="button" role="radio" data-win="16x9" aria-label="Photo horizontale"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2.5" y="7" width="19" height="10" rx="2"/></svg></button>
+        </div>
+      </div>
+    </div>
+    <div class="ctx ctx-sticker" id="ctx-sticker" hidden>
+      <button type="button" class="sact" id="st-edit" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>Modifier</button>
+      <button type="button" class="sact" id="st-dup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 017.5 4H15"/></svg>Dupliquer</button>
+      <button type="button" class="sact" id="st-front">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>Devant</button>
+      <button type="button" class="sact danger" id="st-del">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 001 1h8a1 1 0 001-1l1-12M9 7V4h6v3"/></svg>Supprimer</button>
+      <button type="button" class="sact done" id="st-done">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>OK</button>
+    </div>
+    <div class="acts">
+      <button type="button" class="act" id="btn-photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M4 17l5-4 4 3 3-2.5 4 3.5"/></svg>Photo</button>
+      <button type="button" class="act" id="btn-stickers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Stickers</button>
+      <button type="button" class="act primary" id="btn-export">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4"/></svg>Exporter</button>
+    </div>
+  </footer>
+</div>
+
+<input class="vh" type="file" id="file" accept="image/*" tabindex="-1" aria-hidden="true">
+
+<div class="scrim" id="scrim"></div>
+
+<section class="sheet" id="sheet-stickers" role="dialog" aria-modal="true" aria-label="Ajouter un sticker">
+  <div class="sheet-head">
+    <div class="tabs" id="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="logos">Logos</button>
+      <button type="button" role="tab" data-tab="mots">Mots</button>
+      <button type="button" role="tab" data-tab="acvf">ACVF</button>
+      <button type="button" role="tab" data-tab="emojis">Emojis</button>
+      <button type="button" role="tab" data-tab="phrase">Phrase</button>
+    </div>
+    <button type="button" class="x" data-close aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="sheet-body">
+    <div class="pane" data-pane="logos"><div class="grid g3" id="grid-logos"></div></div>
+    <div class="pane" data-pane="mots" hidden>
+      <div class="seg" id="seg-mots" role="radiogroup" aria-label="Couleur des mots">
+        <button type="button" role="radio" data-c="blanc">Blanc</button>
+        <button type="button" role="radio" data-c="bleu">Bleu</button>
+        <button type="button" role="radio" data-c="or">Or · victoire</button>
+      </div>
+      <div class="grid g2" id="grid-mots"></div>
+    </div>
+    <div class="pane" data-pane="acvf" hidden><div class="grid g2 sq" id="grid-acvf"></div></div>
+    <div class="pane" data-pane="emojis" hidden>
+      <form class="field" id="emoji-form">
+        <input id="emoji-in" type="text" inputmode="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="24" placeholder="Tape un emoji 🙂" aria-label="Emoji à ajouter">
+        <button type="submit" class="btn primary">Ajouter</button>
+      </form>
+      <p class="hint">Ouvre le clavier emoji de ton téléphone, ou choisis ci-dessous.</p>
+      <div class="grid g6" id="grid-emojis"></div>
+    </div>
+    <div class="pane" data-pane="phrase" hidden>
+      <div class="field">
+        <textarea id="phrase-in" rows="2" maxlength="90" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ta phrase" aria-label="Phrase à ajouter"></textarea>
+        <button type="button" class="btn primary" id="phrase-add">Ajouter</button>
+      </div>
+      <div class="looks" id="looks" role="radiogroup" aria-label="Style de la phrase">
+        <button type="button" class="look" role="radio" data-look="blanc"><canvas></canvas><span>Blanc</span></button>
+        <button type="button" class="look" role="radio" data-look="bleu"><canvas></canvas><span>Bleu</span></button>
+        <button type="button" class="look" role="radio" data-look="or"><canvas></canvas><span>Or · victoire</span></button>
+      </div>
+      <p class="hint">Écrite dans la police du club, en majuscules. Un retour à la ligne crée une nouvelle ligne (trois au plus).</p>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="sheet-export" role="dialog" aria-modal="true" aria-labelledby="export-title">
+  <div class="sheet-head">
+    <h2 id="export-title">Ta story</h2>
+    <button type="button" class="x" data-close aria-label="Continuer l'édition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="sheet-body export">
+    <img id="export-img" alt="La story exportée">
+    <div class="side">
+      <button type="button" class="btn primary" id="btn-share">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4"/></svg>Partager</button>
+      <a class="btn" id="btn-save" href="#" download>Enregistrer</a>
+      <button type="button" class="btn" id="btn-next">Photo suivante</button>
+      <div class="seg" id="seg-fmt" role="radiogroup" aria-label="Format du fichier">
+        <button type="button" role="radio" data-fmt="jpeg">JPEG léger</button>
+        <button type="button" role="radio" data-fmt="png">PNG</button>
+      </div>
+      <p class="hint" id="export-hint"></p>
+      <button type="button" class="btn quiet" id="btn-reset">Tout effacer et recommencer</button>
+    </div>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="stories/kit.js"></script>
+<script>
+(() => {
+'use strict';
+
+const BUILD = 'v2026-10-10';
+const KIT = self.FCA_KIT;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+if (!KIT) {   // kit.js missing: nothing can work, say it plainly
+  document.body.insertAdjacentHTML('beforeend', '<div class="fatal" role="alert">Le kit de stickers n’a pas pu être chargé.<br>Vérifie ta connexion puis recharge la page.</div>');
+  return;
+}
+
+/* ============================== STORY GEOMETRY ============================== */
+const W = 1080, H = 1920, NAVY = '#04080F';
+// the three photo windows of the "Lame de lumière" masks (the masks' bands overlap the photo by 20 px)
+const WIN = { '9x16': { x: 0, y: 0, w: 1080, h: 1920 }, '1x1': { x: 0, y: 420, w: 1080, h: 1080 }, '16x9': { x: 0, y: 656, w: 1080, h: 608 } };
+const MAX_SIDE = 2400;            // photos are reduced to this on load: a 48 MP original never reaches a canvas
+const LS_KEY = 'fca-mc:v1:stories', PREF_KEY = 'fca-mc:v1:stories:prefs', TTL = 12 * 3600 * 1000;
+
+// state = everything that describes the story (saved); rt = what is rebuilt at runtime (bitmaps)
+const state = { win: '9x16', mask: 'none', photo: null, stickers: [], sel: null, safe: false, fmt: 'jpeg', look: 'blanc', motsColor: 'blanc' };
+const rt = { photo: null, mask: null, maskKey: '', gfx: new Map(), seq: 1, out: null, editing: null, exportCanvas: null };
+
+const KIT_INDEX = new Map();
+for (const group of ['logos', 'mots', 'acvf']) for (const e of KIT[group]) KIT_INDEX.set(e.id, { group, e });
+const asset = (p) => 'stories/' + p + '?v=' + KIT.version;
+
+const TOUCH = matchMedia('(pointer: coarse)').matches;
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const makeCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
+// iOS keeps a canvas' pixels alive until GC: zeroing its size gives the memory back at once
+const freeCanvas = (c) => { if (c && c.getContext) { c.width = 0; c.height = 0; } };
+const byId = (id) => state.stickers.find((s) => s.id === id) || null;
+const selected = () => byId(state.sel);
+
+/* ============================== FEEDBACK ============================== */
+const toastEl = $('#toast');
+let toastT = 0;
+function toast(msg, kind = 'info', ms) {
+  toastEl.textContent = msg;
+  toastEl.className = 'toast show ' + kind;
+  toastEl.setAttribute('role', kind === 'err' ? 'alert' : 'status');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => toastEl.classList.remove('show'), ms || (kind === 'err' ? 5500 : 2600));
+}
+let busyN = 0;
+function busy(on, txt) {
+  busyN = Math.max(0, busyN + (on ? 1 : -1));
+  if (txt) $('#busy-txt').textContent = txt;
+  $('#busy').hidden = !busyN;
+}
+window.addEventListener('error', (e) => {
+  if (/ResizeObserver/.test(e.message || '')) return;   // harmless browser notice
+  console.error(e.error || e.message); toast('Un problème est survenu. Recharge la page si ça continue.', 'err');
+});
+window.addEventListener('unhandledrejection', (e) => { console.error(e.reason); toast('Un problème est survenu. Recharge la page si ça continue.', 'err'); });
+
+/* ============================== IMAGES ============================== */
+const imgCache = new Map();
+// Every download has a time limit: a stadium network that stalls must end in a message, never in an endless spinner.
+function loadImage(url, ms = 30000) {
+  let p = imgCache.get(url);
+  if (!p) {
+    p = new Promise((res, rej) => {
+      const im = new Image();
+      const fail = (why) => {   // forget failures: a retry must hit the network again
+        clearTimeout(t); imgCache.delete(url);
+        im.onload = im.onerror = null; im.src = '';
+        rej(new Error(why + ' ' + url));
+      };
+      const t = setTimeout(() => fail('timeout'), ms);
+      im.onload = () => { clearTimeout(t); res(im); };
+      im.onerror = () => fail('error');
+      im.src = url;
+    });
+    imgCache.set(url, p);
+  }
+  return p;
+}
+
+// Shrinking by more than 2x in one drawImage aliases thin lines (the crest) on WebKit:
+// go through cached half-size copies first. ratio = source pixels per destination pixel.
+const mips = new WeakMap();
+function mipFor(src, sw, sh, ratio) {
+  let level = 0;
+  while (ratio >= 2 && level < 3) { ratio /= 2; level++; }
+  if (!level) return src;
+  let chain = mips.get(src);
+  if (!chain) mips.set(src, chain = []);
+  for (let i = chain.length; i < level; i++) {
+    const prev = i ? chain[i - 1] : src, pw = i ? prev.width : sw, ph = i ? prev.height : sh;
+    const c = makeCanvas(pw / 2, ph / 2), x = c.getContext('2d');
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(prev, 0, 0, c.width, c.height);
+    chain.push(c);
+  }
+  return chain[level - 1];
+}
+function freeMips(src) { const chain = src && mips.get(src); if (chain) { chain.forEach(freeCanvas); mips.delete(src); } }
+
+/* ============================== CLUB LETTERING (words' three looks, on canvas) ==============================
+   Port of masques-instagram-2627/final/mots/template.html, the SVG that drew the 47 word stickers:
+   same metrics, same outline/shadow/halo geometry (all proportional to the cap height u), same colours.
+     blanc  jersey flocking: white letters, club-navy border, crisp royal block shadow
+     bleu   die-cut sticker: royal-to-navy letters on a thick white cut line, soft contact shadow
+     or     victory: white-to-gold letters, gold halo, night hairline
+   Letter-spacing is laid out glyph by glyph (the font has no kerning) and the two blurs are computed here,
+   because neither ctx.letterSpacing nor ctx.filter exists on every iPhone. */
+const CAP_RATIO = 1434 / 2048, MAX_UP = 1.7;
+const measureCtx = makeCanvas(4, 4).getContext('2d');
+// The club font for every character it draws; bold Oswald for the rare ones it lacks (Œ). A character is
+// missing when its width follows the generic fallback placed behind the club font.
+const lacking = new Map();
+function fontOf(ch, fs) {
+  let v = lacking.get(ch);
+  if (v === undefined) {
+    measureCtx.font = '100px "Portugal2025",monospace'; const a = measureCtx.measureText(ch).width;
+    measureCtx.font = '100px "Portugal2025",serif';
+    lacking.set(ch, v = Math.abs(a - measureCtx.measureText(ch).width) > 0.5);
+  }
+  return v ? '700 ' + fs + 'px "Oswald",sans-serif' : fs + 'px "Portugal2025",sans-serif';
+}
+const graphemes = (s) => (window.Intl && Intl.Segmenter) ? [...new Intl.Segmenter('fr', { granularity: 'grapheme' }).segment(s)].map((g) => g.segment) : Array.from(s);
+
+// Where a glyph's ink really starts and ends, in em. WebKit (every iPhone) answers measureText's
+// actualBoundingBoxLeft/Right with the advance box, not the ink: there, the pixels are read instead.
+let inkFromMetrics = null;
+const inkCache = new Map();
+function glyphInk(ch) {
+  let v = inkCache.get(ch);
+  if (v) return v;
+  const fs = 320, c = makeCanvas(fs * 3, fs * 2.1), g = c.getContext('2d');   // origin one em from the left edge
+  g.font = fontOf(ch, fs); g.textBaseline = 'alphabetic';
+  g.fillText(ch, fs, fs * 1.55);
+  const d = g.getImageData(0, 0, c.width, c.height).data, w = c.width, h = c.height;
+  const col = (x) => { let a = 0; for (let y = 0; y < h; y++) { const t = d[(y * w + x) * 4 + 3]; if (t > a) a = t; } return a; };
+  let x0 = 0, x1 = w - 1, a0 = 0, a1 = 0;
+  while (x0 < w && !(a0 = col(x0))) x0++;
+  while (x1 > x0 && !(a1 = col(x1))) x1--;
+  // the first and last columns are only partly covered: their opacity places the edge inside the pixel
+  v = x0 >= w ? { l: 0, r: 0 } : { l: (x0 + 1 - a0 / 255 - fs) / fs, r: (x1 + a1 / 255 - fs) / fs };
+  freeCanvas(c);
+  inkCache.set(ch, v);
+  return v;
+}
+
+function measureLine(txt, fs, ls) {
+  if (inkFromMetrics === null) {
+    measureCtx.font = fontOf('I', fs);   // the club font's I has a clear side bearing: an honest engine reports it
+    const m = measureCtx.measureText('I');
+    inkFromMetrics = Math.abs(m.actualBoundingBoxLeft) > fs * 0.01 || Math.abs(m.actualBoundingBoxRight - m.width) > fs * 0.01;
+  }
+  let pen = 0, l = Infinity, r = -Infinity, up = 0, dn = 0;
+  const glyphs = [];
+  for (const ch of graphemes(txt)) {
+    measureCtx.font = fontOf(ch, fs);
+    const m = measureCtx.measureText(ch);
+    if (ch.trim()) {
+      const ink = inkFromMetrics ? null : glyphInk(ch);
+      l = Math.min(l, pen + (ink ? ink.l * fs : -m.actualBoundingBoxLeft)); r = Math.max(r, pen + (ink ? ink.r * fs : m.actualBoundingBoxRight));
+      up = Math.max(up, m.actualBoundingBoxAscent); dn = Math.max(dn, m.actualBoundingBoxDescent);
+      glyphs.push({ ch, x: pen });
+    }
+    pen += m.width + ls * fs;
+  }
+  if (l === Infinity) { l = 0; r = 0; }
+  return { l, r, up, dn, glyphs };
+}
+
+function layoutPhrase(lines, look, cap, o = {}) {
+  const ls = o.ls == null ? 0.07 : +o.ls, just = o.just == null ? true : !!+o.just, align = o.align || 'center';
+  const baseFs = cap / CAP_RATIO;
+  const m0 = lines.map((t) => measureLine(t, baseFs, ls));
+  const wMax = Math.max(...m0.map((m) => m.r - m.l));
+  const L = lines.map((t, i) => {     // stacked lines are scaled to one common width (broadcast lockup)
+    const w = m0[i].r - m0[i].l;
+    const fs = (just && lines.length > 1 && w > 0) ? baseFs * Math.min(MAX_UP, wMax / w) : baseFs;
+    return { t, fs, m: measureLine(t, fs, ls) };
+  });
+  const u = cap;   // out = outline reach, sh = [dx, dy, blur sigma], glow = halo sigma, gap = space between stacked lines
+  const S = {
+    blanc: { out: 0.046 * u, sh: [0.030 * u, 0.042 * u, 0], glow: 0, gap: 0.27 * u },
+    bleu:  { out: 0.085 * u, sh: [0, 0.034 * u, 0.034 * u], glow: 0, gap: 0.15 * u },
+    or:    { out: 0.013 * u, sh: [0, 0.016 * u, 0.022 * u], glow: 0.085 * u, gap: 0.27 * u },
+  }[look];
+  const reach = Math.max(S.out + Math.max(Math.abs(S.sh[0]), S.sh[1]) + 3 * S.sh[2], 1.6 * S.out + S.sh[1] + 3 * S.sh[2], S.out + 3 * S.glow);
+  const PAD = Math.ceil(reach + 10);
+  const inkW = Math.max(...L.map((q) => q.m.r - q.m.l));
+  let y = PAD;
+  L.forEach((q) => { q.base = y + q.m.up; y = q.base + q.m.dn + S.gap; });
+  L.forEach((q) => { q.x = PAD - q.m.l + (align === 'left' ? 0 : (inkW - (q.m.r - q.m.l)) / 2); });
+  return { L, S, PAD, inkW, width: Math.ceil(inkW + 2 * PAD), height: Math.ceil(y - S.gap + PAD) };
+}
+
+// Gaussian blur of one channel as three box blurs: the approximation the SVG spec gives for feGaussianBlur
+function blurPlane(a, w, h, sigma) {
+  const d = Math.floor(sigma * 3 * Math.sqrt(2 * Math.PI) / 4 + 0.5);
+  if (d < 2) return a;
+  const boxes = d % 2 ? [[(d - 1) / 2, (d - 1) / 2], [(d - 1) / 2, (d - 1) / 2], [(d - 1) / 2, (d - 1) / 2]] : [[d / 2, d / 2 - 1], [d / 2 - 1, d / 2], [d / 2, d / 2]];
+  let src = a, dst = new Float32Array(a.length);
+  for (const [lo, hi] of boxes) {
+    for (const horizontal of [true, false]) {
+      const n = horizontal ? w : h, lines = horizontal ? h : w, step = horizontal ? 1 : w, inv = 1 / (lo + hi + 1);
+      for (let k = 0; k < lines; k++) {
+        const o = horizontal ? k * w : k;
+        let sum = 0;
+        for (let j = 0; j <= hi && j < n; j++) sum += src[o + j * step];
+        for (let i = 0; i < n; i++) {
+          dst[o + i * step] = sum * inv;
+          if (i + hi + 1 < n) sum += src[o + (i + hi + 1) * step];
+          if (i - lo >= 0) sum -= src[o + (i - lo) * step];
+        }
+      }
+      const t = src; src = dst; dst = t === a ? new Float32Array(a.length) : t;
+    }
+  }
+  return src;
+}
+
+function renderPhrase(lines, look, cap, o) {
+  const lay = layoutPhrase(lines, look, cap, o), { L, S, width, height } = lay;
+  const c = makeCanvas(width, height), ctx = c.getContext('2d');
+  // one pass = every line drawn with one paint; "outline" = filled and stroked in the same colour (the letter grown by w)
+  const pass = (g, paint, w, join, dx = 0, dy = 0) => {
+    g.lineJoin = join || 'miter'; g.miterLimit = 3; g.lineWidth = 2 * w; g.textBaseline = 'alphabetic';
+    for (const q of L) {
+      g.fillStyle = g.strokeStyle = typeof paint === 'function' ? paint(g, q) : paint;
+      let font = '';
+      for (const gl of q.m.glyphs) {
+        const f = fontOf(gl.ch, q.fs);
+        if (f !== font) g.font = font = f;
+        g.fillText(gl.ch, q.x + gl.x + dx, q.base + dy);
+        if (w) g.strokeText(gl.ch, q.x + gl.x + dx, q.base + dy);
+      }
+    }
+  };
+  // a soft single-colour layer (shadow, halo): the outline shape, blurred, tinted, laid at the given opacity
+  const soft = (rgb, w, sigma, alpha, dy) => {
+    const t = makeCanvas(width, height), g = t.getContext('2d', { willReadFrequently: true });
+    pass(g, '#fff', w, 'round');
+    const id = g.getImageData(0, 0, width, height), px = id.data;
+    let a = new Float32Array(width * height);
+    for (let i = 0; i < a.length; i++) a[i] = px[i * 4 + 3];
+    a = blurPlane(a, width, height, sigma);
+    for (let i = 0; i < a.length; i++) { px[i * 4] = rgb[0]; px[i * 4 + 1] = rgb[1]; px[i * 4 + 2] = rgb[2]; px[i * 4 + 3] = a[i] + 0.5; }
+    g.putImageData(id, 0, 0);
+    ctx.globalAlpha = alpha; ctx.drawImage(t, 0, dy); ctx.globalAlpha = 1;
+    freeCanvas(t);
+  };
+  const gradient = (stops) => (g, q) => {   // one vertical gradient per line, spanning that line's cap height
+    const gr = g.createLinearGradient(0, q.base - q.fs * CAP_RATIO, 0, q.base);
+    stops.forEach(([at, col]) => gr.addColorStop(at, col));
+    return gr;
+  };
+  if (look === 'blanc') {
+    const n = Math.ceil(S.sh[1]);
+    for (let k = n; k >= 1; k--) pass(ctx, '#2E7BFF', S.out, 'miter', S.sh[0] * k / n, S.sh[1] * k / n);
+    pass(ctx, '#08417B', S.out, 'miter');
+    pass(ctx, '#FFFFFF', 0);
+  } else if (look === 'bleu') {
+    soft([4, 8, 15], S.out, S.sh[2], 0.42, S.sh[1]);
+    pass(ctx, '#FFFFFF', S.out, 'round');
+    pass(ctx, gradient([[0, '#2E7BFF'], [0.55, '#1259C3'], [1, '#08417B']]), 0);
+  } else {
+    soft([245, 184, 46], S.out, S.glow, 0.8, 0);
+    soft([4, 8, 15], S.out * 1.6, S.sh[2], 0.8, S.sh[1]);
+    pass(ctx, '#061224', S.out, 'miter');
+    pass(ctx, gradient([[0, '#FFFFFF'], [0.42, '#FFE9A6'], [1, '#F5B82E']]), 0);
+  }
+  return { canvas: c, PAD: lay.PAD };
+}
+
+/* ============================== EMOJI ============================== */
+const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+const HAS_EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]️?⃣/u;
+function renderEmoji(text) {
+  const fs = 192;   // close to the native size of iOS emoji; larger text sizes are not reliably drawn on iPhone
+  measureCtx.font = fs + 'px ' + EMOJI_FONT;
+  const tw = Math.ceil(measureCtx.measureText(text).width);
+  const c = makeCanvas(tw + fs, fs * 1.8), g = c.getContext('2d');
+  g.font = fs + 'px ' + EMOJI_FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.fillText(text, c.width / 2, c.height / 2);
+  // font metrics of colour emoji are unreliable: trim to what was really painted
+  const d = g.getImageData(0, 0, c.width, c.height).data;
+  let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3] > 12) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) { freeCanvas(c); return null; }
+  const out = makeCanvas(x1 - x0 + 1, y1 - y0 + 1);
+  out.getContext('2d').drawImage(c, -x0, -y0);
+  freeCanvas(c);
+  return out;
+}
+
+/* ============================== STICKERS ==============================
+   A sticker = { id, kind:'kit'|'emoji'|'phrase', x, y (centre, story px), s (scale), r (radians), + its source }.
+   Its drawable lives in rt.gfx: { src, sw, sh (source px), w0, h0 (story px at s = 1), ink (solid part, story px at s = 1) }. */
+function kitGfx(group, e, img) {
+  const iw = e.ink[2] - e.ink[0], ih = e.ink[3] - e.ink[1];
+  // default sizes: a crest 430 px tall, the ACVF logo 300 px wide, words with ~97 px letters (never wider than 900)
+  const k = group === 'logos' ? 430 / ih : group === 'acvf' ? 300 / iw : Math.min(0.36 / e.k, 900 / iw);
+  return { src: img, sw: e.w, sh: e.h, w0: e.w * k, h0: e.h * k, ink: { x0: e.ink[0] * k, y0: e.ink[1] * k, x1: e.ink[2] * k, y1: e.ink[3] * k } };
+}
+function emojiGfx(st) {
+  const c = renderEmoji(st.text);
+  if (!c) return null;
+  const k = 190 / c.height;
+  return { src: c, sw: c.width, sh: c.height, w0: c.width * k, h0: 190, ink: { x0: 0, y0: 0, x1: c.width * k, y1: 190 }, own: true };
+}
+// A phrase is vector text: its bitmap is re-rendered at the size it is shown, so it stays sharp at any scale
+function phraseGfx(st) {
+  const unit = layoutPhrase(st.lines, st.look, st.u0);
+  const q = clamp(Math.min(st.s, Math.sqrt(5e6 / (unit.width * unit.height)), 4000 / unit.width), 0.25, 8);
+  const { canvas: c, PAD } = renderPhrase(st.lines, st.look, st.u0 * q);
+  return { src: c, sw: c.width, sh: c.height, w0: c.width / q, h0: c.height / q, madeFor: st.s, own: true,
+           ink: { x0: PAD / q, y0: PAD / q, x1: (c.width - PAD) / q, y1: (c.height - PAD) / q } };
+}
+function setGfx(st, g) {
+  const old = rt.gfx.get(st.id);
+  if (old && old.own && old.src !== (g && g.src)) { freeMips(old.src); freeCanvas(old.src); }
+  if (g) rt.gfx.set(st.id, g); else rt.gfx.delete(st.id);
+}
+async function buildGfx(st) {
+  if (st.kind === 'kit') {
+    const it = KIT_INDEX.get(st.ref);
+    if (!it) throw new Error('unknown sticker ' + st.ref);
+    setGfx(st, kitGfx(it.group, it.e, await loadImage(asset(it.e.f))));
+  } else if (st.kind === 'emoji') {
+    const g = emojiGfx(st);
+    if (!g) throw new Error('emoji not drawable');
+    setGfx(st, g);
+  } else setGfx(st, phraseGfx(st));
+}
+// after a pinch or before an export: phrases whose scale drifted from their bitmap get a fresh one
+function refreshPhrases() {
+  for (const st of state.stickers) {
+    const g = rt.gfx.get(st.id);
+    if (st.kind === 'phrase' && g && Math.abs(st.s / g.madeFor - 1) > 0.04) setGfx(st, phraseGfx(st));
+  }
+}
+function scaleLimits(st) {
+  const g = rt.gfx.get(st.id), side = g ? Math.max(g.ink.x1 - g.ink.x0, g.ink.y1 - g.ink.y0) : 300;
+  return [60 / side, Math.min(12, 2600 / side)];
+}
+
+function place(st) {   // new stickers land in the centre, slightly cascaded so two never hide each other
+  const n = state.stickers.length % 4;
+  st.x = W / 2 + n * 36; st.y = H / 2 + n * 36;
+  state.stickers.push(st);
+  select(st.id);
+  if (!place.told) { place.told = true; toast(TOUCH ? 'Ajouté. Glisse pour déplacer, deux doigts pour agrandir ou tourner.' : 'Ajouté. Glisse pour déplacer, molette pour agrandir, Maj + molette pour tourner.'); }
+  changed();
+}
+const newSticker = (props) => ({ id: 's' + (rt.seq++), x: W / 2, y: H / 2, s: 1, r: 0, ...props });
+
+async function addKit(ref, stillWanted) {
+  const st = newSticker({ kind: 'kit', ref });
+  try { await buildGfx(st); } catch (e) { console.warn(e); toast('Ce sticker n’a pas pu être chargé. Vérifie ta connexion puis réessaie.', 'err'); return null; }
+  if (stillWanted && !stillWanted()) { setGfx(st, null); return null; }   // the sheet was closed while the image was on its way
+  place(st);
+  return st;
+}
+function addEmoji(raw) {
+  const text = (raw || '').trim();
+  if (!text) { toast('Tape d’abord un emoji.', 'err', 3000); return null; }
+  if (!HAS_EMOJI.test(text)) { toast('Ici, seulement des emojis. Pour du texte, utilise l’onglet Phrase.', 'err', 4000); return null; }
+  const st = newSticker({ kind: 'emoji', text });
+  const g = emojiGfx(st);
+  if (!g) { toast('Cet emoji ne peut pas être affiché sur cet appareil.', 'err'); return null; }
+  setGfx(st, g);
+  place(st);
+  return st;
+}
+const cleanLines = (raw) => (raw || '').split('\n').map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean).slice(0, 3).map((l) => l.toLocaleUpperCase('fr-FR'));
+function phraseUnit(lines, look) {   // cap height at scale 1: 96 px on one line, 74 px stacked, less if the phrase is long
+  let u0 = lines.length > 1 ? 74 : 96;
+  const lay = layoutPhrase(lines, look, u0);
+  if (lay.inkW > 900) u0 *= 900 / lay.inkW;
+  return u0;
+}
+function addPhrase(raw, look) {
+  const lines = cleanLines(raw);
+  if (!lines.length) { toast('Écris d’abord ta phrase.', 'err', 3000); return null; }
+  const st = newSticker({ kind: 'phrase', lines, look, u0: phraseUnit(lines, look) });
+  setGfx(st, phraseGfx(st));
+  place(st);
+  return st;
+}
+function updatePhrase(st, raw, look) {
+  const lines = cleanLines(raw);
+  if (!lines.length) { toast('Écris d’abord ta phrase.', 'err', 3000); return false; }
+  st.lines = lines; st.look = look; st.u0 = phraseUnit(lines, look);
+  setGfx(st, phraseGfx(st));
+  changed();
+  return true;
+}
+function removeSticker(st) {
+  setGfx(st, null);
+  state.stickers = state.stickers.filter((s) => s !== st);
+  if (state.sel === st.id) select(null);
+  changed();
+}
+function duplicateSticker(st) {
+  const copy = JSON.parse(JSON.stringify(st));
+  copy.id = newSticker().id; copy.x = clamp(st.x + 44, 0, W); copy.y = clamp(st.y + 44, 0, H);
+  const g = rt.gfx.get(st.id);
+  rt.gfx.set(copy.id, st.kind === 'kit' ? g : st.kind === 'emoji' ? emojiGfx(copy) : phraseGfx(copy));
+  state.stickers.push(copy);
+  select(copy.id);
+  changed();
+}
+function bringToFront(st) {
+  state.stickers = state.stickers.filter((s) => s !== st).concat(st);
+  changed();
+}
+
+/* ============================== PHOTO ============================== */
+// iPhone photos are 3:4 or 4:3, exactly between two windows: portrait goes full screen, landscape goes 16:9
+const nearestWindow = (w, h) => { const r = w / h; return r < 0.78 ? '9x16' : r > 1.28 ? '16x9' : '1x1'; };
+
+function photoGeom() {
+  const p = state.photo, win = WIN[state.win];
+  const sc = Math.max(win.w / p.w, win.h / p.h) * p.zoom;   // cover the window, then the user's zoom
+  return { sc, x: win.x + win.w / 2 - p.cx * p.w * sc, y: win.y + win.h / 2 - p.cy * p.h * sc, w: p.w * sc, h: p.h * sc };
+}
+function clampPhoto() {   // the photo always covers its window
+  const p = state.photo, win = WIN[state.win];
+  p.zoom = clamp(p.zoom, 1, 6);
+  const sc = Math.max(win.w / p.w, win.h / p.h) * p.zoom;
+  const hx = win.w / (2 * sc * p.w), hy = win.h / (2 * sc * p.h);
+  p.cx = clamp(p.cx, hx, 1 - hx); p.cy = clamp(p.cy, hy, 1 - hy);
+}
+function decodeFile(blob) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(blob), im = new Image();
+    im.onload = () => res({ im, done: () => URL.revokeObjectURL(url) });
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('decode')); };
+    im.src = url;
+  });
+}
+// File -> a canvas no larger than MAX_SIDE. <img> applies the EXIF orientation itself on every current browser.
+async function photoCanvas(blob) {
+  const { im, done } = await decodeFile(blob);
+  try {
+    const w = im.naturalWidth, h = im.naturalHeight;
+    if (!w || !h) throw new Error('empty image');
+    const k = Math.min(1, MAX_SIDE / Math.max(w, h));
+    const c = makeCanvas(w * k, h * k), x = c.getContext('2d');
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(im, 0, 0, c.width, c.height);
+    // out of memory, iOS draws nothing and says nothing: check that pixels really arrived
+    const probe = makeCanvas(8, 8), px = probe.getContext('2d');
+    px.drawImage(c, 0, 0, 8, 8);
+    const d = px.getImageData(0, 0, 8, 8).data;
+    let seen = 0;
+    for (let i = 3; i < d.length; i += 4) seen += d[i];
+    if (!seen) { freeCanvas(c); throw new Error('blank draw'); }
+    return c;
+  } finally { done(); }
+}
+function setPhotoCanvas(c) {
+  if (rt.photo) { freeMips(rt.photo); freeCanvas(rt.photo); }
+  rt.photo = c;
+}
+let photoSeq = 0;
+async function loadPhoto(file) {
+  const seq = ++photoSeq;
+  busy(true, 'Préparation de la photo…');
+  try {
+    const c = await photoCanvas(file);
+    if (seq !== photoSeq) { freeCanvas(c); return; }   // a newer photo was picked while this one was decoding
+    const keeps = state.mask !== 'none' || state.stickers.length;
+    setPhotoCanvas(c);
+    state.photo = { w: c.width, h: c.height, zoom: 1, cx: 0.5, cy: 0.5 };
+    state.win = nearestWindow(c.width, c.height);
+    closeSheets();
+    syncUI(); applyMask(); changed();
+    if (keeps) toast('Nouvelle photo. Ton masque et tes stickers sont conservés.', 'ok');
+    else if (!loadPhoto.told) { loadPhoto.told = true; toast(TOUCH ? 'Glisse la photo pour la cadrer, deux doigts pour zoomer.' : 'Glisse la photo pour la cadrer, molette pour zoomer.'); }
+    c.toBlob((b) => {   // kept for an accidental reload; losing it only means picking the photo again
+      if (b) new Response(b).arrayBuffer().then((buf) => rt.photo === c && idbSet('photo', { type: b.type, buf })).catch((e) => console.warn('photo not kept for reload', e));
+    }, 'image/jpeg', 0.9);
+  } catch (e) {
+    console.warn(e);
+    toast(e.message === 'blank draw' ? 'Photo trop lourde pour ce téléphone. Ferme d’autres onglets ou essaie une capture d’écran de la photo.'
+      : 'Cette photo ne peut pas être lue. Essaie une autre photo, en JPEG ou PNG.', 'err', 7000);
+  } finally { busy(false); }
+}
+
+/* ============================== MASK ============================== */
+let maskWait = 0, maskBusy = false;
+function maskSpinner(on) {   // shown only if the mask takes a moment; always owned by the latest choice
+  clearTimeout(maskWait); maskWait = 0;
+  if (on) maskWait = setTimeout(() => { maskBusy = true; busy(true, 'Chargement du masque…'); }, 250);
+  else if (maskBusy) { maskBusy = false; busy(false); }
+}
+async function applyMask() {
+  const key = state.mask === 'none' ? '' : state.mask + '/' + state.win;
+  if (key === rt.maskKey) return;
+  rt.maskKey = key; rt.mask = null;
+  invalidate();
+  maskSpinner(!!key);
+  if (!key) return;
+  let im = null;
+  try { im = await loadImage(asset(KIT.masks[state.mask][state.win])); } catch (e) { console.warn(e); }
+  if (rt.maskKey !== key) return;   // another mask or window was chosen meanwhile: this answer no longer matters
+  maskSpinner(false);
+  if (im) { rt.mask = im; invalidate(); return; }
+  rt.maskKey = ''; state.mask = 'none';
+  syncUI(); changed();
+  toast('Le masque n’a pas pu être chargé. Vérifie ta connexion puis réessaie.', 'err');
+}
+
+/* ============================== RENDER ==============================
+   The single place where a story is drawn: navy, photo in its window, mask, stickers.
+   The on-screen preview and the exported file both come from here. */
+function renderStory(ctx, forExport) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = NAVY; ctx.fillRect(0, 0, W, H);
+  const win = WIN[state.win];
+  if (rt.photo && state.photo) {
+    const g = photoGeom();
+    ctx.save(); ctx.beginPath(); ctx.rect(win.x, win.y, win.w, win.h); ctx.clip();
+    ctx.drawImage(mipFor(rt.photo, state.photo.w, state.photo.h, 1 / g.sc), g.x, g.y, g.w, g.h);
+    ctx.restore();
+  } else if (!forExport) {   // empty window: the club's night sky, light from the top right
+    const gr = ctx.createRadialGradient(W * 0.9, win.y, 0, W * 0.9, win.y, 1500);
+    gr.addColorStop(0, '#17417F'); gr.addColorStop(0.55, '#0A1E3D'); gr.addColorStop(1, '#071630');
+    ctx.fillStyle = gr; ctx.fillRect(win.x, win.y, win.w, win.h);
+  }
+  if (rt.mask) ctx.drawImage(rt.mask, 0, 0, W, H);
+  for (const st of state.stickers) {
+    const g = rt.gfx.get(st.id);
+    if (!g) continue;
+    ctx.save(); ctx.translate(st.x, st.y); ctx.rotate(st.r); ctx.scale(st.s, st.s);
+    ctx.drawImage(mipFor(g.src, g.sw, g.sh, g.sw / (g.w0 * st.s)), -g.w0 / 2, -g.h0 / 2, g.w0, g.h0);
+    ctx.restore();
+  }
+}
+
+const canvas = $('#story'), pctx = canvas.getContext('2d'), stage = $('#stage'), selEl = $('#sel');
+let raf = 0;
+function paint() { raf = 0; renderStory(pctx, false); updateSelFrame(); }
+function invalidate() { if (!raf) raf = requestAnimationFrame(paint); }
+
+function updateSelFrame() {
+  const st = selected(), g = st && rt.gfx.get(st.id);
+  if (!g) { selEl.hidden = true; return; }
+  const k = stage.clientWidth / W, c = Math.cos(st.r), s = Math.sin(st.r);
+  const ox = ((g.ink.x0 + g.ink.x1) / 2 - g.w0 / 2) * st.s, oy = ((g.ink.y0 + g.ink.y1) / 2 - g.h0 / 2) * st.s;   // ink centre vs sticker centre
+  selEl.hidden = false;
+  selEl.style.left = (st.x + ox * c - oy * s) * k + 'px';
+  selEl.style.top = (st.y + ox * s + oy * c) * k + 'px';
+  selEl.style.width = (g.ink.x1 - g.ink.x0) * st.s * k + 14 + 'px';
+  selEl.style.height = (g.ink.y1 - g.ink.y0) * st.s * k + 14 + 'px';
+  selEl.style.transform = 'translate(-50%,-50%) rotate(' + st.r + 'rad)';
+}
+
+/* ============================== GESTURES ==============================
+   One finger: drag a sticker, or the photo inside its window.
+   Two fingers: scale and rotate the sticker under a finger (or the selected one), else zoom the photo.
+   Mouse: drag; wheel = scale, shift + wheel = rotate. */
+const ptrs = new Map();
+let gest = null, tap = null;
+const toStory = (e) => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; };
+
+function hits(st, x, y, pad) {
+  const g = rt.gfx.get(st.id);
+  if (!g) return false;
+  const dx = x - st.x, dy = y - st.y, c = Math.cos(-st.r), s = Math.sin(-st.r);
+  const lx = (dx * c - dy * s) / st.s + g.w0 / 2, ly = (dx * s + dy * c) / st.s + g.h0 / 2;   // into the sticker's own frame
+  // a comfortable target: at least 130 story px (about a fingertip on screen), whatever the sticker's size
+  const px = Math.max(pad, (130 - (g.ink.x1 - g.ink.x0) * st.s) / 2) / st.s, py = Math.max(pad, (130 - (g.ink.y1 - g.ink.y0) * st.s) / 2) / st.s;
+  return lx >= g.ink.x0 - px && lx <= g.ink.x1 + px && ly >= g.ink.y0 - py && ly <= g.ink.y1 + py;
+}
+function hitTest(x, y, pad = 24) {
+  for (let i = state.stickers.length - 1; i >= 0; i--) if (hits(state.stickers[i], x, y, pad)) return state.stickers[i];
+  return null;
+}
+function guides(v, h) { $('#guide-v').classList.toggle('on', !!v); $('#guide-h').classList.toggle('on', !!h); }
+
+function beginPinch() {
+  const [a, b] = [...ptrs.values()];
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist = Math.hypot(b.x - a.x, b.y - a.y) || 1, ang = Math.atan2(b.y - a.y, b.x - a.x);
+  let st = gest && gest.mode === 'drag' ? byId(gest.id) : null;
+  if (!st) st = hitTest(a.x, a.y) || hitTest(b.x, b.y);
+  if (!st && selected() && hits(selected(), mid.x, mid.y, 90)) st = selected();
+  tap = null;
+  if (st) { select(st.id); gest = { mode: 'pinch', id: st.id, x0: st.x, y0: st.y, s0: st.s, r0: st.r, mid, dist, ang }; }
+  else if (state.photo && rt.photo) {
+    const g = photoGeom();   // the photo point under the fingers stays under the fingers
+    gest = { mode: 'zoom', zoom0: state.photo.zoom, dist, px: (mid.x - g.x) / g.sc, py: (mid.y - g.y) / g.sc };
+    select(null);
+  } else gest = null;
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (e.isPrimary && ptrs.size) { ptrs.clear(); gest = null; }   // a first finger while others are "down": their release was lost (app switch, dialog)
+  if (ptrs.size >= 2) return;
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* synthetic pointers cannot be captured */ }
+  const p = toStory(e);
+  ptrs.set(e.pointerId, p);
+  if (ptrs.size === 1) {
+    const hit = hitTest(p.x, p.y);
+    tap = { cx: e.clientX, cy: e.clientY, hit, moved: false };
+    if (hit) { select(hit.id); gest = { mode: 'drag', id: hit.id, ox: hit.x - p.x, oy: hit.y - p.y }; }
+    else gest = state.photo && rt.photo ? { mode: 'pan', last: p } : null;
+  } else beginPinch();
+  e.preventDefault();
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!ptrs.has(e.pointerId)) return;
+  const p = toStory(e);
+  ptrs.set(e.pointerId, p);
+  if (tap && !tap.moved && Math.hypot(e.clientX - tap.cx, e.clientY - tap.cy) > 7) tap.moved = true;
+  if (!gest || (tap && !tap.moved)) return;   // a tap must not nudge anything
+  if (gest.mode === 'drag') {
+    const st = byId(gest.id);
+    if (!st) return;
+    let x = p.x + gest.ox, y = p.y + gest.oy;
+    const gx = Math.abs(x - W / 2) < 16, gy = Math.abs(y - H / 2) < 16;   // snap to the story's centre lines
+    st.x = clamp(gx ? W / 2 : x, 0, W); st.y = clamp(gy ? H / 2 : y, 0, H);
+    guides(gx, gy);
+  } else if (gest.mode === 'pan') {
+    const sc = photoGeom().sc;
+    state.photo.cx -= (p.x - gest.last.x) / (sc * state.photo.w); state.photo.cy -= (p.y - gest.last.y) / (sc * state.photo.h);
+    gest.last = p;
+    clampPhoto();
+    if (state.sel) select(null);
+  } else if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()];
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, k = (Math.hypot(b.x - a.x, b.y - a.y) || 1) / gest.dist;
+    if (gest.mode === 'pinch') {
+      const st = byId(gest.id);
+      if (!st) return;
+      const [lo, hi] = scaleLimits(st);
+      st.s = clamp(gest.s0 * k, lo, hi);
+      let r = gest.r0 + Math.atan2(b.y - a.y, b.x - a.x) - gest.ang;
+      const q = Math.round(r / (Math.PI / 2)) * (Math.PI / 2);
+      if (Math.abs(r - q) < 0.07) r = q;   // level (and quarter turns) are sticky: words stay straight
+      st.r = r;
+      const f = st.s / gest.s0, d = r - gest.r0, c = Math.cos(d), s = Math.sin(d), vx = gest.x0 - gest.mid.x, vy = gest.y0 - gest.mid.y;
+      st.x = clamp(mid.x + (vx * c - vy * s) * f, 0, W); st.y = clamp(mid.y + (vx * s + vy * c) * f, 0, H);
+    } else if (gest.mode === 'zoom') {
+      const ph = state.photo, win = WIN[state.win];
+      ph.zoom = clamp(gest.zoom0 * k, 1, 6);
+      const sc = Math.max(win.w / ph.w, win.h / ph.h) * ph.zoom;
+      ph.cx = (gest.px - (mid.x - win.x - win.w / 2) / sc) / ph.w; ph.cy = (gest.py - (mid.y - win.y - win.h / 2) / sc) / ph.h;
+      clampPhoto();
+    }
+  }
+  invalidate();
+});
+
+function pointerEnd(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  try { canvas.releasePointerCapture(e.pointerId); } catch (_) { /* never captured */ }
+  if (ptrs.size === 1) {   // one finger left after a pinch: carry on as a drag, without a jump
+    const p = [...ptrs.values()][0], st = gest && gest.mode === 'pinch' ? byId(gest.id) : null;
+    gest = st ? { mode: 'drag', id: st.id, ox: st.x - p.x, oy: st.y - p.y } : gest && gest.mode === 'zoom' ? { mode: 'pan', last: p } : null;
+    return;
+  }
+  if (tap && !tap.moved && !tap.hit && e.type === 'pointerup') select(null);   // tap on the photo = deselect
+  gest = null; tap = null;
+  guides(false, false);
+  refreshPhrases();
+  changed();
+}
+canvas.addEventListener('pointerup', pointerEnd);
+canvas.addEventListener('pointercancel', pointerEnd);
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const p = toStory(e), d = e.deltaY || e.deltaX;   // with shift held, some browsers report the wheel on X
+  let st = selected();
+  if (!st) { st = hitTest(p.x, p.y); if (st) select(st.id); }
+  if (st) {
+    if (e.shiftKey) st.r += d * 0.0015;
+    else { const [lo, hi] = scaleLimits(st); st.s = clamp(st.s * Math.exp(-d * 0.0018), lo, hi); }
+  } else if (state.photo && rt.photo) {
+    const g = photoGeom(), ph = state.photo, win = WIN[state.win], px = (p.x - g.x) / g.sc, py = (p.y - g.y) / g.sc;
+    ph.zoom = clamp(ph.zoom * Math.exp(-d * 0.0018), 1, 6);
+    const sc = Math.max(win.w / ph.w, win.h / ph.h) * ph.zoom;
+    ph.cx = (px - (p.x - win.x - win.w / 2) / sc) / ph.w; ph.cy = (py - (p.y - win.y - win.h / 2) / sc) / ph.h;
+    clampPhoto();
+  } else return;
+  invalidate();
+  clearTimeout(canvas._wheelT);
+  canvas._wheelT = setTimeout(() => { refreshPhrases(); changed(); }, 180);
+}, { passive: false });
+
+// iOS: two fingers anywhere must never zoom the page itself; Android: no "save image" menu on a long press
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { if (openSheet) closeSheets(); else select(null); return; }
+  if (openSheet || /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const st = selected();
+  if (!st) return;
+  const step = e.shiftKey ? 24 : 4, [lo, hi] = scaleLimits(st);
+  if (e.key === 'Delete' || e.key === 'Backspace') removeSticker(st);
+  else if (e.key === 'ArrowLeft') st.x = clamp(st.x - step, 0, W);
+  else if (e.key === 'ArrowRight') st.x = clamp(st.x + step, 0, W);
+  else if (e.key === 'ArrowUp') st.y = clamp(st.y - step, 0, H);
+  else if (e.key === 'ArrowDown') st.y = clamp(st.y + step, 0, H);
+  else if (e.key === '+' || e.key === '=') st.s = clamp(st.s * 1.06, lo, hi);
+  else if (e.key === '-') st.s = clamp(st.s / 1.06, lo, hi);
+  else if (e.key === '[') st.r -= Math.PI / 36;
+  else if (e.key === ']') st.r += Math.PI / 36;
+  else return;
+  e.preventDefault();
+  refreshPhrases(); changed();
+});
+
+/* ============================== PERSISTENCE ==============================
+   Layout -> localStorage (12 h, like the live state of the Match Controller); the photo -> IndexedDB, best effort. */
+let saveT = 0;
+function saveNow() {
+  clearTimeout(saveT); saveT = 0;
+  const r = (v, n = 2) => +v.toFixed(n);
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ v: 1, t: Date.now(), win: state.win, mask: state.mask,
+      photo: state.photo && { w: state.photo.w, h: state.photo.h, zoom: r(state.photo.zoom, 4), cx: r(state.photo.cx, 5), cy: r(state.photo.cy, 5) },
+      stickers: state.stickers.map((s) => ({ ...s, x: r(s.x), y: r(s.y), s: r(s.s, 4), r: r(s.r, 4) })) }));
+    localStorage.setItem(PREF_KEY, JSON.stringify({ safe: state.safe, fmt: state.fmt, look: state.look, motsColor: state.motsColor }));
+  } catch (e) { console.warn('layout not saved', e); }   // private mode / full storage: the session still works
+}
+function changed() { invalidate(); if (!saveT) saveT = setTimeout(saveNow, 300); }
+window.addEventListener('pagehide', saveNow);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
+
+function idb() {
+  return new Promise((res, rej) => {
+    const q = indexedDB.open('fca-mc-stories', 1);
+    q.onupgradeneeded = () => q.result.createObjectStore('kv');
+    q.onsuccess = () => res(q.result);
+    q.onerror = () => rej(q.error);
+  });
+}
+async function idbSet(key, val) {
+  const db = await idb();
+  return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); if (val == null) tx.objectStore('kv').delete(key); else tx.objectStore('kv').put(val, key); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+}
+async function idbGet(key) {
+  const db = await idb();
+  return new Promise((res, rej) => { const q = db.transaction('kv').objectStore('kv').get(key); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+}
+
+async function restore() {
+  const LOOKS = ['blanc', 'bleu', 'or'];
+  try {
+    const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+    state.safe = !!p.safe; state.fmt = p.fmt === 'png' ? 'png' : 'jpeg';
+    if (LOOKS.includes(p.look)) state.look = p.look;
+    if (LOOKS.includes(p.motsColor)) state.motsColor = p.motsColor;
+  } catch (_) { /* fresh prefs */ }
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch (_) { /* unreadable = no session */ }
+  if (!saved || saved.v !== 1 || Date.now() - saved.t > TTL) { idbSet('photo', null).catch(() => {}); return; }
+  if (WIN[saved.win]) state.win = saved.win;
+  if (saved.mask === 'club' || saved.mask === 'vainqueur') state.mask = saved.mask;
+  let lost = 0;
+  for (const s of Array.isArray(saved.stickers) ? saved.stickers : []) {
+    if (!s || ![s.x, s.y, s.s, s.r].every(Number.isFinite) || !(s.s > 0)) continue;
+    const base = newSticker({ kind: s.kind, x: s.x, y: s.y, s: s.s, r: s.r });
+    let st = null;
+    if (s.kind === 'kit' && KIT_INDEX.has(s.ref)) st = { ...base, ref: s.ref };
+    else if (s.kind === 'emoji' && typeof s.text === 'string' && s.text) st = { ...base, text: s.text };
+    else if (s.kind === 'phrase' && Array.isArray(s.lines) && s.lines.length && s.lines.every((l) => typeof l === 'string') && LOOKS.includes(s.look) && s.u0 > 0) st = { ...base, lines: s.lines, look: s.look, u0: s.u0 };
+    if (!st) continue;   // a sticker that left the kit, or a damaged entry
+    try { await buildGfx(st); state.stickers.push(st); } catch (e) { console.warn(e); lost++; }
+  }
+  if (lost) toast('Certains stickers n’ont pas pu être rechargés. Vérifie ta connexion.', 'err');
+  const p = saved.photo;
+  if (p && [p.w, p.h, p.zoom, p.cx, p.cy].every(Number.isFinite)) {
+    try {
+      const rec = await idbGet('photo');
+      if (!rec) throw new Error('no stored photo');
+      const c = await photoCanvas(new Blob([rec.buf], { type: rec.type }));
+      if (c.width !== p.w || c.height !== p.h) { freeCanvas(c); throw new Error('stored photo does not match'); }
+      setPhotoCanvas(c); state.photo = p; clampPhoto();
+    } catch (e) {
+      console.warn(e);
+      if (state.stickers.length || state.mask !== 'none') $('#pick-sub').textContent = 'Rechoisis ta photo\u00a0: ton masque et tes stickers sont toujours là.';
+    }
+  }
+}
+
+/* ============================== EXPORT ==============================
+   Everything from the tap to navigator.share() runs in ONE synchronous task: iOS only opens the share sheet
+   while the tap is still "fresh", any await in between silently kills it (lesson of the Match Controller). */
+function buildExport() {
+  refreshPhrases();
+  const c = rt.exportCanvas || (rt.exportCanvas = makeCanvas(W, H));
+  renderStory(c.getContext('2d'), true);
+  const type = state.fmt === 'png' ? 'image/png' : 'image/jpeg';
+  const url = c.toDataURL(type, 0.92);
+  if (url.indexOf('data:' + type) !== 0) throw new Error('encode ' + type);
+  const bin = atob(url.slice(url.indexOf(',') + 1)), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const d = new Date(), z = (n) => String(n).padStart(2, '0');
+  const name = 'FCA-story-' + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + (state.fmt === 'png' ? '.png' : '.jpg');
+  if (rt.out) URL.revokeObjectURL(rt.out.url);
+  const file = new File([u8], name, { type });
+  rt.out = { file, name, type, url: URL.createObjectURL(file) };
+  $('#export-img').src = rt.out.url;
+  const save = $('#btn-save');
+  save.href = rt.out.url; save.download = name;
+  return rt.out;
+}
+const canShare = (file) => { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (_) { return false; } };
+function share() {
+  const out = rt.out;
+  if (!out) return;
+  navigator.share({ files: [out.file] }).catch((e) => {
+    if (e && e.name === 'AbortError') return;   // the user closed the share sheet
+    console.warn(e);
+    toast(e && e.name === 'NotAllowedError' ? 'Touche «\u00a0Partager\u00a0» pour ouvrir le partage.' : 'Le partage n’a pas marché ici. Fais un appui long sur l’image pour l’enregistrer.', 'err');
+  });
+}
+function exportStory() {
+  if (!rt.photo || !state.photo) {
+    toast('Ajoute d’abord une photo.', 'err', 3000);
+    const b = $('#pick'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge');
+    return;
+  }
+  if (state.mask !== 'none' && !rt.mask) { toast('Le masque finit de charger. Réessaie dans un instant.', 'err', 3000); return; }   // never a story without its mask
+  let out;
+  try { out = buildExport(); } catch (e) { console.error(e); toast('L’export a échoué. Réessaie, ou recharge la page.', 'err'); return; }
+  select(null);
+  const sharable = canShare(out.file);
+  $('#btn-share').hidden = !sharable;
+  $('#btn-save').hidden = sharable && IOS;   // on an iPhone a download lands in Files, not Photos: the share sheet covers both
+  $('#export-hint').textContent = sharable && IOS ? 'Partager, puis Instagram, puis Story. Pour la garder\u00a0: Partager, puis «\u00a0Enregistrer l’image\u00a0», ou un appui long sur l’image.'
+    : sharable && TOUCH ? 'Partager, puis Instagram, puis Story. «\u00a0Enregistrer\u00a0» la garde sur le téléphone.'
+    : sharable ? 'L’image a été téléchargée. Tu peux aussi la partager.' : 'L’image a été téléchargée (1080 × 1920).';
+  openSheetEl($('#sheet-export'));
+  if (sharable && TOUCH) share(); else $('#btn-save').click();   // phone: straight to the share sheet; computer: download
+}
+
+/* ============================== UI ============================== */
+let openSheet = null, lastFocus = null;
+function openSheetEl(el) {
+  if (openSheet === el) return;
+  if (openSheet) openSheet.classList.remove('on');
+  else lastFocus = document.activeElement;
+  openSheet = el;
+  el.classList.add('on'); $('#scrim').classList.add('on');
+  $('#app').inert = true;
+  const f = $('[data-close]', el);
+  if (f) f.focus({ preventScroll: true });
+}
+function closeSheets() {
+  if (!openSheet) return;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // also drops the iOS keyboard
+  openSheet.classList.remove('on'); $('#scrim').classList.remove('on');
+  $('#app').inert = false;
+  openSheet = null; rt.editing = null;
+  $('#phrase-add').textContent = 'Ajouter';
+  if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+}
+$('#scrim').addEventListener('click', closeSheets);
+$$('[data-close]').forEach((b) => b.addEventListener('click', closeSheets));
+
+function select(id) {
+  if (state.sel === id) return;
+  state.sel = id;
+  syncUI(); invalidate();
+}
+const check = (sel, attr, val) => $$(sel + ' button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset[attr] === val)));
+function syncUI() {
+  check('#seg-mask', 'mask', state.mask); check('#seg-win', 'win', state.win); check('#seg-fmt', 'fmt', state.fmt);
+  check('#seg-mots', 'c', state.motsColor);
+  $$('#looks .look').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.look === state.look)));
+  const st = selected();
+  $('#ctx-main').hidden = !!st; $('#ctx-sticker').hidden = !st;
+  $('#st-edit').hidden = !st || st.kind !== 'phrase';
+  $('#pick').hidden = !!rt.photo;
+  $('#btn-export').setAttribute('aria-disabled', String(!rt.photo));
+  $('#btn-safe').setAttribute('aria-pressed', String(state.safe));
+  stage.classList.toggle('show-safe', state.safe);
+}
+
+// dock
+const fileInput = $('#file');
+const pickPhoto = () => fileInput.click();
+$('#pick').addEventListener('click', pickPhoto);
+$('#btn-photo').addEventListener('click', pickPhoto);
+$('#btn-next').addEventListener('click', pickPhoto);
+fileInput.addEventListener('change', () => { const f = fileInput.files && fileInput.files[0]; fileInput.value = ''; if (f) loadPhoto(f); });
+$('#seg-mask').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; state.mask = b.dataset.mask; syncUI(); applyMask(); changed(); });
+$('#seg-win').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; state.win = b.dataset.win; if (state.photo) clampPhoto(); syncUI(); applyMask(); changed(); });
+$('#btn-safe').addEventListener('click', () => { state.safe = !state.safe; syncUI(); saveNow(); });
+$('#btn-export').addEventListener('click', exportStory);
+$('#st-del').addEventListener('click', () => { const st = selected(); if (st) removeSticker(st); });
+$('#st-dup').addEventListener('click', () => { const st = selected(); if (st) duplicateSticker(st); });
+$('#st-front').addEventListener('click', () => { const st = selected(); if (st) { bringToFront(st); toast('Passé au premier plan.'); } });
+$('#st-done').addEventListener('click', () => select(null));
+$('#st-edit').addEventListener('click', () => {
+  const st = selected();
+  if (!st || st.kind !== 'phrase') return;
+  openStickers('phrase');
+  rt.editing = st.id; state.look = st.look;
+  $('#phrase-in').value = st.lines.join('\n'); $('#phrase-add').textContent = 'Valider';
+  syncUI(); drawLooks();
+});
+
+// export sheet
+$('#btn-share').addEventListener('click', share);
+$('#btn-save').addEventListener('click', (e) => { if (!rt.out) e.preventDefault(); });
+$('#seg-fmt').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b || b.dataset.fmt === state.fmt) return;
+  state.fmt = b.dataset.fmt; syncUI(); saveNow();
+  try { buildExport(); toast(state.fmt === 'png' ? 'PNG\u00a0: qualité maximale, fichier plus lourd.' : 'JPEG\u00a0: léger, parfait pour Instagram.'); }
+  catch (err) { console.error(err); toast('L’export a échoué. Réessaie, ou recharge la page.', 'err'); }
+});
+$('#btn-reset').addEventListener('click', () => {
+  if (!confirm('Effacer la photo, le masque et tous les stickers\u00a0?')) return;
+  state.stickers.slice().forEach((st) => setGfx(st, null));
+  state.stickers = []; state.sel = null; state.mask = 'none'; state.photo = null; state.win = '9x16';
+  setPhotoCanvas(null);
+  idbSet('photo', null).catch(() => {});
+  $('#pick-sub').textContent = 'Photothèque ou appareil photo';
+  closeSheets(); syncUI(); applyMask(); changed();
+});
+
+// sticker sheet
+const EMOJIS = ['⚽', '🔥', '💪', '🏆', '👏', '🎉', '💙', '🤍', '⭐', '🥅', '🧤', '👟', '🥇', '🙌', '👊', '🫶', '😂', '😍', '🤩', '😎', '❤️', '📸', '🎂', '🍻', '⏱️', '📍', '✅', '🚀', '💥', '👑'];
+const built = {};
+function tiles(el, entries) {
+  el.textContent = '';
+  for (const e of entries) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = e.dark ? 'tile light' : 'tile'; b.dataset.id = e.id; b.setAttribute('aria-label', e.label);
+    const im = new Image();
+    im.alt = ''; im.loading = 'lazy'; im.decoding = 'async';
+    im.onerror = () => {   // no network and not yet on the phone: name the sticker, say why its picture is missing
+      b.textContent = e.label; b.classList.add('missing');
+      if (!tiles.told) { tiles.told = true; toast('Ces stickers ne sont pas encore sur ce téléphone. Retrouve du réseau une fois pour les charger.', 'err'); }
+    };
+    im.src = asset(e.t);
+    b.appendChild(im);
+    el.appendChild(b);
+  }
+}
+function showTab(tab) {
+  $$('#tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  $$('#sheet-stickers .pane').forEach((p) => { p.hidden = p.dataset.pane !== tab; });
+  if (tab === 'logos' && !built.logos) { built.logos = 1; tiles($('#grid-logos'), KIT.logos); }
+  if (tab === 'acvf' && !built.acvf) { built.acvf = 1; tiles($('#grid-acvf'), KIT.acvf); }
+  if (tab === 'mots' && built.mots !== state.motsColor) { built.mots = state.motsColor; tiles($('#grid-mots'), KIT.mots.filter((m) => m.c === state.motsColor)); }
+  if (tab === 'emojis' && !built.emojis) {
+    built.emojis = 1;
+    for (const em of EMOJIS) { const b = document.createElement('button'); b.type = 'button'; b.className = 'tile'; b.dataset.emoji = em; b.textContent = em; $('#grid-emojis').appendChild(b); }
+  }
+  if (tab === 'phrase') drawLooks();
+  rt.tab = tab;
+  $('#sheet-stickers .sheet-body').scrollTop = 0;
+}
+function openStickers(tab) { tiles.told = false; openSheetEl($('#sheet-stickers')); showTab(tab || rt.tab || 'logos'); }
+$('#btn-stickers').addEventListener('click', () => openStickers());
+$('#tabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) showTab(b.dataset.tab); });
+$('#seg-mots').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; state.motsColor = b.dataset.c; syncUI(); showTab('mots'); saveNow(); });
+$('#sheet-stickers').addEventListener('click', async (e) => {
+  const t = e.target.closest('.tile');
+  if (!t || t.classList.contains('loading')) return;
+  if (t.dataset.emoji) { if (addEmoji(t.dataset.emoji)) closeSheets(); return; }
+  t.classList.add('loading');
+  const sheet = openSheet, st = await addKit(t.dataset.id, () => openSheet === sheet);
+  t.classList.remove('loading');
+  if (st) closeSheets();
+});
+$('#emoji-form').addEventListener('submit', (e) => { e.preventDefault(); if (addEmoji($('#emoji-in').value)) { $('#emoji-in').value = ''; closeSheets(); } });
+
+function drawLooks() {   // the three looks, shown with the user's own words
+  const lines = cleanLines($('#phrase-in').value);
+  for (const b of $$('#looks .look')) {
+    const out = renderPhrase(lines.length ? lines : ['TA PHRASE'], b.dataset.look, 64), cv = $('canvas', b);
+    cv.width = out.canvas.width; cv.height = out.canvas.height;
+    cv.getContext('2d').drawImage(out.canvas, 0, 0);
+    freeCanvas(out.canvas);
+  }
+}
+let looksT = 0;
+$('#phrase-in').addEventListener('input', () => { clearTimeout(looksT); looksT = setTimeout(drawLooks, 140); });
+$('#looks').addEventListener('click', (e) => { const b = e.target.closest('.look'); if (!b) return; state.look = b.dataset.look; syncUI(); saveNow(); });
+$('#phrase-add').addEventListener('click', () => {
+  const raw = $('#phrase-in').value, editing = rt.editing && byId(rt.editing);
+  const ok = editing ? updatePhrase(editing, raw, state.look) : !!addPhrase(raw, state.look);
+  if (ok) { $('#phrase-in').value = ''; closeSheets(); }
+});
+
+/* ============================== LAYOUT ============================== */
+function fitStage() {
+  if (window.innerHeight > 200) document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
+  const wrap = $('#stage-wrap'), cs = getComputedStyle(wrap);
+  const aw = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ah = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const w = Math.max(120, Math.floor(Math.min(aw, ah * 9 / 16)));
+  stage.style.width = w + 'px'; stage.style.height = Math.round(w * 16 / 9) + 'px';
+  updateSelFrame();
+}
+if (window.ResizeObserver) new ResizeObserver(fitStage).observe($('#stage-wrap'));
+window.addEventListener('resize', fitStage);
+window.addEventListener('orientationchange', fitStage);
+
+/* ============================== OFFLINE KIT ==============================
+   stories-sw.js caches what passes through it; here the whole kit is walked once in the background
+   so that every mask and sticker is on the phone before the network drops at the pitch. */
+async function warmKit() {
+  const status = $('#kit-status');
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    await navigator.serviceWorker.register('stories-sw.js', { scope: './stories' });
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) await new Promise((res) => { navigator.serviceWorker.addEventListener('controllerchange', res, { once: true }); setTimeout(res, 4000); });
+    if (!navigator.serviceWorker.controller) return;
+    navigator.serviceWorker.controller.postMessage({ type: 'prune', keep: KIT.version });
+    if (navigator.connection && navigator.connection.saveData) return;
+    const urls = [];
+    for (const fam of Object.values(KIT.masks)) urls.push(...Object.values(fam));
+    for (const group of ['logos', 'acvf', 'mots']) for (const e of KIT[group]) urls.push(e.t, e.f);
+    let done = 0, failed = 0, next = 0;
+    const worker = async () => {
+      while (next < urls.length && !failed) {
+        const u = asset(urls[next++]);
+        try { const r = await fetch(u); if (!r.ok) throw new Error(r.status); await r.arrayBuffer(); done++; } catch (e) { failed++; }
+        status.textContent = failed ? '' : done < urls.length ? 'Kit ' + Math.round(done * 100 / urls.length) + ' %' : 'Prêt hors ligne';
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+  } catch (e) { console.warn('offline kit unavailable', e); }
+}
+
+/* ============================== START ============================== */
+$('#build-tag').textContent = BUILD;
+async function init() {
+  fitStage(); syncUI(); invalidate();
+  // the club font must be in before any phrase is measured
+  try { await Promise.all([document.fonts.load('96px "Portugal2025"'), document.fonts.load('700 96px "Oswald"')]); if (!document.fonts.check('96px "Portugal2025"')) throw new Error('font'); }
+  catch (e) { console.warn(e); toast('La police du club n’a pas pu être chargée. Vérifie ta connexion puis recharge la page.', 'err', 7000); }
+  await restore();
+  syncUI();
+  await applyMask();
+  changed();
+  setTimeout(warmKit, 1200);
+}
+const ready = init();
+
+// handles for the Playwright tests (same idea as window.__mc in the Match Controller)
+window.__stories = { BUILD, KIT, W, H, WIN, state, rt, ready, renderStory, paint, buildExport, layoutPhrase, renderPhrase, addKit, addEmoji, addPhrase, loadPhoto, loadImage, nearestWindow, photoGeom, toast };
+})();
+</script>
+</body>
+</html>
