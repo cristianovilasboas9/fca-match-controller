@@ -301,7 +301,7 @@ async function run(name, engine) {
   const p = await phone(engine);
   const { page, S } = p;
   const save = (file, buf) => writeFile(path.join(OUT, `${name}-${file}`), buf);
-  const shot = (file) => page.screenshot({ path: path.join(OUT, `ui-${name}-${file}.png`) });
+  const shot = (file) => page.screenshot({ path: path.join(OUT, `ui-${name}-${file}.jpg`), type: 'jpeg', quality: 85 });
 
   /* --- 1. the page itself --- */
   const boot = await S(() => ({
@@ -684,8 +684,32 @@ async function run(name, engine) {
   await se.setMask('club');
   const fit = await se.S(() => { const st = document.querySelector('#stage').getBoundingClientRect(), dock = document.querySelector('.dock').getBoundingClientRect(); return { w: st.width, ratio: st.height / st.width, inside: dock.bottom <= innerHeight + 0.5 && st.top >= 0 && st.bottom <= dock.top + 0.5, scroll: document.scrollingElement.scrollHeight <= innerHeight }; });
   check(fit.w >= 150 && near(fit.ratio, 16 / 9, 0.02) && fit.inside && fit.scroll, 'small phone: the 9:16 stage and the whole dock fit on screen', JSON.stringify(fit));
-  await se.page.screenshot({ path: path.join(OUT, `ui-${name}-11-petit-ecran.png`) });
+  await se.page.screenshot({ path: path.join(OUT, `ui-${name}-11-petit-ecran.jpg`), type: 'jpeg', quality: 85 });
   await se.close();
+
+  /* --- 12. stories as the club would make them: not assertions of taste, images to LOOK at --- */
+  const x = await phone(engine);
+  const examples = {
+    'vainqueurs-du-soir': { photo: 'vertical-vainqueurs.jpg', mask: 'vainqueur', stickers: [{ emoji: '🏆', x: 905, y: 1150, s: 0.8 }, { phrase: 'Mardi 6 octobre', look: 'blanc', x: 300, y: 1330, s: 0.55 }] },
+    'jour-de-match': { photo: 'KURDE_2242.jpg', mask: 'club', stickers: [{ kit: 'FCA-mot-jour-de-match-blanc', x: 660, y: 1500, s: 1.25 }, { phrase: 'Dimanche 15h · La Veyre', look: 'blanc', x: 610, y: 1690, s: 0.5 }, { kit: 'FCA-acvf-blanc', x: 930, y: 1760, s: 0.55 }] },
+    'merci-supporters': { photo: 'groupe-celebration.jpg', mask: 'club', win: '1x1', stickers: [{ phrase: 'Merci à tous\nles supporters', look: 'bleu', x: 610, y: 1680, s: 1.05 }, { emoji: '💙🤍', x: 905, y: 330, s: 0.55 }] },
+    'entrainement': { photo: 'vertical-CONCORDIA_8419.jpg', mask: 'none', stickers: [{ kit: 'FCA-logo-sticker', x: 190, y: 430, s: 0.62 }, { kit: 'FCA-mot-entrainement-bleu', x: 540, y: 1480, s: 1.2 }, { phrase: 'On remet ça jeudi', look: 'blanc', x: 540, y: 1600, s: 0.6 }, { emoji: '⚽', x: 880, y: 1330, s: 0.7, r: -0.25 }] },
+    'trois-points': { photo: 'groupe-vainqueurs.jpg', mask: 'vainqueur', stickers: [{ kit: 'FCA-mot-3-points-or', x: 650, y: 1650, s: 1 }, { emoji: '🔥', x: 180, y: 1420, s: 0.7 }] },
+  };
+  for (const [slug, ex] of Object.entries(examples)) {
+    await x.S(() => { const s = window.__stories; s.state.stickers.slice().forEach((st) => s.rt.gfx.delete(st.id)); s.state.stickers.length = 0; });
+    await x.setPhoto(path.join(PHOTOS, ex.photo));
+    if (ex.win) await x.page.tap(`#seg-win [data-win="${ex.win}"]`);
+    await x.setMask(ex.mask);
+    for (const st of ex.stickers) {   // placed by numbers here: fingers were tested above
+      await x.S(async (st) => { const s = window.__stories, o = st.kit ? await s.addKit(st.kit) : st.emoji ? s.addEmoji(st.emoji) : s.addPhrase(st.phrase, st.look); Object.assign(o, { x: st.x, y: st.y, s: st.s || 1, r: st.r || 0 }); }, st);
+    }
+    await x.page.tap('#st-done');
+    const out = await x.exportViaShare();
+    check(jpegSize(out.buf).h === 1920, `example "${slug}" exports`);
+    await save(`exemple-${slug}.jpg`, out.buf);
+  }
+  await x.close();
 
   console.log(`${name}: done in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 }

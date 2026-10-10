@@ -26,11 +26,12 @@
 <style>
   @font-face { font-family:'Portugal2025'; src:url('stories/fonts/Portugal2025.otf') format('opentype'); font-display:block; }
   @font-face { font-family:'Inter'; font-weight:100 900; src:url('stories/fonts/Inter.woff2') format('woff2'); font-display:swap; }
-  /* Oswald only backs the few glyphs the club font lacks (Œ…), same fallback as the Match Controller */
-  @font-face { font-family:'Oswald'; font-weight:200 700; src:url('stories/fonts/Oswald.woff2') format('woff2'); font-display:swap; }
+  /* Oswald only backs the few glyphs the club font lacks (Œ…), same fallback as the Match Controller.
+     Declared as a bold-only family: a fallback glyph then comes out bold without faking bold on the club font. */
+  @font-face { font-family:'Oswald Bold'; font-weight:700; src:url('stories/fonts/Oswald.woff2') format('woff2'); font-display:swap; }
 
   :root { --night:#04080F; --panel:#0A1628; --royal:#2E7BFF; --cyan:#38BDF8; --gold:#F5B82E; --red:#F87171;
-          --club:'Portugal2025','Oswald',sans-serif; --soft:rgba(255,255,255,.07); }
+          --club:'Portugal2025','Oswald Bold',sans-serif; --soft:rgba(255,255,255,.07); }
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   html, body { height:100%; background:var(--night); color:#fff; overflow:hidden; overscroll-behavior:none; touch-action:pan-x pan-y;
                font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; -webkit-text-size-adjust:100%; }
@@ -304,7 +305,7 @@
         <button type="button" class="look" role="radio" data-look="bleu"><canvas></canvas><span>Bleu</span></button>
         <button type="button" class="look" role="radio" data-look="or"><canvas></canvas><span>Or · victoire</span></button>
       </div>
-      <p class="hint">Écrite dans la police du club, en majuscules. Un retour à la ligne crée une deuxième ligne.</p>
+      <p class="hint">Écrite dans la police du club, en majuscules. Un retour à la ligne crée une nouvelle ligne (trois au plus).</p>
     </div>
   </div>
 </section>
@@ -363,6 +364,8 @@ const KIT_INDEX = new Map();
 for (const group of ['logos', 'mots', 'acvf']) for (const e of KIT[group]) KIT_INDEX.set(e.id, { group, e });
 const asset = (p) => 'stories/' + p + '?v=' + KIT.version;
 
+const TOUCH = matchMedia('(pointer: coarse)').matches;
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const makeCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
 // iOS keeps a canvas' pixels alive until GC: zeroing its size gives the memory back at once
@@ -436,7 +439,7 @@ function freeMips(src) { const chain = src && mips.get(src); if (chain) { chain.
      or     victory: white-to-gold letters, gold halo, night hairline
    Letter-spacing is laid out glyph by glyph (the font has no kerning) and the two blurs are computed here,
    because neither ctx.letterSpacing nor ctx.filter exists on every iPhone. */
-const CAP_RATIO = 1434 / 2048, MAX_UP = 1.7, FONT_STACK = '"Portugal2025","Oswald",sans-serif';
+const CAP_RATIO = 1434 / 2048, MAX_UP = 1.7, FONT_STACK = '"Portugal2025","Oswald Bold",sans-serif';
 const measureCtx = makeCanvas(4, 4).getContext('2d');
 const graphemes = (s) => (window.Intl && Intl.Segmenter) ? [...new Intl.Segmenter('fr', { granularity: 'grapheme' }).segment(s)].map((g) => g.segment) : Array.from(s);
 
@@ -548,7 +551,7 @@ function renderPhrase(lines, look, cap, o) {
   };
   // a soft single-colour layer (shadow, halo): the outline shape, blurred, tinted, laid at the given opacity
   const soft = (rgb, w, sigma, alpha, dy) => {
-    const t = makeCanvas(width, height), g = t.getContext('2d');
+    const t = makeCanvas(width, height), g = t.getContext('2d', { willReadFrequently: true });
     pass(g, '#fff', w, 'round');
     const id = g.getImageData(0, 0, width, height), px = id.data;
     let a = new Float32Array(width * height);
@@ -590,7 +593,7 @@ function renderEmoji(text) {
   measureCtx.font = fs + 'px ' + EMOJI_FONT;
   const tw = Math.ceil(measureCtx.measureText(text).width);
   const c = makeCanvas(tw + fs, fs * 1.8), g = c.getContext('2d');
-  g.font = fs + 'px ' + EMOJI_FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = fs + 'px ' + EMOJI_FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
   g.fillText(text, c.width / 2, c.height / 2);
   // font metrics of colour emoji are unreliable: trim to what was really painted
   const d = g.getImageData(0, 0, c.width, c.height).data;
@@ -659,7 +662,7 @@ function place(st) {   // new stickers land in the centre, slightly cascaded so 
   st.x = W / 2 + n * 36; st.y = H / 2 + n * 36;
   state.stickers.push(st);
   select(st.id);
-  if (!place.told) { place.told = true; toast('Ajouté. Glisse pour déplacer, deux doigts pour agrandir ou tourner.'); }
+  if (!place.told) { place.told = true; toast(TOUCH ? 'Ajouté. Glisse pour déplacer, deux doigts pour agrandir ou tourner.' : 'Ajouté. Glisse pour déplacer, molette pour agrandir, Maj + molette pour tourner.'); }
   changed();
 }
 const newSticker = (props) => ({ id: 's' + (rt.seq++), x: W / 2, y: H / 2, s: 1, r: 0, ...props });
@@ -772,10 +775,13 @@ function setPhotoCanvas(c) {
   if (rt.photo) { freeMips(rt.photo); freeCanvas(rt.photo); }
   rt.photo = c;
 }
+let photoSeq = 0;
 async function loadPhoto(file) {
+  const seq = ++photoSeq;
   busy(true, 'Préparation de la photo…');
   try {
     const c = await photoCanvas(file);
+    if (seq !== photoSeq) { freeCanvas(c); return; }   // a newer photo was picked while this one was decoding
     const keeps = state.mask !== 'none' || state.stickers.length;
     setPhotoCanvas(c);
     state.photo = { w: c.width, h: c.height, zoom: 1, cx: 0.5, cy: 0.5 };
@@ -783,7 +789,7 @@ async function loadPhoto(file) {
     closeSheets();
     syncUI(); applyMask(); changed();
     if (keeps) toast('Nouvelle photo. Ton masque et tes stickers sont conservés.', 'ok');
-    else if (!loadPhoto.told) { loadPhoto.told = true; toast('Glisse la photo pour la cadrer, deux doigts pour zoomer.'); }
+    else if (!loadPhoto.told) { loadPhoto.told = true; toast(TOUCH ? 'Glisse la photo pour la cadrer, deux doigts pour zoomer.' : 'Glisse la photo pour la cadrer, molette pour zoomer.'); }
     c.toBlob((b) => {   // kept for an accidental reload; losing it only means picking the photo again
       if (b) new Response(b).arrayBuffer().then((buf) => rt.photo === c && idbSet('photo', { type: b.type, buf })).catch((e) => console.warn('photo not kept for reload', e));
     }, 'image/jpeg', 0.9);
@@ -1122,7 +1128,7 @@ function share() {
   navigator.share({ files: [out.file] }).catch((e) => {
     if (e && e.name === 'AbortError') return;   // the user closed the share sheet
     console.warn(e);
-    toast(e && e.name === 'NotAllowedError' ? 'Touche «\u00a0Partager\u00a0» pour ouvrir le partage.' : 'Le partage n’a pas marché ici. Utilise «\u00a0Enregistrer\u00a0».', 'err');
+    toast(e && e.name === 'NotAllowedError' ? 'Touche «\u00a0Partager\u00a0» pour ouvrir le partage.' : 'Le partage n’a pas marché ici. Fais un appui long sur l’image pour l’enregistrer.', 'err');
   });
 }
 function exportStory() {
@@ -1134,12 +1140,14 @@ function exportStory() {
   let out;
   try { out = buildExport(); } catch (e) { console.error(e); toast('L’export a échoué. Réessaie, ou recharge la page.', 'err'); return; }
   select(null);
-  const sharable = canShare(out.file), touch = matchMedia('(pointer: coarse)').matches;
+  const sharable = canShare(out.file);
   $('#btn-share').hidden = !sharable;
-  $('#export-hint').textContent = sharable && touch ? 'Partager, puis Instagram, puis Story. Ou appui long sur l’image pour l’enregistrer dans Photos.'
+  $('#btn-save').hidden = sharable && IOS;   // on an iPhone a download lands in Files, not Photos: the share sheet covers both
+  $('#export-hint').textContent = sharable && IOS ? 'Partager, puis Instagram, puis Story. Pour la garder\u00a0: Partager, puis «\u00a0Enregistrer l’image\u00a0», ou un appui long sur l’image.'
+    : sharable && TOUCH ? 'Partager, puis Instagram, puis Story. «\u00a0Enregistrer\u00a0» la garde sur le téléphone.'
     : sharable ? 'L’image a été téléchargée. Tu peux aussi la partager.' : 'L’image a été téléchargée (1080 × 1920).';
   openSheetEl($('#sheet-export'));
-  if (sharable && touch) share(); else $('#btn-save').click();   // phone: straight to the share sheet; computer: download
+  if (sharable && TOUCH) share(); else $('#btn-save').click();   // phone: straight to the share sheet; computer: download
 }
 
 /* ============================== UI ============================== */
@@ -1336,7 +1344,7 @@ $('#build-tag').textContent = BUILD;
 async function init() {
   fitStage(); syncUI(); invalidate();
   // the club font must be in before any phrase is measured
-  try { await Promise.all([document.fonts.load('96px "Portugal2025"'), document.fonts.load('700 96px "Oswald"')]); if (!document.fonts.check('96px "Portugal2025"')) throw new Error('font'); }
+  try { await Promise.all([document.fonts.load('96px "Portugal2025"'), document.fonts.load('96px "Oswald Bold"')]); if (!document.fonts.check('96px "Portugal2025"')) throw new Error('font'); }
   catch (e) { console.warn(e); toast('La police du club n’a pas pu être chargée. Vérifie ta connexion puis recharge la page.', 'err', 7000); }
   await restore();
   syncUI();

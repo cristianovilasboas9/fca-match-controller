@@ -15,7 +15,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
 const keep = async (req, res) => {
-  if (res && res.ok && res.type === 'basic') (await caches.open(CACHE)).put(req, res.clone());
+  if (res && res.ok && res.type === 'basic') (await caches.open(CACHE)).put(req, res.clone()).catch(() => { /* storage full: still served from the network */ });
   return res;
 };
 
