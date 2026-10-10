@@ -407,7 +407,10 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- async : l'app démarre sans attendre le CDN (un cdnjs qui traîne gelait
+       tout le démarrage). ensureHtml2canvas() le (re)charge à l'export s'il
+       manque. -->
+  <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous"></script>
   <script>
   /* ====================================================================
      MATCH CONTROLLER — Production Release (white-label PWA)
@@ -985,7 +988,39 @@
   /* Portraits DÉTOURÉS (fond retiré, servis par le site) : c'est eux qu'on
      pose sur le décor. On garde la photo d'origine en secours. */
   const CUTOUT_CACHE = {};
-  const _cutoutFetching = new Set();
+  /* ── Chargement d'asset : UNE primitive (Boss 10.10) ───────────────────
+     url → dataURL rangé dans son cache. Avant, chaque famille (photo,
+     écusson, buste, décor, logo) avait sa copie de ce code, avec des règles
+     différentes — d'où trois pannes : le préchargement remplissait les caches
+     SANS redessiner l'aperçu (photos déjà là mais initiales à l'écran jusqu'à
+     la fin des 45 fetchs), la photo de shooting choisie comme visuel n'était
+     jamais re-téléchargée après une relance, et l'export attendait tout le
+     roster au lieu des images de SA carte.
+       · une seule requête en vol par asset (préchargement et carte en cours
+         ne se doublent pas) ;
+       · l'aperçu se redessine dès qu'un asset arrive ;
+       · un échec ne laisse rien derrière lui : l'appel suivant retente ;
+       · renvoie une promesse (true = en cache) que l'export peut attendre. */
+  const _assetInflight = new Map();
+  function loadAsset(cache, key, url) {
+    if (!url) return Promise.resolve(false);
+    if (cache[key]) return Promise.resolve(true);
+    const id = key + '|' + url;
+    if (_assetInflight.has(id)) return _assetInflight.get(id);
+    const p = fetchAsDataUrl(url).catch(() => null).then(d => {
+      _assetInflight.delete(id);
+      if (d) { cache[key] = d; scheduleRefresh(); }
+      return !!d;
+    });
+    _assetInflight.set(id, p);
+    return p;
+  }
+  /* Dix photos du même lot ne coûtent qu'un seul rendu de l'aperçu. */
+  let _refreshQueued = 0;
+  function scheduleRefresh() {
+    if (_refreshQueued) return;
+    _refreshQueued = setTimeout(() => { _refreshQueued = 0; refresh(); }, 80);
+  }
   function heroImage(p, allowCustom = true) {
     /* Visage explicitement retiré → carte nette (fond + texte seuls). */
     if (allowCustom && state.heroOff) return null;
@@ -1005,43 +1040,31 @@
     return photo ? { src: photo, cut: false } : null;
   }
   function ensureCutout(p) {
-    if (!p || !p.cutoutUrl || CUTOUT_CACHE[p.cutoutUrl] || _cutoutFetching.has(p.cutoutUrl)) return;
-    _cutoutFetching.add(p.cutoutUrl);
-    fetchAsDataUrl(p.cutoutUrl).then(d => {
-      _cutoutFetching.delete(p.cutoutUrl);
-      if (d) { CUTOUT_CACHE[p.cutoutUrl] = d; refresh(); }
-    });
+    return loadAsset(CUTOUT_CACHE, p && p.cutoutUrl, p && p.cutoutUrl);
+  }
+  function ensurePhoto(p) {
+    return loadAsset(PHOTO_CACHE, p && p.photoUrl, p && p.photoUrl);
   }
 
   /* Décors du club (plateaux vides générés pour recevoir un joueur devant).
      Même règle que tout le reste : dataURL du cache, jamais d'URL distante. */
   let SCENES = [];
   const SCENE_CACHE = {};
-  const _sceneFetching = new Set();
   function currentScene() {
     return state.sceneId ? SCENES.find(s => s.id === state.sceneId) : null;
   }
+  /* Photo de shooting choisie comme visuel principal (≠ décor de fond). */
+  function heroScene() {
+    return state.heroSceneId ? SCENES.find(s => s.id === state.heroSceneId) : null;
+  }
   function ensureScene(s) {
-    if (!s || !s.url || SCENE_CACHE[s.url] || _sceneFetching.has(s.url)) return;
-    _sceneFetching.add(s.url);
-    fetchAsDataUrl(s.url).then(d => {
-      _sceneFetching.delete(s.url);
-      if (d) { SCENE_CACHE[s.url] = d; refresh(); }
-    });
+    return loadAsset(SCENE_CACHE, s && s.url, s && s.url);
   }
 
   /* Logos blancs des parrains ballon (bundle) — mêmes règles : dataURL only. */
   const SPONSOR_CACHE = {};
-  const _sponsorFetching = new Set();
   function ensureSponsorLogos() {
-    (state.matchBallSponsors || []).forEach(s => {
-      if (!s.logoUrl || SPONSOR_CACHE[s.logoUrl] || _sponsorFetching.has(s.logoUrl)) return;
-      _sponsorFetching.add(s.logoUrl);
-      fetchAsDataUrl(s.logoUrl).then(d => {
-        _sponsorFetching.delete(s.logoUrl);
-        if (d) { SPONSOR_CACHE[s.logoUrl] = d; refresh(); }
-      });
-    });
+    return Promise.all((state.matchBallSponsors || []).map(s => loadAsset(SPONSOR_CACHE, s.logoUrl, s.logoUrl)));
   }
 
   function blobToDataUrl(blob) {
@@ -1092,14 +1115,8 @@
      (opponent dynamique ajouté depuis le bundle APRÈS le preload singleton,
      ou match sélectionné avant la fin du preload). Sans ça le poster rend
      le badge texte abbr au lieu du logo. Async + garde anti double-fetch. */
-  const _crestFetching = new Set();
   function ensureCrest(opp) {
-    if (!opp || !opp.crestUrl || CREST_CACHE[opp.slug] || _crestFetching.has(opp.slug)) return;
-    _crestFetching.add(opp.slug);
-    fetchAsDataUrl(opp.crestUrl).then(dataUrl => {
-      _crestFetching.delete(opp.slug);
-      if (dataUrl) { CREST_CACHE[opp.slug] = dataUrl; refresh(); }
-    });
+    return loadAsset(CREST_CACHE, opp && opp.slug, opp && opp.crestUrl);
   }
 
   /* SVG → raster PNG conversion. html2canvas 1.4.1 mis-renders SVG <img>
@@ -1130,7 +1147,7 @@
   async function ensureAtlCrestPng() {
     if (CREST_ATL_PNG_READY) return;
     const png = await svgToPngDataUrl(CREST_ATL_DATAURL, 2048);
-    if (png) { CREST_ATL_PNG = png; CREST_ATL_PNG_READY = true; }
+    if (png) { CREST_ATL_PNG = png; CREST_ATL_PNG_READY = true; scheduleRefresh(); }
   }
   function getAtlCrest() { return CREST_ATL_PNG; }
 
@@ -1153,13 +1170,10 @@
       let failures = 0;
       for (let i = 0; i < urls.length; i += BATCH) {
         await Promise.all(urls.slice(i, i + BATCH).map(async item => {
-          const dataUrl = await fetchAsDataUrl(item.url);
-          if (dataUrl) {
-            if (item.target === 'photo') PHOTO_CACHE[item.url] = dataUrl;
-            else if (item.target === 'crest') CREST_CACHE[item.slug] = dataUrl;
-          } else {
-            failures++;
-          }
+          const ok = item.target === 'photo'
+            ? await loadAsset(PHOTO_CACHE, item.url, item.url)
+            : await loadAsset(CREST_CACHE, item.slug, item.url);
+          if (!ok) failures++;
         }));
       }
       // Si certains assets ont échoué (CDN lent, CORS, 404 transitoire), on invalide
@@ -2477,6 +2491,7 @@
       state.format = 'story';
     }
     let inner, opts = {};
+    try {
     if (v === 'matchday') inner = classicPoster();
     else if (v === 'lineup') inner = { fullBleed: true, html: FB.bg() + '<div style="position:absolute; inset:0; padding:250px 76px 70px; display:flex; flex-direction:column;">' + lineupPoster() + '</div>' };
     else if (v === 'kickoff') inner = kickoffPoster();
@@ -2485,9 +2500,8 @@
     else if (v === 'halftime') inner = halftimePoster();
     else if (v === 'recap') inner = recapPoster();
     if (inner && typeof inner === 'object') { opts.fullBleed = !!inner.fullBleed; inner = inner.html; }
-    const html = shellWrap(inner, opts);
-    if (savedFormat) state.format = savedFormat;  // restore for caller
-    return html;
+    return shellWrap(inner, opts);
+    } finally { if (savedFormat) state.format = savedFormat; }  // restore for caller, même si un poster lève
   }
 
   /* ==================================================================
@@ -3487,6 +3501,10 @@
        terrain. Sans ça, corriger un lieu n'atteint jamais l'appareil de Boss. */
     const fixture = MATCHES.find(x => x.id === state.matchId);
     if (fixture) { state.venue = fixture.venue; state.venueCity = fixture.venueCity; }
+    /* Les invités ne vivent que dans state.guests : sans les ré-inscrire dans
+       l'index BY_ID, un invité repris après relance disparaissait du poster
+       compo et faisait planter le picker (« p.lastName » sur undefined). */
+    (state.guests || []).forEach(g => { BY_ID[g.id] = g; });
     syncScoreFromGoals();
   }
   /* Reprise au démarrage : dernier match travaillé, snapshot < 12 h. */
@@ -3523,6 +3541,12 @@
       heroPlayerFor._offset = 0;
     });
     ensureScene(currentScene());
+    /* La photo de shooting choisie comme visuel ne vit qu'en mémoire : après
+       une relance (ou un retour sur un match entamé) il faut la redemander,
+       sinon la carte retombe pour de bon sur l'ancien layout. Idem l'écusson
+       adverse quand son premier fetch a échoué. */
+    ensureScene(heroScene());
+    ensureCrest(getOpp());
     if (state.scorerId) ensureCutout(BY_ID[state.scorerId]);
     /* dernier buteur FCA = héros du recap : sans lui, le recap retombe en
        silence sur la photo à fond studio et perd son décalage */
@@ -3570,28 +3594,71 @@
      logos et les photos dans le PNG final. Fix: on hydrate TOUS les <img> en
      data URLs AVANT la capture, et on attend leur naturalWidth > 0.
   */
-  /* Attend (max 6 s) que le buste détouré du héros courant et le décor
-     éventuel soient en cache. Au-delà, on capture avec ce qu'on a plutôt que
-     de bloquer le président — mais on ne part plus AVANT de les avoir
-     demandés. */
-  async function awaitHeroAssets() {
-    const wanted = [];
-    const push = (p) => { if (p && p.cutoutUrl) { ensureCutout(p); wanted.push(() => !!CUTOUT_CACHE[p.cutoutUrl]); } };
-    if (state.variant === 'goal') {
-      push(BY_ID[state.scorerId] || null);
-    } else if (!state.customHeroImage) {
-      const off = state.variant === 'kickoff' ? 1 : state.variant === 'halftime' ? 2 : 0;
-      heroPlayerFor._offset = off;
-      push(heroPlayerFor(state.matchId));
+  /* Les images que CETTE carte affiche — et rien d'autre. L'export les
+     attend 6 s au plus (au-delà il part avec ce qu'il a : initiales, pastille
+     texte, ancien layout — exactement ce que montre l'aperçu). Il n'attend
+     plus le préchargement des ~45 assets du roster : sur le réseau du stade
+     chaque export payait 3 s pour des photos qu'il n'affichait pas. */
+  function cardAssets() {
+    const v = state.variant;
+    const loads = [ensureCrest(getOpp()), ensureScene(currentScene())];
+    /* un visage = son buste détouré ; sa photo d'origine en secours */
+    const face = (p) => { if (p) loads.push(ensureCutout(p).then(ok => ok || ensurePhoto(p))); };
+    if (v === 'lineup') {
+      [...state.lineupStarters, ...state.lineupBench].forEach(id => { if (BY_ID[id]) loads.push(ensurePhoto(BY_ID[id])); });
+      return loads;
+    }
+    if (v === 'goal') { face(BY_ID[state.scorerId]); return loads; }
+    if (['matchday', 'kickoff', 'recap'].includes(v)) loads.push(ensureSponsorLogos());
+    if (state.heroOff) return loads;
+    /* recap : le dernier buteur FCA prime sur tout choix de visuel */
+    const lastHome = v === 'recap' && [...(state.goals || [])]
+      .filter(g => g.side === 'home' && BY_ID[g.playerId])
+      .sort((a, b) => (a.minute - b.minute) || (a.ts - b.ts)).pop();
+    if (lastHome) { loads.push(ensurePhoto(BY_ID[lastHome.playerId])); face(BY_ID[lastHome.playerId]); }
+    else if (state.heroSceneId) loads.push(ensureScene(heroScene()));
+    else if (!state.customHeroImage) {
+      heroPlayerFor._offset = v === 'kickoff' ? 1 : v === 'halftime' ? 2 : 0;
+      face(heroPlayerFor(state.matchId));
       heroPlayerFor._offset = 0;
     }
-    const sc = currentScene();
-    if (sc) { ensureScene(sc); wanted.push(() => !!SCENE_CACHE[sc.url]); }
-    if (!wanted.length) return;
-    const deadline = Date.now() + 6000;
-    while (Date.now() < deadline && !wanted.every(f => f())) {
-      await new Promise(r => setTimeout(r, 120));
-    }
+    return loads;
+  }
+  const waitMs = (ms) => new Promise(r => setTimeout(r, ms));
+  function awaitCardAssets() {
+    return Promise.race([Promise.all(cardAssets()), waitMs(6000)]);
+  }
+
+  /* html2canvas vient d'un CDN. S'il n'a pas pu se charger au démarrage
+     (réseau du stade), l'export mourait sur « html2canvas is not defined »
+     jusqu'à la relance de l'app. On le (re)charge à la demande — trois CDN,
+     même fichier vérifié par son empreinte — et on échoue avec un message
+     clair si aucun ne répond. */
+  const H2C_SOURCES = [
+    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+    'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+    'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js',
+  ];
+  const H2C_SRI = 'sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==';
+  let _h2cLoading = null;
+  function ensureHtml2canvas() {
+    if (typeof window.html2canvas === 'function') return Promise.resolve();
+    if (_h2cLoading) return _h2cLoading;
+    _h2cLoading = (async () => {
+      for (const src of H2C_SOURCES) {
+        await new Promise(res => {
+          const el = document.createElement('script');
+          const timer = setTimeout(res, 6000);
+          el.onload = el.onerror = () => { clearTimeout(timer); res(); };
+          el.src = src; el.async = true; el.integrity = H2C_SRI; el.crossOrigin = 'anonymous';
+          document.head.appendChild(el);
+        });
+        if (typeof window.html2canvas === 'function') return;
+      }
+      throw new Error('Pas de réseau pour charger le moteur de capture');
+    })();
+    _h2cLoading.catch(() => {}).then(() => { _h2cLoading = null; });
+    return _h2cLoading;
   }
 
   async function renderFullRes() {
@@ -3601,21 +3668,25 @@
     const effectiveFormat = effFormat();
     const f = FORMATS[effectiveFormat] || FORMATS.story;
 
+    // Le moteur de capture : demandé tout de suite, attendu juste avant la capture.
+    const engine = ensureHtml2canvas();
+    engine.catch(() => {});
     // STEP 0 — Rasterize the FCA SVG crest to PNG for reliable html2canvas export
     await ensureAtlCrestPng();
-    // STEP 1 — Préchargement global BORNÉ (Boss 29.08 : l'export attendait
-    // les ~30 photos du roster et crevait le watchdog 45 s sur réseau
-    // faible). 3 s de grâce (résout instantanément si déjà chaud), puis on
-    // continue — STEP 3b va chercher UNIQUEMENT les images de cette carte.
-    await Promise.race([preloadAllAssets(), new Promise(r => setTimeout(r, 3000))]);
-    // STEP 1b — Le buste détouré et le décor arrivent par leur propre fetch :
-    // sans cette attente, un export lancé dans les premières secondes partait
-    // avec l'ancienne photo à fond studio, DIFFÉRENTE de l'aperçu à l'écran.
-    await awaitHeroAssets();
+    // STEP 1 — Les images de CETTE carte (écusson adverse, buste, décor,
+    // photos de la compo…), 6 s au plus. Sans cette attente, un export lancé
+    // dans les premières secondes partait DIFFÉRENT de l'aperçu à l'écran.
+    await awaitCardAssets();
+    // Un préchargement global resté incomplet repart en fond — jamais attendu.
+    preloadAllAssets();
 
     // STEP 2 — Build offscreen DOM (full-res)
     const off = document.createElement('div');
     off.style.cssText = `position:fixed; left:-99999px; top:0; width:${f.w}px; height:${f.h}px; z-index:-1;`;
+    /* try/finally : quoi qu'il arrive ensuite (exception, capture expirée),
+       le poster hors-écran quitte le DOM. Avant, chaque export raté en
+       laissait un derrière lui, que les captures suivantes devaient cloner. */
+    try {
     off.innerHTML = posterHTML();
     document.body.appendChild(off);
 
@@ -3678,7 +3749,11 @@
     }));
 
     // STEP 5 — Wait for fonts
-    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    /* BORNÉ : sur WebKit (iOS), document.fonts.ready reste en attente tant
+       que la page n'a pas fini de charger TOUTES ses ressources — un CDN qui
+       ne répond pas suffisait à pendre l'export ici. Les fontes sont en
+       base64 dans la page : 1,5 s couvre largement leur décodage. */
+    if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, waitMs(1500)]);
     // STEP 5b — Decode every <img> so html2canvas sees fully-rasterized bitmaps.
     // Si decode() échoue, on compte aussi : le bitmap sera partiel ou vide.
     let decodeFailures = 0;
@@ -3708,13 +3783,34 @@
     // STEP 6 — Layout settle delay (forces browser to compute final styles)
     await new Promise(r => setTimeout(r, 350));
 
+    await engine;
     // STEP 7 — Capture
-    const canvas = await html2canvas(off.querySelector('#poster-node'), {
+    /* LA cause du « ça bug, il faut changer de variant et revenir » (Boss
+       10.10) : html2canvas clone le DOCUMENT ENTIER dans une iframe, puis
+       attend — sans aucun timeout — que toutes les <img> du clone aient
+       chargé. Or le clone embarquait le panneau de réglages : avec l'onglet
+       Match, Compo ou Buts ouvert, ce sont des dizaines de vignettes
+       distantes (photos des joueurs, décors) re-téléchargées à CHAQUE export.
+       Une seule qui ne répond pas sur le réseau du stade et la capture ne
+       finit jamais → « Rendu trop long ». Revenir sur l'onglet Variant (zéro
+       image dans le panneau) débloquait, d'où le contournement.
+       ignoreElements : le clone ne contient plus QUE le poster hors-écran,
+       dont toutes les images sont déjà des dataURL. Plus aucune requête
+       réseau pendant la capture. Bornée à 20 s par acquit de conscience. */
+    const capture = html2canvas(off.querySelector('#poster-node'), {
       width: f.w, height: f.h, scale:1, backgroundColor:null,
       useCORS:true, allowTaint:false, logging:false, imageTimeout:12000,
+      ignoreElements: (el) => el.parentNode === document.body && el !== off,
     });
-    document.body.removeChild(off);
+    capture.catch(() => {});
+    const canvas = await Promise.race([capture, waitMs(20000)]);
+    if (!canvas) {
+      /* capture abandonnée : son iframe de travail ne doit pas survivre */
+      document.querySelectorAll('iframe.html2canvas-container').forEach(el => el.remove());
+      throw new Error('Rendu trop long — réessaie');
+    }
     return canvas;
+    } finally { off.remove(); }
   }
   /* Detect iOS (iPhone, iPad including iPadOS-Safari-as-desktop) — used to
      pick the export path. iOS Safari does not honor <a download> as a true
@@ -3732,7 +3828,8 @@
     // échoue. Sans ce check on appellerait URL.createObjectURL(null) plus loin
     // et le user verrait juste "❌ Erreur PNG" sans diagnostic utilisable.
     if (!blob) {
-      throw new Error('canvas.toBlob a renvoyé null — canvas probablement tainté (image externe non chargée en dataURL). Vérifier la console pour la liste.');
+      console.error('[FCA] canvas.toBlob a renvoyé null — canvas probablement tainté (image externe non chargée en dataURL).');
+      throw new Error('Image impossible à encoder — réessaie');
     }
     console.info(`[FCA] Poster exported: ${canvas.width}×${canvas.height}px · ${(blob.size/1024).toFixed(0)} KB · ${state.format}/${state.variant}`);
     return { canvas, blob };
@@ -3817,6 +3914,18 @@
       toast('✅ PNG téléchargé');
     });
   }
+  /* Échec : le tiroir RESTE ouvert, dit pourquoi et propose de réessayer.
+     Avant il se refermait sur un toast de 1,8 s — raté une fois sur deux au
+     bord du terrain, d'où l'impression d'un bouton mort. */
+  function failExportOverlay(ov, message) {
+    if (!document.getElementById('poster-overlay')) return;
+    ov.querySelector('#overlay-hint').textContent = 'La carte n\'a pas pu être générée';
+    const body = ov.querySelector('#overlay-body');
+    body.innerHTML = `<div data-export-error style="max-width:300px; text-align:center; font-family:'Inter',sans-serif; font-weight:500; font-size:15px; line-height:1.45; color:#FCA5A5;"></div>`;
+    body.firstChild.textContent = message;
+    ov.querySelector('#overlay-actions').innerHTML = `<button id="overlay-retry" style="font-family:'Inter',sans-serif; font-weight:700; font-size:13px; letter-spacing:0.08em; padding:12px 22px; border-radius:12px; border:0; background:#2E7BFF; color:#fff;">Réessayer</button>`;
+    ov.querySelector('#overlay-retry').addEventListener('click', exportFromCard);
+  }
   /* Tap sur la carte (Boss 15.08 : « tu fais le clic directement ») —
      remplace les anciens boutons PNG / SHARE. */
   async function exportFromCard() {
@@ -3840,9 +3949,7 @@
     } catch (e) {
       if (run !== _exportSeq) return;
       console.error('[FCA] exportFromCard failed :', e);
-      closePosterOverlay();
-      const msg = (e && e.message) ? e.message.slice(0, 80) : 'Erreur inconnue';
-      toast(`❌ ${msg}`, 'red');
+      failExportOverlay(ov, (e && e.message) ? e.message.slice(0, 120) : 'Erreur inconnue');
     } finally { if (run === _exportSeq) _exporting = false; }
   }
 
@@ -4017,7 +4124,10 @@
     applyCachedBundle();            // saison depuis le dernier bundle connu (offline-first)
     const restored = restoreLive(); // reprise d'un match en cours (< 12 h) — AVANT toute auto-sélection
     if (!restored && !state._userPickedMatch && !state.matchId) applyMatchFields(nextUpcomingMatch());
-    if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(e) {} }
+    /* Borné, même raison que dans renderFullRes : sur iOS cette promesse
+       attend la fin du chargement de la page, donc le CDN de html2canvas —
+       l'app restait sur « Chargement… » tant qu'il ne répondait pas. */
+    if (document.fonts && document.fonts.ready) { try { await Promise.race([document.fonts.ready, waitMs(1200)]); } catch(e) {} }
     renderAll();
     loadBundle(restored); // non-bloquant · rafraîchit saison + convocations + parrains
     // Rasterize SVG crest + preload external assets in parallel, then re-render.
