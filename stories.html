@@ -34,13 +34,15 @@
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   html, body { height:100%; background:var(--night); color:#fff; overflow:hidden; overscroll-behavior:none; touch-action:pan-x pan-y;
                font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; -webkit-text-size-adjust:100%; }
+  body { -webkit-user-select:none; user-select:none; }
   button, input, textarea { font:inherit; color:inherit; }
+  input, textarea { -webkit-user-select:text; user-select:text; }
   button { border:0; background:none; cursor:pointer; }
   :focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
   [hidden] { display:none !important; }
   .vh { position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; overflow:hidden; pointer-events:none; }
 
-  .app { position:relative; height:100vh; height:100dvh; max-width:560px; margin:0 auto; display:flex; flex-direction:column;
+  .app { position:relative; height:100vh; height:100dvh; height:var(--app-h, 100dvh); max-width:560px; margin:0 auto; display:flex; flex-direction:column;
          background:radial-gradient(120% 60% at 88% -8%, rgba(23,65,127,.85) 0%, rgba(23,65,127,0) 60%), linear-gradient(180deg,#071630 0%,#04080F 55%); }
 
   /* APP BAR — same family as the Match Controller: micro-label on top, club-font title, neon underline */
@@ -73,7 +75,7 @@
   .guide-h { top:50%; left:0; right:0; height:1px; }
   .sel { position:absolute; border:1.5px dashed var(--cyan); border-radius:8px; box-shadow:0 0 0 1px rgba(4,8,15,.4), 0 0 14px rgba(56,189,248,.35); }
   .pick { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:76%; max-width:260px; padding:22px 12px; border-radius:20px;
-          background:rgba(4,8,15,.55); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+          background:rgba(4,8,15,.8); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
           display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
   .pick svg { width:38px; height:38px; color:var(--cyan); }
   .pick strong { font-family:var(--club); font-weight:400; font-size:21px; letter-spacing:.05em; text-transform:uppercase; }
@@ -309,7 +311,7 @@
 
 <section class="sheet" id="sheet-export" role="dialog" aria-modal="true" aria-labelledby="export-title">
   <div class="sheet-head">
-    <h2 id="export-title">Story prête</h2>
+    <h2 id="export-title">Ta story</h2>
     <button type="button" class="x" data-close aria-label="Continuer l'édition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="sheet-body export">
@@ -781,6 +783,7 @@ async function loadPhoto(file) {
     closeSheets();
     syncUI(); applyMask(); changed();
     if (keeps) toast('Nouvelle photo. Ton masque et tes stickers sont conservés.', 'ok');
+    else if (!loadPhoto.told) { loadPhoto.told = true; toast('Glisse la photo pour la cadrer, deux doigts pour zoomer.'); }
     c.toBlob((b) => {   // kept for an accidental reload; losing it only means picking the photo again
       if (b) new Response(b).arrayBuffer().then((buf) => rt.photo === c && idbSet('photo', { type: b.type, buf })).catch((e) => console.warn('photo not kept for reload', e));
     }, 'image/jpeg', 0.9);
@@ -896,6 +899,7 @@ function beginPinch() {
 
 canvas.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (e.isPrimary && ptrs.size) { ptrs.clear(); gest = null; }   // a first finger while others are "down": their release was lost (app switch, dialog)
   if (ptrs.size >= 2) return;
   try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* synthetic pointers cannot be captured */ }
   const p = toStory(e);
@@ -991,8 +995,9 @@ canvas.addEventListener('wheel', (e) => {
   canvas._wheelT = setTimeout(() => { refreshPhrases(); changed(); }, 180);
 }, { passive: false });
 
-// iOS: two fingers anywhere must never zoom the page itself
+// iOS: two fingers anywhere must never zoom the page itself; Android: no "save image" menu on a long press
 document.addEventListener('gesturestart', (e) => e.preventDefault());
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { if (openSheet) closeSheets(); else select(null); return; }
@@ -1145,7 +1150,7 @@ function openSheetEl(el) {
   else lastFocus = document.activeElement;
   openSheet = el;
   el.classList.add('on'); $('#scrim').classList.add('on');
-  $('#app').setAttribute('aria-hidden', 'true');
+  $('#app').inert = true;
   const f = $('[data-close]', el);
   if (f) f.focus({ preventScroll: true });
 }
@@ -1153,7 +1158,7 @@ function closeSheets() {
   if (!openSheet) return;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // also drops the iOS keyboard
   openSheet.classList.remove('on'); $('#scrim').classList.remove('on');
-  $('#app').removeAttribute('aria-hidden');
+  $('#app').inert = false;
   openSheet = null; rt.editing = null;
   $('#phrase-add').textContent = 'Ajouter';
   if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
@@ -1287,6 +1292,7 @@ $('#phrase-add').addEventListener('click', () => {
 
 /* ============================== LAYOUT ============================== */
 function fitStage() {
+  if (window.innerHeight > 200) document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
   const wrap = $('#stage-wrap'), cs = getComputedStyle(wrap);
   const aw = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ah = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
   const w = Math.max(120, Math.floor(Math.min(aw, ah * 9 / 16)));

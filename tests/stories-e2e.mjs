@@ -508,6 +508,7 @@ async function run(name, engine) {
 
   // safe zones: an overlay of the editor, never part of the story
   await S(() => { window.__noZones = window.__t.rendered(); });
+  await page.waitForTimeout(350);
   await page.tap('#btn-safe');
   const safe = await S(() => { const st = document.querySelector('#stage').getBoundingClientRect(), a = document.querySelector('.safe-top').getBoundingClientRect(), b = document.querySelector('.safe-bot').getBoundingClientRect(); return { on: document.querySelector('#stage').classList.contains('show-safe'), top: a.height / st.height * 1920, bot: b.height / st.height * 1920, flushTop: Math.abs(a.top - st.top) < 1, flushBot: Math.abs(b.bottom - st.bottom) < 1 }; });
   check(safe.on && near(safe.top, 230, 4) && near(safe.bot, 330, 4) && safe.flushTop && safe.flushBot, 'Instagram safe zones: 230 px on top, 330 px at the bottom', JSON.stringify(safe));
