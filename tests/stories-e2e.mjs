@@ -636,7 +636,19 @@ async function run(name, engine) {
   check(await q.toastSays('Écris d’abord ta phrase') && (await q.state()).stickers.length === 1, 'an empty phrase is not added');
   await q.closeSheet();
   check(q.errors.length === 0, 'no script error with hard photos and a failing network', q.errors.slice(0, 3).join(' | '));
+  // thumbnails that cannot be fetched: the tiles carry the sticker's name and the page says why
+  await q.page.route('**/stories/thumbs/**', (r) => r.abort());
+  await q.page.tap('#btn-stickers'); await q.page.tap('#tabs [data-tab="acvf"]');
+  check(await q.toastSays('pas encore sur ce téléphone') && await q.S(() => document.querySelector('#grid-acvf .tile').textContent === 'ACVF sticker'), 'missing thumbnails: named tiles and a clear message');
+  await q.page.unroute('**/stories/thumbs/**');
   await q.close();
+
+  // the kit manifest itself cannot be loaded: nothing can work, the page says so instead of staying blank
+  const nk = await engine.launch(), nkPage = await (await nk.newContext({ ...IPHONE, serviceWorkers: 'block' })).newPage();
+  await nkPage.route('**/stories/kit.js*', (r) => r.abort());
+  await nkPage.goto(BASE + '/stories.html');
+  check(await nkPage.locator('.fatal').innerText().then((t) => /kit de stickers/.test(t) && /recharge la page/.test(t), () => false), 'without its kit the page explains itself');
+  await nk.close();
 
   /* --- 9. no share sheet (computer, old browser): the file is downloaded --- */
   const d = await phone(engine, { share: 'none' });
