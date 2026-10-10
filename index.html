@@ -101,6 +101,7 @@
   .tabs::-webkit-scrollbar { display:none; }
   .tab { flex-shrink:0; background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.66); border:1px solid rgba(255,255,255,0.10); padding:8px 14px; border-radius:999px; font-family:'Inter', sans-serif; font-weight:600; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; transition:all .15s; white-space:nowrap; }
   .tab.on { background:rgba(56,189,248,0.12); color:#38BDF8; border-color:rgba(56,189,248,0.55); box-shadow:0 0 12px rgba(56,189,248,0.18); }
+  .tab.tab-link { color:#F5B82E; border-color:rgba(245,184,46,0.50); text-decoration:none; }
 
   /* PANEL */
   .panel { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
@@ -338,7 +339,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-10 · affiche</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-10 · affiche + stories</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -2595,8 +2596,10 @@
     const tabs = sectionsForVariant();
     if (!tabs.includes(state.activeSection)) state.activeSection = tabs[0];
     const el = document.getElementById('section-tabs');
-    el.innerHTML = tabs.map(t => `<div class="tab ${state.activeSection===t?'on':''}" data-s="${t}">${SECTION_LABELS[t]}</div>`).join('');
-    el.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+    /* Boss 10.10 : « Stories » = section à part, ouvre le générateur de stories (stories.html). */
+    el.innerHTML = tabs.map(t => `<div class="tab ${state.activeSection===t?'on':''}" data-s="${t}">${SECTION_LABELS[t]}</div>`).join('')
+      + `<a class="tab tab-link" href="stories.html">Stories</a>`;
+    el.querySelectorAll('.tab[data-s]').forEach(b => b.addEventListener('click', () => {
       state.activeSection = b.dataset.s;
       renderAll();
     }));
