@@ -91,7 +91,8 @@ du VS. En direct, mi-temps et but gardent le visage du joueur en héros.
 
 ```
 STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1536×1920)
- 238       kicker (gauche) · jour (droite)     138
+ 238       kicker « RÉSULTAT FINAL · 26/27 »   138
+           (gauche) · jour (droite)
  282       VERDICT 92 px · date 40 px (droite)       verdict 126 px · date 46 px
  266–606   PORTRAIT d'atmosphère (dernier      166–566
            buteur, sinon rotation / choix)
@@ -100,10 +101,12 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
            SCORE Outlined 200 px entre eux     267 px (188 px réels)
            (140 px dès qu'un côté a deux       186 px (131 px réels)
            chiffres) · tiret sur l'axe + 2 filets
+           · plaque nuit sous le score
  +30       NOMS OFFICIELS 45 px, même corps    60 px
  +30       message du président (ligne micro)
- +40       BUTEURS — label 15 px, lignes de    × 1.33
-           44 px : minute or 28 px + nom 30 px
+ +40       BUTEURS — label or 20 px (celui     lignes × 1.33,
+           des parrains), lignes de 44 px :    label 20 px
+           minute or 28 px + nom 30 px
  1392…     pied standard (parrains, lieu,      pied descendu de 128
            signature) — inchangé
 ```
@@ -122,12 +125,19 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
 - **Verdict** = titre du header : VICTOIRE or `#F5B82E`, MATCH NUL blanc,
   DÉFAITE rouge doux `#F87171`. La date du match prend la place de l'heure du
   coup d'envoi (colonne droite) ; plus large qu'un jour de la semaine, le titre
-  resserre son corps (MATCH NUL = 84 px en story) pour ne pas toucher le portrait.
+  resserre son corps (MATCH NUL = 84 px en story, même ligne de base) : mesuré
+  sur les 28 bustes de l'effectif, les cheveux descendent jusqu'à x386 à cette
+  hauteur. Le kicker s'arrête lui aussi avant le crâne : « RÉSULTAT FINAL ·
+  26/27 » (x474), pas « … · SAISON 26/27 » (x609, il coiffait le portrait).
 - **Buteurs** : les nôtres uniquement, TOUS (jamais « + 2 autres »), un joueur
   qui marque plusieurs fois sur une ligne (« 9' + 19' NOM »). Jusqu'à 4
-  marqueurs : un par ligne. Au-delà : deux par ligne séparés d'un point — une
-  phrase, pas deux colonnes (aucun buteur ne doit sembler appartenir à
-  l'écusson de droite). 8 marqueurs tiennent dans la hauteur de 4.
+  marqueurs : un par ligne, centrés. Au-delà : deux par ligne adossés à l'axe
+  de la carte, un point entre les deux — les points prolongent le tiret du
+  score ; un dernier marqueur impair se centre. 8 marqueurs tiennent dans la
+  hauteur de 4, le corps ne baisse pas.
+- **Plaque nuit sous le score** (comme sous chaque écusson) : sur une photo
+  plein cadre (shooting, import) les chiffres ne se lisent jamais sur un
+  flocage. Elle est posée AVANT les écussons, elle ne les assombrit pas.
 - **L'ensemble affiche + message + buteurs se centre** entre la bande du header
   et le pied. Si la place manque (7-8 marqueurs + parrains + message, surtout
   en post), le bloc des buteurs se resserre d'un seul tenant : jamais moins de
@@ -152,7 +162,8 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
 - `FB.buteurs(list, y, k)` — buteurs sous l'affiche du résultat : label or +
   lignes « minute or · nom », un par ligne jusqu'à 4, par paires au-delà.
   `list` = `[{ mins, name }]`, `k` = échelle du format. `FB.buteursH(n, k)`
-  donne la hauteur du bloc.
+  donne la hauteur du bloc. Son label est LE label or des parrains (Inter 700,
+  20 px, .3em) : deux micro-labels or sur une carte, un seul style.
 - `FB.atmosphere(img, band)` — le visuel en atmosphère des cartes d'affiche
   (portrait centré dans la bande du header, ou photo plein cadre voilée) + la
   nuit sous lui. `FB.isPortrait(img)` dit si un portrait sera rendu.
@@ -268,7 +279,10 @@ chaque libellé de l'interface.
   canvas l'interpole vers du NOIR transparent (frange sale au bord du halo) —
   on fond vers la même couleur à alpha 0. Une image en `background-size`
   redimensionnée laisse filer sa dernière rangée en liseré au-dessus d'elle :
-  la rogner de 3px dans un cadre `overflow:hidden`.
+  la rogner de 3px dans un cadre `overflow:hidden`. Même remède pour un
+  dégradé dont le bord haut tombe sur un demi-pixel (canvas scalé du post) :
+  la nuit de `FB.atmosphere` laissait un liseré sombre d'1px sur toute la
+  largeur des posts exportés depuis Chromium.
 - **Fallback offline** : pas de photo cachée → layout carte historique (live,
   mi-temps, but). Matchday, coup d'envoi et résultat n'en ont plus besoin.
 - **Une ligne reste une ligne** : nom de club, lieu → corps ajusté à la largeur

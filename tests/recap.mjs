@@ -190,7 +190,7 @@ for (const engine of engines) {
         const want = win ? 'rgb(245,184,46)' : draw ? 'rgb(255,255,255)' : 'rgb(248,113,113)';
         if (col !== want) problems.push(`verdict : couleur ${col}, attendu ${want}`);
       }
-      add('kicker', leaf('Résultat final · Saison 26/27'));
+      add('kicker', leaf('Résultat final · 26/27'));
       add('compétition', leaf(compLine()));
       add('jour', leaf(S.kickoff.dayName));
       add('date', leaf(`${S.kickoff.dateLabel} ${S.kickoff.year}`));

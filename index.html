@@ -1840,7 +1840,10 @@
        band = { top, visage } : haut et hauteur de la tête. */
     isPortrait(img) { return !!(img && img.cut && img.mode !== 'bg'); },
     atmosphere(img, band) {
-      const night = (y) => `<div style="position:absolute; left:0; right:0; top:${y}px; bottom:0; background:linear-gradient(180deg, rgba(4,8,15,0) 0px, rgba(4,8,15,0.52) 70px, rgba(4,8,15,0.92) 140px, rgba(4,8,15,0.99) 200px, #04080F 280px);"></div>`;
+      /* Le dégradé démarre 3px au-dessus de son cadre, qui le rogne : en post
+         (canvas scalé) son bord haut tombe sur un demi-pixel et html2canvas y
+         laissait un liseré sombre d'1px sur toute la largeur de la carte. */
+      const night = (y) => `<div style="position:absolute; left:0; right:0; top:${y}px; bottom:0; overflow:hidden;"><div style="position:absolute; left:0; right:0; top:-3px; bottom:0; background:linear-gradient(180deg, rgba(4,8,15,0) 3px, rgba(4,8,15,0.52) 73px, rgba(4,8,15,0.92) 143px, rgba(4,8,15,0.99) 203px, #04080F 283px);"></div></div>`;
       if (img && img.mode === 'bg') {
         const zi = -((Math.max(100, state.visualZoom || 100) - 100) / 2);
         return `<div style="position:absolute; inset:${zi}%; background-image:url('${img.src}'); background-size:cover; background-position:center 22%; background-repeat:no-repeat;"></div>
@@ -1912,7 +1915,7 @@
       const oc  = side(crestNode(getCachedCrest(opp), opp.abbr, crest, 'transparent'), oppName, glow(`${ACCENT}4d`, `${ACCENT}1f`));
       /* Les deux filets de l'axe : ils encadrent le VS, ou pointent le tiret du score. */
       const filet = (edge, from, len) => `<div style="position:absolute; left:50%; ${edge}:${Math.round(crest * from)}px; width:2px; margin-left:-1px; height:${Math.round(crest * len)}px; background:linear-gradient(${edge === 'top' ? 180 : 0}deg, ${FB.royal}00, ${FB.royal}99);"></div>`;
-      let mid = `${filet('top', 0.08, 0.24)}${filet('bottom', 0.08, 0.24)}<span data-vs>VS</span>`;
+      let mid = `${filet('top', 0.08, 0.24)}${filet('bottom', 0.08, 0.24)}<span data-vs>VS</span>`, plate = '';
       if (score) {
         const [l, r] = score.map(String);
         /* Deux corps, pas plus : un chiffre de chaque côté, ou un score à
@@ -1924,40 +1927,50 @@
         const fs = Math.min(Math.round(size * (l.length + r.length > 2 ? 0.333 : 0.476)),
           Math.floor(half / (Math.max(unitWidth(l, 0), unitWidth(r, 0)) + 0.23)));
         const num = (t, align) => `<div data-score style="flex:1 1 0; text-align:${align}; font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:${fs}px; letter-spacing:0;">${t}</div>`;
+        /* Plaque nuit sous le score, comme sous chaque écusson : sur une photo
+           plein cadre (shooting, import) les chiffres ne se lisent jamais sur
+           un flocage. Posée AVANT les écussons : elle ne les assombrit pas. */
+        const pw = 2 * k.spread - crest * 0.5, ph = crest * 1.2;
+        plate = `<div style="position:absolute; left:${FB.vw / 2 - pw / 2}px; top:${top + (crest - ph) / 2}px; width:${pw}px; height:${ph}px; background:radial-gradient(50% 50% at 50% 50%, rgba(4,8,15,0.8) 0%, rgba(4,8,15,0.6) 46%, rgba(4,8,15,0) 100%);"></div>`;
         mid = `${filet('top', 0.03, 0.2)}${filet('bottom', 0.03, 0.2)}${num(l, 'right')}<div style="position:relative; top:${Math.round(fs * 0.018)}px; flex-shrink:0; width:${Math.round(fs * 0.2)}px; height:${Math.max(6, Math.round(fs * 0.042))}px; margin:0 ${Math.round(fs * 0.13)}px; border-radius:${Math.round(fs * 0.021)}px; background:rgba(255,255,255,0.55);"></div>${num(r, 'left')}`;
       }
-      return `<div style="position:absolute; left:0; right:0; top:${top}px; display:flex; align-items:flex-start; justify-content:center; gap:${2 * k.spread - crest}px;">
+      return `${plate}<div style="position:absolute; left:0; right:0; top:${top}px; display:flex; align-items:flex-start; justify-content:center; gap:${2 * k.spread - crest}px;">
         ${isAway ? oc : atl}
         ${isAway ? atl : oc}
       </div>
       <div style="position:absolute; left:0; right:0; top:${top}px; height:${crest}px; display:flex; align-items:center; justify-content:center; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${k.vs}px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 26px ${FB.royalDeep}cc, 0 2px 10px rgba(4,8,15,0.9);">${mid}</div>`;
     },
-    /* Buteurs du FCA sous l'affiche du résultat : minutes or + nom, centrés.
-       Jusqu'à 4 marqueurs, un par ligne. Au-delà, deux par ligne séparés d'un
-       point (une phrase, pas deux colonnes : ce sont tous NOS buteurs, aucun
-       n'appartient à l'écusson de droite) — 8 marqueurs tiennent dans la
-       hauteur de 4 et le corps ne baisse pas. Seule une paire trop large pour
-       la carte resserre le corps (mesuré).
+    /* Buteurs du FCA sous l'affiche du résultat : label or (celui des
+       parrains) + lignes « minute or · nom », centrées. Jusqu'à 4 marqueurs,
+       un par ligne. Au-delà, deux par ligne adossés à l'axe de la carte, un
+       point entre les deux (il prolonge le tiret du score) ; un dernier
+       marqueur impair se centre. 8 marqueurs tiennent dans la hauteur de 4 et
+       le corps ne baisse pas ; seule une ligne trop large pour la carte le
+       resserre (mesuré).
          list : [{ mins: "9' + 19'", name: 'SELIMI (C)' }]   k : échelle du format
        FB.buteursH(n, k) donne la hauteur du bloc. */
     buteursH(n, k = 1) {
-      return n ? Math.round((28 + (n > 4 ? Math.ceil(n / 2) : n) * 44) * k) : 0;
+      return n ? Math.max(26, Math.round(34 * k)) + (n > 4 ? Math.ceil(n / 2) : n) * Math.round(44 * k) : 0;
     },
     buteurs(list, y, k = 1) {
       const n = list.length;
       if (!n) return '';
-      const per = n > 4 ? 2 : 1;
-      const rows = [];
-      for (let i = 0; i < n; i += per) rows.push(list.slice(i, i + per));
-      const gapMin = 14 * k, gapPair = 58 * k;
+      const pairs = n > 4;
+      const gapMin = 14 * k, dotBox = 58 * k;
       const width = (e) => unitWidth(e.mins, 0) * 28 * k + gapMin + unitWidth(e.name, 0.05) * 30 * k;
-      const widest = Math.max(...rows.map(r => r.reduce((w, e) => w + width(e), 0) + (r.length - 1) * gapPair));
-      const z = Math.min(1, (FB.vw - 220) / widest) * k;
+      const room = pairs ? (FB.vw - 220 - dotBox) / 2 : FB.vw - 220;
+      const z = Math.min(1, room / Math.max(...list.map(width))) * k;
       const one = (e) => `<div data-buteur style="white-space:nowrap;"><span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${Math.floor(28 * z)}px; color:${GOLD}; margin-right:${Math.round(gapMin)}px;">${e.mins}</span><span style="${dispFontCss(e.name)} font-size:${Math.floor(30 * z)}px; letter-spacing:0.05em; color:rgba(255,255,255,0.92);">${e.name}</span></div>`;
       const dot = `<div style="flex-shrink:0; width:${Math.round(6 * k)}px; height:${Math.round(6 * k)}px; margin:0 ${Math.round(26 * k)}px; border-radius:50%; background:rgba(255,255,255,0.4);"></div>`;
+      const row = (html) => `<div style="height:${Math.round(44 * k)}px; display:flex; align-items:center; justify-content:center; line-height:1;">${html}</div>`;
+      const half = (e, end) => `<div style="flex:1 1 0; display:flex; justify-content:flex-${end};">${one(e)}</div>`;
+      const rows = [];
+      for (let i = 0; i < n; i += pairs ? 2 : 1) {
+        rows.push(row(pairs && list[i + 1] ? `${half(list[i], 'end')}${dot}${half(list[i + 1], 'start')}` : one(list[i])));
+      }
       return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center;">
-        <div style="height:${Math.round(28 * k)}px; font-family:'Inter', sans-serif; font-weight:700; font-size:${Math.round(15 * k)}px; line-height:1.2; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD};">Buteur${n > 1 ? 's' : ''}</div>
-        ${rows.map(r => `<div style="height:${Math.round(44 * k)}px; display:flex; align-items:center; justify-content:center; line-height:1;">${r.map(one).join(dot)}</div>`).join('')}
+        <div style="height:${Math.max(26, Math.round(34 * k))}px; font-family:'Inter', sans-serif; font-weight:700; font-size:20px; line-height:1.2; letter-spacing:0.3em; text-transform:uppercase; color:${GOLD};">Buteur${n > 1 ? 's' : ''}</div>
+        ${rows.join('')}
       </div>`;
     },
     scoreRow(y, fs = 118, crest = 88) {
@@ -2082,7 +2095,7 @@
         ${FB.bg()}
         ${FB.atmosphere(img, band)}
         ${FB.kicker(o.kicker, 238 - up)}
-        ${FB.titre(o.titre, titreSize, 282 - up, o.color)}
+        ${FB.titre(o.titre, titreSize, 282 - up + Math.round((h.titre - titreSize) * 0.84), o.color)}
         ${o.sub ? FB.sub(o.sub, subY, subSize) : ''}
         ${FB.compline(compY, h.comp)}
         ${FB.colDroite(o.label, o.droite ? o.droite(h) : FB.timeBlock(h.heure), 238 - up)}
@@ -2338,7 +2351,10 @@
     const isAway = state.homeAway === 'away';
     const msg = getCustomMessage();
     return affichePoster({
-      kicker: 'Résultat final · Saison 26/27',
+      /* « Résultat final · Saison 26/27 » coiffait le portrait (il finissait à
+         x609, le crâne commence vers x450) : même longueur que les kickers des
+         cartes d'annonce. */
+      kicker: 'Résultat final · 26/27',
       titre: win ? 'VICTOIRE' : (draw ? 'MATCH NUL' : 'DÉFAITE'),
       color: win ? '#F5B82E' : (draw ? '#FFFFFF' : '#F87171'),
       /* la date du match prend la place de l'heure du coup d'envoi */
