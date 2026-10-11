@@ -306,6 +306,14 @@ for (const engine of engines) {
       if (!SCENE_CACHE[scene.url] || !posterHTML().includes('background-size:cover')) visuel.push('C · invité seul buteur + photo de shooting : l\'export ne l\'attend pas');
     }
     delete BY_ID[guest.id];
+    /* D · the POST toggle left on after a result post must not change the story-only cards */
+    set([{ minute: 10, playerId: a.id, side: 'home', ts: 1 }]);
+    S.scorerId = a.id; S.scorerSide = 'home';
+    for (const v of ['kickoff', 'live-score', 'halftime', 'goal', 'lineup']) {
+      S.variant = v; S.format = 'post'; const inPost = posterHTML();
+      S.format = 'story';
+      if (inPost !== posterHTML()) visuel.push(`D · bouton POST resté actif : la carte ${v} (story seulement) n'est plus composée sur 1080 px`);
+    }
     Object.assign(S, JSON.parse(backup)); renderAll();
     return { out, visuel };
   });
@@ -313,7 +321,7 @@ for (const engine of engines) {
   const bad = cards.filter(r => r.problems.length);
   const jsErrors = errors.filter(e => e.kind === 'pageerror');
   failures += bad.length + jsErrors.length + visuel.length;
-  console.log(`[${engine}] ${cards.length} cartes résultat vérifiées · ${bad.length} en défaut · air mini au-dessus du pied ${Math.min(...cards.map(r => r.air))} px · visuel du buteur : ${visuel.length} défaut(s) · erreurs JS : ${jsErrors.length}`);
+  console.log(`[${engine}] ${cards.length} cartes résultat vérifiées · ${bad.length} en défaut · air mini au-dessus du pied ${Math.min(...cards.map(r => r.air))} px · scénarios (portrait du buteur, bouton POST) : ${visuel.length} défaut(s) · erreurs JS : ${jsErrors.length}`);
   visuel.forEach(v => console.log('  ✗ ' + v));
   bad.slice(0, 30).forEach(r => console.log(`  ✗ ${r.id}\n      ${[...new Set(r.problems)].join('\n      ')}`));
   if (bad.length > 30) {

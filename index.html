@@ -2554,8 +2554,12 @@
   function posterHTML() {
     const v = state.variant;
     /* Largeur du canvas de composition pour les briques FB (photo pleine
-       largeur) : le post rend dans un canvas virtuel plus large que 1080. */
-    FB.vw = state.format === 'post' && v !== 'lineup'
+       largeur) : le post rend dans un canvas virtuel plus large que 1080.
+       Seulement pour une variante qui EXISTE en post : le bouton POST resté
+       actif après un matchday ou un résultat composait le coup d'envoi, le
+       direct et la mi-temps (story seulement) sur 1536 px de large — le
+       visage partait à droite, derrière l'heure. */
+    FB.vw = state.format === 'post' && canPost(v)
       ? Math.round(FORMATS.post.w / (FORMATS.post.h / 1920))
       : 1080;
     // Lineup is too dense for 4:5 → force story format for this variant only
