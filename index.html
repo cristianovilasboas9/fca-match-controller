@@ -339,7 +339,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-10 · affiche + stories</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-11 · resultat</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -620,7 +620,6 @@
      l'icône sur la ligne de texte qui la porte. */
   const posterIcon = (size, inner) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="display:inline-block; vertical-align:${-Math.round(size * 0.14)}px;">${inner}</svg>`;
   const trophyIcon = (size) => posterIcon(size, `<path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" fill="#F5B82E"/>`);
-  const handshakeIcon = (size) => posterIcon(size, `<path d="M12.22 19.85c-.18.18-.5.21-.71 0a.504.504 0 0 1 0-.71l3.39-3.39-1.41-1.41-3.39 3.39c-.19.2-.51.19-.71 0-.21-.21-.18-.53 0-.71l3.39-3.39-1.41-1.41-3.39 3.39c-.18.18-.5.21-.71 0-.19-.19-.19-.51 0-.71l3.39-3.39-1.42-1.41-3.39 3.39c-.18.18-.5.21-.71 0-.19-.2-.19-.51 0-.71L9.52 8.4l1.87 1.86c.95.95 2.59.94 3.54 0 .98-.98.98-2.56 0-3.54l-1.86-1.86.28-.28c.78-.78 2.05-.78 2.83 0l4.24 4.24c.78.78.78 2.05 0 2.83l-8.2 8.2zm9.61-6.78a4.008 4.008 0 0 0 0-5.66l-4.24-4.24a4.008 4.008 0 0 0-5.66 0l-.28.28-.28-.28a4.008 4.008 0 0 0-5.66 0L2.17 6.71a3.992 3.992 0 0 0-.4 5.19l1.45-1.45a2 2 0 0 1 .37-2.33l3.54-3.54c.78-.78 2.05-.78 2.83 0l3.56 3.56c.18.18.21.5 0 .71-.21.21-.53.18-.71 0L9.52 5.57l-5.8 5.79c-.98.97-.98 2.56 0 3.54.39.39.89.63 1.42.7a2.458 2.458 0 0 0 2.12 2.12 2.458 2.458 0 0 0 2.12 2.12c.07.54.31 1.03.7 1.42.47.47 1.1.73 1.77.73.67 0 1.3-.26 1.77-.73l8.21-8.19z" fill="#FFFFFF"/>`);
   const ballIcon = (size) => posterIcon(size, `<circle cx="12" cy="12" r="10" fill="#FFFFFF"/><path d="M12 8.2l3.61 2.63-1.38 4.24H9.77l-1.38-4.24z" fill="#04080F"/><g stroke="#04080F" stroke-width="1.5" stroke-linecap="round"><path d="M12 8.2V3.4"/><path d="M15.61 10.83l4.36-1.42"/><path d="M14.23 15.07l2.7 3.71"/><path d="M9.77 15.07l-2.7 3.71"/><path d="M8.39 10.83L4.03 9.41"/></g>`);
 
   /* === 2. CREST_DATAURL ========================================
@@ -1094,6 +1093,17 @@
   function scheduleRefresh() {
     if (_refreshQueued) return;
     _refreshQueued = setTimeout(() => { _refreshQueued = 0; refresh(); }, 80);
+  }
+  /* Le buteur que montre la carte résultat : le DERNIER but FCA (à la minute,
+     puis dans l'ordre de saisie) d'un joueur qui a un portrait détouré. UNE
+     définition pour le poster, l'aperçu (refresh) et l'export (cardAssets) :
+     à trois définitions, un invité buteur ou un but saisi dans le désordre
+     laissait la carte sans visuel (le buste attendu n'était jamais demandé). */
+  function recapScorer() {
+    const g = [...(state.goals || [])]
+      .filter(g => g.side === 'home' && BY_ID[g.playerId] && BY_ID[g.playerId].cutoutUrl)
+      .sort((a, b) => (a.minute - b.minute) || (a.ts - b.ts)).pop();
+    return g ? BY_ID[g.playerId] : null;
   }
   function heroImage(p, allowCustom = true) {
     /* Visage explicitement retiré → carte nette (fond + texte seuls). */
@@ -1592,42 +1602,6 @@
     </div>`;
   }
 
-  // Bloc sponsors "Ballon de match" — affiché sur matchday / kickoff / recap si state.matchBallSponsors.length > 0.
-  // Rend vide string si aucun sponsor : aucune réservation d'espace, le venue footer reste cohérent.
-  function matchBallSponsorsBlock() {
-    const list = state.matchBallSponsors || [];
-    if (list.length === 0) return '';
-    const eyebrowFS = pf(16, 14);
-    const tileFS = pf(18, 16);
-    const nameFS = pf(22, 20);
-    const gap = pf(14, 12);
-    // Broadcast 26/27 — chips modernes 1px teintées or (plus de tuiles pleines)
-    return `
-      <div style="position:relative; z-index:1; margin-top:${pf(28,20)}px; margin-bottom:${pf(20,14)}px; padding-top:${pf(22,16)}px;">
-        <div style="position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, rgba(245,184,46,0.4), transparent);"></div>
-        <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:${eyebrowFS}px; letter-spacing:0.3em; text-transform:uppercase; color:${GOLD}; text-align:center; margin-bottom:${pf(14,10)}px; line-height:1;">${TENANT_CONFIG.copy.matchBallLabel}</div>
-        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:${gap}px ${pf(16,12)}px;">
-          ${list.map(s => {
-            /* Logo blanc du parrain (bundle) — rendu UNIQUEMENT depuis le cache
-               dataURL : jamais d'URL distante dans le poster (taint export).
-               Pas encore chargé / pas de logo → chip texte or. */
-            const logo = s.logoUrl && SPONSOR_CACHE[s.logoUrl];
-            if (logo) return `
-            <div style="display:inline-flex; align-items:center; justify-content:center; width:${pf(210,180)}px; height:${pf(84,72)}px; padding:${pf(14,11)}px ${pf(20,16)}px; border:1px solid rgba(245,184,46,0.45); background:linear-gradient(180deg, #0c1422 0%, #050a14 100%); border-radius:14px;">
-              <div style="width:100%; height:100%; background-image:url('${logo}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>
-            </div>`;
-            return `
-            <div style="display:inline-flex; align-items:center; gap:${pf(12,10)}px; padding:${pf(11,9)}px ${pf(18,14)}px; border:1px solid rgba(245,184,46,0.38); background:rgba(245,184,46,0.05); border-radius:12px;">
-              <span style="font-family:'Oswald', sans-serif; font-weight:700; font-size:${tileFS}px; color:${GOLD}; letter-spacing:0.08em; line-height:1;">${s.abbr}</span>
-              <span style="width:1px; height:${pf(16,14)}px; background:rgba(245,184,46,0.35);"></span>
-              <span style="font-family:'Oswald', sans-serif; font-weight:600; font-size:${nameFS}px; letter-spacing:0.05em; text-transform:uppercase; color:#fff; line-height:1;">${s.name}</span>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
   function customMessageBlock(fallback) {
     const msg = getCustomMessage() || fallback || '';
     if (!msg) return '';
@@ -1807,7 +1781,7 @@
     /* Côté du buste par variante : deux stories publiées à la suite ne
        présentent jamais la même image au même endroit. */
     side(v) {
-      return { 'live-score': 'right', halftime: 'left', recap: 'right', goal: 'center' }[v] || 'center';
+      return { 'live-score': 'right', halftime: 'left', goal: 'center' }[v] || 'center';
     },
     /* Le buste détouré monte plus haut dans le cadre et le maillot est GRIS
        CLAIR : sans un voile qui mord tôt, l'info stack tombe à 2-3:1 (mesuré).
@@ -1877,7 +1851,10 @@
        band = { top, visage } : haut et hauteur de la tête. */
     isPortrait(img) { return !!(img && img.cut && img.mode !== 'bg'); },
     atmosphere(img, band) {
-      const night = (y) => `<div style="position:absolute; left:0; right:0; top:${y}px; bottom:0; background:linear-gradient(180deg, rgba(4,8,15,0) 0px, rgba(4,8,15,0.52) 70px, rgba(4,8,15,0.92) 140px, rgba(4,8,15,0.99) 200px, #04080F 280px);"></div>`;
+      /* Le dégradé démarre 3px au-dessus de son cadre, qui le rogne : en post
+         (canvas scalé) son bord haut tombe sur un demi-pixel et html2canvas y
+         laissait un liseré sombre d'1px sur toute la largeur de la carte. */
+      const night = (y) => `<div style="position:absolute; left:0; right:0; top:${y}px; bottom:0; overflow:hidden;"><div style="position:absolute; left:0; right:0; top:-3px; bottom:0; background:linear-gradient(180deg, rgba(4,8,15,0) 3px, rgba(4,8,15,0.52) 73px, rgba(4,8,15,0.92) 143px, rgba(4,8,15,0.99) 203px, #04080F 283px);"></div></div>`;
       if (img && img.mode === 'bg') {
         const zi = -((Math.max(100, state.visualZoom || 100) - 100) / 2);
         return `<div style="position:absolute; inset:${zi}%; background-image:url('${img.src}'); background-size:cover; background-position:center 22%; background-repeat:no-repeat;"></div>
@@ -1900,23 +1877,29 @@
        à gauche), chacun sur son halo ; le nom OFFICIEL dessous, même corps des
        deux côtés (fitDuel) ; le VS entre les deux, à mi-hauteur.
          top   : haut des écussons
-         crest : côté d'un écusson — 420 en story, 560 en post (héros) ;
-                 104 quand l'affiche n'est qu'un rappel (recap)
-       FB.duelH(crest) donne la hauteur totale du bloc (écusson + nom). */
-    duelSpec(crest) {
-      const hero = crest >= 300;
-      return { hero,
-        spread: hero ? Math.round(crest * 0.63) : 236,        // demi-écart entre les centres des écussons
-        nameMax: hero ? Math.round(crest * 0.108) : 30,
-        gap: hero ? Math.round(crest * 0.085) : 10,           // écusson → nom
-        vs: hero ? Math.round(crest * 0.25) : 36 };
+         size  : module de l'affiche — 420 en story, 560 en post. Sur une carte
+                 d'annonce c'est le côté d'un écusson.
+         score : [domicile, extérieur] — carte RÉSULTAT (Boss 11.10). Le score
+                 prend la place du VS, en chiffres du maillot ; les écussons lui
+                 cèdent de la largeur (×0.76) et s'écartent. Les noms gardent
+                 le corps nominal de l'annonce (45 / 60), mais la place sous un
+                 écusson passe de 406 à 316 px en story : les plus longs se
+                 resserrent ou prennent leur forme curée (loi §5quater).
+       FB.duelH(size, score) donne la hauteur totale du bloc (écusson + nom). */
+    duelSpec(size, score) {
+      return {
+        crest: score ? Math.round(size * 0.762) : size,
+        spread: Math.round(size * (score ? 0.738 : 0.63)),   // demi-écart entre les centres des écussons
+        nameMax: Math.round(size * 0.108),
+        gap: Math.round(size * (score ? 0.071 : 0.085)),     // écusson → nom
+        vs: Math.round(size * 0.25) };
     },
-    duelH(crest) {
-      const k = FB.duelSpec(crest);
-      return crest + k.gap + Math.round(k.nameMax * 1.1);
+    duelH(size, score) {
+      const k = FB.duelSpec(size, score);
+      return k.crest + k.gap + Math.round(k.nameMax * 1.1);
     },
-    duel(top, crest = 420) {
-      const k = FB.duelSpec(crest);
+    duel(top, size = 420, score = null) {
+      const k = FB.duelSpec(size, score), crest = k.crest;
       const opp = getOpp();
       const isAway = state.homeAway === 'away';
       /* Un nom est centré sous son écusson : il peut déborder la colonne, pas
@@ -1933,7 +1916,7 @@
          la teinte. On fond vers la même couleur, alpha 0. */
       const glow = (c1, c2) => `
           <div style="position:absolute; left:${-crest * 0.2}px; top:${-crest * 0.2}px; width:${crest * 1.4}px; height:${crest * 1.4}px; background:radial-gradient(circle, rgba(4,8,15,0.72) 0%, rgba(4,8,15,0.46) 46%, rgba(4,8,15,0) 70%);"></div>
-          ${k.hero ? `<div style="position:absolute; left:${-crest * 0.36}px; top:${-crest * 0.36}px; width:${crest * 1.72}px; height:${crest * 1.72}px; background:radial-gradient(circle, ${c1} 0%, ${c2} 36%, ${ACCENT}00 68%);"></div>` : ''}`;
+          <div style="position:absolute; left:${-crest * 0.36}px; top:${-crest * 0.36}px; width:${crest * 1.72}px; height:${crest * 1.72}px; background:radial-gradient(circle, ${c1} 0%, ${c2} 36%, ${ACCENT}00 68%);"></div>`;
       const side = (crestHtml, name, halo) => `
         <div style="width:${crest}px; flex-shrink:0; display:flex; flex-direction:column; align-items:center;">
           <div style="position:relative; width:${crest}px; height:${crest}px;">${halo}
@@ -1943,11 +1926,65 @@
         </div>`;
       const atl = side(crestNode(getAtlCrest(), TENANT_CONFIG.club.abbr, crest, 'transparent'), atlName, glow(`${NEON}5c`, `${ACCENT}26`));
       const oc  = side(crestNode(getCachedCrest(opp), opp.abbr, crest, 'transparent'), oppName, glow(`${ACCENT}4d`, `${ACCENT}1f`));
-      return `<div style="position:absolute; left:0; right:0; top:${top}px; display:flex; align-items:flex-start; justify-content:center; gap:${2 * k.spread - crest}px;">
+      /* Les deux filets de l'axe : ils encadrent le VS, ou pointent le tiret du score. */
+      const filet = (edge, from, len) => `<div style="position:absolute; left:50%; ${edge}:${Math.round(crest * from)}px; width:2px; margin-left:-1px; height:${Math.round(crest * len)}px; background:linear-gradient(${edge === 'top' ? 180 : 0}deg, ${FB.royal}00, ${FB.royal}99);"></div>`;
+      let mid = `${filet('top', 0.08, 0.24)}${filet('bottom', 0.08, 0.24)}<span data-vs>VS</span>`, plate = '';
+      if (score) {
+        const [l, r] = score.map(String);
+        /* Deux corps, pas plus : un chiffre de chaque côté, ou un score à
+           deux chiffres. Le tiret reste sur l'axe de la carte et les chiffres
+           s'y adossent (domicile à gauche), quel que soit le score. Un score
+           hors norme (20 et plus) se resserre à la mesure : il ne touche
+           jamais un écusson. */
+        const half = k.spread - crest / 2 - size * 0.05;
+        const fs = Math.min(Math.round(size * (l.length + r.length > 2 ? 0.333 : 0.476)),
+          Math.floor(half / (Math.max(unitWidth(l, 0), unitWidth(r, 0)) + 0.23)));
+        const num = (t, align) => `<div data-score style="flex:1 1 0; text-align:${align}; font-family:'Portugal2025 Outlined', 'Portugal2025', 'Oswald', sans-serif; font-size:${fs}px; letter-spacing:0;">${t}</div>`;
+        /* Plaque nuit sous le score, comme sous chaque écusson : sur une photo
+           plein cadre (shooting, import) les chiffres ne se lisent jamais sur
+           un flocage. Posée AVANT les écussons : elle ne les assombrit pas. */
+        const pw = 2 * k.spread - crest * 0.5, ph = crest * 1.2;
+        plate = `<div style="position:absolute; left:${FB.vw / 2 - pw / 2}px; top:${top + (crest - ph) / 2}px; width:${pw}px; height:${ph}px; background:radial-gradient(50% 50% at 50% 50%, rgba(4,8,15,0.8) 0%, rgba(4,8,15,0.6) 46%, rgba(4,8,15,0) 100%);"></div>`;
+        mid = `${filet('top', 0.03, 0.2)}${filet('bottom', 0.03, 0.2)}${num(l, 'right')}<div style="position:relative; top:${Math.round(fs * 0.018)}px; flex-shrink:0; width:${Math.round(fs * 0.2)}px; height:${Math.max(6, Math.round(fs * 0.042))}px; margin:0 ${Math.round(fs * 0.13)}px; border-radius:${Math.round(fs * 0.021)}px; background:rgba(255,255,255,0.55);"></div>${num(r, 'left')}`;
+      }
+      return `${plate}<div style="position:absolute; left:0; right:0; top:${top}px; display:flex; align-items:flex-start; justify-content:center; gap:${2 * k.spread - crest}px;">
         ${isAway ? oc : atl}
         ${isAway ? atl : oc}
       </div>
-      <div style="position:absolute; left:0; right:0; top:${top}px; height:${crest}px; display:flex; align-items:center; justify-content:center; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${k.vs}px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 26px ${FB.royalDeep}cc, 0 2px 10px rgba(4,8,15,0.9);">${k.hero ? `<div style="position:absolute; left:50%; top:${Math.round(crest * 0.08)}px; width:2px; margin-left:-1px; height:${Math.round(crest * 0.24)}px; background:linear-gradient(180deg, ${FB.royal}00, ${FB.royal}99);"></div><div style="position:absolute; left:50%; bottom:${Math.round(crest * 0.08)}px; width:2px; margin-left:-1px; height:${Math.round(crest * 0.24)}px; background:linear-gradient(0deg, ${FB.royal}00, ${FB.royal}99);"></div>` : ''}<span data-vs>VS</span></div>`;
+      <div style="position:absolute; left:0; right:0; top:${top}px; height:${crest}px; display:flex; align-items:center; justify-content:center; font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${k.vs}px; line-height:1; letter-spacing:0.04em; color:#fff; text-shadow:0 0 26px ${FB.royalDeep}cc, 0 2px 10px rgba(4,8,15,0.9);">${mid}</div>`;
+    },
+    /* Buteurs du FCA sous l'affiche du résultat : label or (celui des
+       parrains) + lignes « minute or · nom », centrées. Jusqu'à 4 marqueurs,
+       un par ligne. Au-delà, deux par ligne adossés à l'axe de la carte, un
+       point entre les deux (il prolonge le tiret du score) ; un dernier
+       marqueur impair se centre. 8 marqueurs tiennent dans la hauteur de 4 et
+       le corps ne baisse pas ; seule une ligne trop large pour la carte le
+       resserre (mesuré).
+         list : [{ mins: "9' + 19'", name: 'SELIMI (C)' }]   k : échelle du format
+       FB.buteursH(n, k) donne la hauteur du bloc. */
+    buteursH(n, k = 1) {
+      return n ? Math.max(26, Math.round(34 * k)) + (n > 4 ? Math.ceil(n / 2) : n) * Math.round(44 * k) : 0;
+    },
+    buteurs(list, y, k = 1) {
+      const n = list.length;
+      if (!n) return '';
+      const pairs = n > 4;
+      const gapMin = 14 * k, dotBox = 58 * k;
+      const width = (e) => unitWidth(e.mins, 0) * 28 * k + gapMin + unitWidth(e.name, 0.05) * 30 * k;
+      const room = pairs ? (FB.vw - 220 - dotBox) / 2 : FB.vw - 220;
+      const z = Math.min(1, room / Math.max(...list.map(width))) * k;
+      const one = (e) => `<div data-buteur style="white-space:nowrap;"><span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${Math.floor(28 * z)}px; color:${GOLD}; margin-right:${Math.round(gapMin)}px;">${e.mins}</span><span style="${dispFontCss(e.name)} font-size:${Math.floor(30 * z)}px; letter-spacing:0.05em; color:rgba(255,255,255,0.92);">${e.name}</span></div>`;
+      const dot = `<div style="flex-shrink:0; width:${Math.round(6 * k)}px; height:${Math.round(6 * k)}px; margin:0 ${Math.round(26 * k)}px; border-radius:50%; background:rgba(255,255,255,0.4);"></div>`;
+      const row = (html) => `<div style="height:${Math.round(44 * k)}px; display:flex; align-items:center; justify-content:center; line-height:1;">${html}</div>`;
+      const half = (e, end) => `<div style="flex:1 1 0; display:flex; justify-content:flex-${end};">${one(e)}</div>`;
+      const rows = [];
+      for (let i = 0; i < n; i += pairs ? 2 : 1) {
+        rows.push(row(pairs && list[i + 1] ? `${half(list[i], 'end')}${dot}${half(list[i + 1], 'start')}` : one(list[i])));
+      }
+      return `<div style="position:absolute; left:0; right:0; top:${y}px; text-align:center;">
+        <div style="height:${Math.max(26, Math.round(34 * k))}px; font-family:'Inter', sans-serif; font-weight:700; font-size:20px; line-height:1.2; letter-spacing:0.3em; text-transform:uppercase; color:${GOLD};">Buteur${n > 1 ? 's' : ''}</div>
+        ${rows.join('')}
+      </div>`;
     },
     scoreRow(y, fs = 118, crest = 88) {
       const opp = getOpp();
@@ -2020,7 +2057,11 @@
      Le visuel choisi (joueur, shooting, import) devient l'atmosphère.
      Un seul layout : l'ancienne « carte de secours » n'a plus lieu d'être,
      l'affiche n'a besoin d'aucune photo pour exister.
-     o = { kicker, titre, sub, label, hero (joueur), notes (lignes micro sous l'affiche) } */
+     o = { kicker, titre, sub, label, hero (joueur), notes (lignes micro sous l'affiche) }
+     Carte RÉSULTAT (Boss 11.10) — même affiche, le score à la place du VS :
+     o.score [domicile, extérieur], o.buteurs (liste sous l'affiche), o.color
+     (teinte du verdict), o.droite (colonne droite à la place de l'heure),
+     o.img (visuel déjà résolu : le dernier buteur). */
   function affichePoster(o) {
     const post = state.format === 'post';
     /* Le 4:5 n'a pas les zones mortes d'une story Instagram : le header
@@ -2031,31 +2072,60 @@
     /* Bande du header : le titre à gauche, l'heure à droite, le portrait
        entre les deux. En story la bande est étroite → corps réduits, et la
        ligne compétition se resserre pour ne pas toucher le portrait. */
-    const h = post ? { titre: 126, sub: 46, heure: 118, visage: 400, comp: 0.3 }
-                   : { titre: 92,  sub: 40, heure: 96,  visage: 340, comp: 0.22 };
-    const lines = String(o.titre).split('<br>').length;
+    const h = post ? { titre: 126, sub: 46, heure: 118, visage: 400, comp: 0.3, titreW: 526 }
+                   : { titre: 92,  sub: 40, heure: 96,  visage: 340, comp: 0.22, titreW: 304 };
+    const titres = String(o.titre).split('<br>'), lines = titres.length;
+    /* Le titre s'arrête avant le portrait : plus large qu'un jour de la
+       semaine (DIMANCHE = 297 px en story), il resserre son corps à la mesure
+       — « MATCH NUL » = 85 px. */
+    const titreSize = Math.min(h.titre, ...titres.map(t => Math.floor(h.titreW / unitWidth(t, 0.015))));
     const subY = 282 - up + Math.round(h.titre * (0.95 * lines + 0.13));
     const subSize = o.subSize ? Math.round(o.subSize * h.sub / 40) : h.sub;
-    const compY = subY + Math.round(subSize * 1.5);
+    const compY = o.sub ? subY + Math.round(subSize * 1.5) : subY + 14;
     const band = { top: 266 - up, visage: h.visage };
-    const img = heroImage(o.hero);
+    const img = 'img' in o ? o.img : heroImage(o.hero);
     /* L'affiche se centre entre le bas de la bande (menton du portrait, ou
-       bas du header sans portrait) et le haut du pied. */
+       bas du header sans portrait) et le haut du pied. Sur la carte résultat
+       c'est l'ensemble affiche + buteurs qui se centre. */
     const bandBottom = FB.isPortrait(img) ? band.top + band.visage + 44 : compY + 76;
-    const notesH = o.notes.length * 50;
+    /* Une ligne micro = 50 px ; un message long passe à la ligne : on compte
+       ses lignes comme le navigateur les coupe (mot à mot, à la mesure) pour
+       que rien ne s'écrive dessous. */
+    const noteW = (t) => unitWidth(t, 0.26, "600 'Inter', sans-serif") * 19;
+    const noteLines = (html) => {
+      let n = 1, w = 0;
+      html.replace(/<[^>]*>/g, '').toUpperCase().split(/\s+/).filter(Boolean).forEach(word => {
+        const ww = noteW(word);
+        if (w && w + noteW(' ') + ww > (FB.vw - 144) * 0.98) { n++; w = ww; } else w += (w ? noteW(' ') : 0) + ww;
+      });
+      return n;
+    };
+    const noteH = o.notes.map(n => 25 + 25 * noteLines(n));
+    const notesH = noteH.reduce((a, b) => a + b, 0);
     const footTop = (hasSponsors ? 1392 : 1512) + down;
-    const duelTop = Math.round((bandBottom + footTop - notesH - FB.duelH(crest)) / 2);
+    const duelH = FB.duelH(crest, o.score);
+    /* Les buteurs prennent ce que l'affiche laisse. Une liste longue (7-8
+       marqueurs avec parrains et message) se resserre d'un bloc plutôt que de
+       toucher le pied : au moins 36 px d'air au-dessus et au-dessous. */
+    const buteurs = o.buteurs || [];
+    let k = crest / 420;
+    const buteursFull = buteurs.length ? 40 * k + FB.buteursH(buteurs.length, k) : 0;
+    if (buteursFull) k *= Math.max(0.55, Math.min(1, (footTop - bandBottom - duelH - notesH - 72 * k) / buteursFull));
+    const buteursGap = Math.round(40 * k);
+    const stackH = duelH + notesH + (buteurs.length ? buteursGap + FB.buteursH(buteurs.length, k) : 0);
+    const duelTop = Math.round((bandBottom + footTop - stackH) / 2);
     const html = `
         ${FB.bg()}
         ${FB.atmosphere(img, band)}
         ${FB.kicker(o.kicker, 238 - up)}
-        ${FB.titre(o.titre, h.titre, 282 - up)}
-        ${FB.sub(o.sub, subY, subSize)}
+        ${FB.titre(o.titre, titreSize, 282 - up + Math.round((h.titre - titreSize) * 0.84), o.color)}
+        ${o.sub ? FB.sub(o.sub, subY, subSize) : ''}
         ${FB.compline(compY, h.comp)}
-        ${FB.colDroite(o.label, FB.timeBlock(h.heure), 238 - up)}
+        ${FB.colDroite(o.label, o.droite ? o.droite(h) : FB.timeBlock(h.heure), 238 - up)}
         ${FB.rail(post ? 1530 : 1420)}
-        ${FB.duel(duelTop, crest)}
-        ${o.notes.map((n, i) => FB.note(n, duelTop + FB.duelH(crest) + 30 + i * 50)).join('')}
+        ${FB.duel(duelTop, crest, o.score)}
+        ${o.notes.map((n, i) => FB.note(n, duelTop + duelH + 30 + noteH.slice(0, i).reduce((a, b) => a + b, 0))).join('')}
+        ${FB.buteurs(buteurs, duelTop + duelH + notesH + buteursGap, k)}
         ${FB.bottom(true, down)}`;
     return { fullBleed: true, html };
   }
@@ -2268,21 +2338,21 @@
     `;
   }
 
-  /* ---- Variant: Recap ---- */
+  /* ---- Variant: Recap — le RÉSULTAT sur l'affiche (Boss 11.10) ----
+     Même carte que l'annonce du match : les deux écussons au centre, noms
+     officiels dessous, et le score final à la place du VS. Le verdict reste
+     le titre du header, le visuel (dernier buteur, sinon rotation / choix du
+     président) passe en atmosphère. Un seul layout, photo ou non. */
   function recapPoster() {
     const win = state.score.home > state.score.away;
     const draw = state.score.home === state.score.away;
-    const resultIcon = win ? trophyIcon(54) : (draw ? handshakeIcon(54) : '');
-    const resultMsg = win ? 'VICTOIRE' : (draw ? 'MATCH NUL' : 'DÉFAITE COURAGEUSE');
-    const resultColor = win ? '#22C55E' : (draw ? '#F59E0B' : '#EF4444');
-    // FCA goal list — plain text under the Atlantic crest block, no border/bg.
     // Sorted by minute. Only FCA scorers; opponent goals never shown.
     const fcaGoals = (state.goals || [])
       .filter(g => g.side === 'home' && g.playerId)
       .sort((a, b) => (a.minute - b.minute) || (a.ts - b.ts));
     /* Regroupement par buteur : un joueur qui marque plusieurs fois tient sur
-       UNE ligne — « 9' + 19' NOM » (Boss 11.08). Source unique, utilisée par le
-       rendu plein cadre comme par la carte de secours. */
+       UNE ligne — « 9' + 19' NOM » (Boss 11.08). TOUS les buteurs, jamais de
+       « + 2 autres ». */
     const parMarqueur = [];
     fcaGoals.forEach(g => {
       const p = BY_ID[g.playerId] || state.guests.find(x => x.id === g.playerId);
@@ -2292,71 +2362,33 @@
       else parMarqueur.push({ p, minutes: [g.minute] });
     });
     const minutesOf = (mins) => mins.slice().sort((a, b) => a - b).map(m => `${m}'`).join(' + ');
-    const atlSubBlock = parMarqueur.length === 0 ? '' : `
-      <div style="margin-top:4px; display:flex; flex-direction:column; align-items:center; gap:6px;">
-        <div style="font-family:'Inter',sans-serif; font-weight:600; font-size:14px; letter-spacing:0.24em; color:rgba(245,184,46,0.9); text-transform:uppercase;">Buteur${parMarqueur.length>1?'s':''}</div>
-        ${parMarqueur.map(({ p, minutes }) => `<div style="font-family:'Oswald',sans-serif; font-weight:700; font-size:22px; line-height:1.15; letter-spacing:0.03em; text-transform:uppercase; color:#fff; white-space:nowrap;"><span style="color:rgba(255,255,255,0.55); font-weight:500; margin-right:6px;">${minutesOf(minutes)}</span>${nameWithC(p)}</div>`).join('')}
-      </div>`;
-    /* Full-bleed système : héros = dernier buteur FCA (photo), sinon rotation */
-    const lastScorer = [...fcaGoals].reverse().map(g => BY_ID[g.playerId]).find(p => p && getCachedPhoto(p));
-    const heroR = lastScorer || heroPlayerFor(state.matchId);
-    /* Même loi que la carte BUT : s'il y a un buteur, c'est lui qu'on voit —
-       la personnalisation du héros ne s'applique qu'au recap sans buteur. */
+    /* Visuel = dernier buteur FCA (recapScorer), sinon rotation. Même loi que
+       la carte BUT : s'il y a un buteur, c'est lui qu'on voit — la
+       personnalisation du héros ne s'applique qu'au recap sans buteur. */
     /* Boss 17.08 · heroOff (choix explicite « aucun visage ») prime sur le
-       dernier buteur : récap plein-cadre avec le FOND seul. */
-    const heroRImg = state.heroOff
+       dernier buteur : la carte tient avec le FOND seul. */
+    const scorer = recapScorer();
+    const img = state.heroOff
       ? null
-      : (lastScorer ? heroImage(lastScorer, false) : heroImage(heroR));
-    if (heroRImg || state.heroOff) {
-      const resultWord = win ? 'VICTOIRE' : (draw ? 'MATCH NUL' : 'DÉFAITE');
-      const resultCol = win ? '#F5B82E' : (draw ? '#FFFFFF' : '#F87171');
-      /* Boss 11.08 : TOUS les buteurs, jamais de « + 2 autres ». Un joueur qui
-         marque plusieurs fois tient sur UNE ligne : « 9' + 19' NOM ». La taille
-         se resserre quand la liste s'allonge pour que tout tienne au propre. */
-      const n = parMarqueur.length;
-      const fsMin = n > 6 ? 20 : n > 4 ? 24 : 28;
-      const fsNom = n > 6 ? 22 : n > 4 ? 26 : 30;
-      const gap   = n > 6 ? 5 : n > 4 ? 6 : 8;
-      /* La liste des buteurs grandit vers le HAUT : son bas reste calé
-         au-dessus du pied, sinon la 4e ligne écrivait sur le lieu (constaté
-         à l'export avec 5 buts). Le matchup se replie s'il n'y a plus la
-         place — les buteurs priment sur les écussons. */
-      const hasSponsors = (state.matchBallSponsors || []).length > 0;
-      const bottomTop = hasSponsors ? 1392 : 1512;      // 1re ligne du pied — les y de FB.bottom()
-      const blocH = 24 + n * (fsNom + gap + 6);
-      const buteursY = bottomTop - blocH - 26;
-      const matchupY = buteursY - (FB.duelH(104) + 22) >= 1040 ? buteursY - (FB.duelH(104) + 22) : null;
-      const buteurRows = parMarqueur.map(({ p, minutes }) => {
-        const mins = minutesOf(minutes);
-        return `<div style="margin-top:${gap}px;"><span style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${fsMin}px; color:${GOLD}; margin-right:14px;">${mins}</span><span style="${dispFontCss(p.lastName)} font-size:${fsNom}px; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.92);">${nameWithC(p)}</span></div>`;
-      }).join('');
-      const html = `
-        ${FB.bg()}
-        ${FB.photo(heroRImg, FB.side('recap'))}
-        ${FB.scrim()}
-        ${FB.kicker('Résultat final · Saison 26/27')}
-        ${FB.titre(resultWord, 150, 282, resultCol)}
-        ${FB.compline(470)}
-        ${FB.colDroite('Score final', FB.chiffre(`${state.homeAway === 'away' ? state.score.away : state.score.home}<span style="opacity:0.55;"> – </span>${state.homeAway === 'away' ? state.score.home : state.score.away}`, 140, '#FFFFFF'))}
-        ${FB.rail()}
-        ${matchupY !== null ? FB.duel(matchupY, 104) : ''}
-        ${n ? `<div style="position:absolute; left:0; right:0; top:${buteursY}px; text-align:center;">
-          <div style="font-family:'Inter', sans-serif; font-weight:700; font-size:15px; letter-spacing:0.32em; text-transform:uppercase; color:${GOLD};">Buteur${n > 1 ? 's' : ''}</div>
-          ${buteurRows}
-        </div>` : ''}
-        ${FB.bottom(true)}`;
-      return { fullBleed: true, html };
-    }
-    return `
-      ${broadcastHeader()}
-      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:1;">
-        <div style="${dispFontCss(resultMsg)} font-size:60px; letter-spacing:0.08em; color:${resultColor}; margin-bottom:48px; text-shadow:0 0 32px ${resultColor}88;">${resultIcon ? `<span style="margin-right:16px;">${resultIcon}</span>` : ''}${resultMsg}</div>
-        ${unifiedScoreRow({ atlSubBlock })}
-        ${customMessageBlock(`${state.kickoff.dayName} ${state.kickoff.dateLabel} ${state.kickoff.year}`)}
-      </div>
-      ${matchBallSponsorsBlock()}
-      ${venueFooter()}
-    `;
+      : (scorer ? heroImage(scorer, false) : heroImage(heroPlayerFor(state.matchId)));
+    const isAway = state.homeAway === 'away';
+    const msg = getCustomMessage();
+    return affichePoster({
+      /* « Résultat final · Saison 26/27 » coiffait le portrait (il finissait à
+         x609, le crâne commence vers x450) : même longueur que les kickers des
+         cartes d'annonce. */
+      kicker: 'Résultat final · 26/27',
+      titre: win ? 'VICTOIRE' : (draw ? 'MATCH NUL' : 'DÉFAITE'),
+      color: win ? '#F5B82E' : (draw ? '#FFFFFF' : '#F87171'),
+      /* la date du match prend la place de l'heure du coup d'envoi */
+      label: state.kickoff.dayName,
+      droite: (h) => `<div style="font-family:'Portugal2025', 'Oswald', sans-serif; font-size:${h.sub}px; line-height:1; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:rgba(255,255,255,0.82);">${state.kickoff.dateLabel} ${state.kickoff.year}</div>`,
+      img,
+      /* domicile à gauche, comme sur l'annonce — state.score.home est NOTRE score */
+      score: isAway ? [state.score.away, state.score.home] : [state.score.home, state.score.away],
+      notes: msg ? [msg] : [],
+      buteurs: parMarqueur.map(({ p, minutes }) => ({ mins: minutesOf(minutes), name: nameWithC(p) })),
+    });
   }
 
   /* ---- Variant: Lineup — vertical pitch with players positioned by formation ----
@@ -2522,8 +2554,12 @@
   function posterHTML() {
     const v = state.variant;
     /* Largeur du canvas de composition pour les briques FB (photo pleine
-       largeur) : le post rend dans un canvas virtuel plus large que 1080. */
-    FB.vw = state.format === 'post' && v !== 'lineup'
+       largeur) : le post rend dans un canvas virtuel plus large que 1080.
+       Seulement pour une variante qui EXISTE en post : le bouton POST resté
+       actif après un matchday ou un résultat composait le coup d'envoi, le
+       direct et la mi-temps (story seulement) sur 1536 px de large — le
+       visage partait à droite, derrière l'heure. */
+    FB.vw = state.format === 'post' && canPost(v)
       ? Math.round(FORMATS.post.w / (FORMATS.post.h / 1920))
       : 1080;
     // Lineup is too dense for 4:5 → force story format for this variant only
@@ -3593,10 +3629,9 @@
     ensureScene(heroScene());
     ensureCrest(getOpp());
     if (state.scorerId) ensureCutout(BY_ID[state.scorerId]);
-    /* dernier buteur FCA = héros du recap : sans lui, le recap retombe en
-       silence sur la photo à fond studio et perd son décalage */
-    const lastHome = [...(state.goals || [])].reverse().find(g => g.side === 'home' && g.playerId);
-    if (lastHome) ensureCutout(BY_ID[lastHome.playerId]);
+    /* dernier buteur FCA = le portrait de la carte résultat : sans son buste
+       détouré, elle reste sans visuel */
+    ensureCutout(recapScorer());
     updatePreview(); updateAppbar(); persistLive();
   }
   function renderAll() { renderSectionTabs(); renderPanel(); syncFormatToggle(); refresh(); }
@@ -3657,10 +3692,8 @@
     if (['matchday', 'kickoff', 'recap'].includes(v)) loads.push(ensureSponsorLogos());
     if (state.heroOff) return loads;
     /* recap : le dernier buteur FCA prime sur tout choix de visuel */
-    const lastHome = v === 'recap' && [...(state.goals || [])]
-      .filter(g => g.side === 'home' && BY_ID[g.playerId])
-      .sort((a, b) => (a.minute - b.minute) || (a.ts - b.ts)).pop();
-    if (lastHome) { loads.push(ensurePhoto(BY_ID[lastHome.playerId])); face(BY_ID[lastHome.playerId]); }
+    const scorer = v === 'recap' && recapScorer();
+    if (scorer) face(scorer);
     else if (state.heroSceneId) loads.push(ensureScene(heroScene()));
     else if (!state.customHeroImage) {
       heroPlayerFor._offset = v === 'kickoff' ? 1 : v === 'halftime' ? 2 : 0;
