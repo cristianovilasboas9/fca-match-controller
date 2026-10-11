@@ -75,13 +75,12 @@ until curl -sL "https://cristianovilasboas9.github.io/fca-match-controller/?v=$(
 | — | `function loadAsset` | LA primitive de chargement d'asset (url → dataURL en cache, une requête en vol par asset, aperçu redessiné à l'arrivée) ; `ensureCrest/ensureCutout/ensurePhoto/ensureScene/ensureSponsorLogos` n'en sont que des alias |
 | — | `function cardAssets` | Les images que la carte EN COURS affiche — ce que l'export attend (6 s max), et rien d'autre |
 | 904-948 | `function broadcastHeader` | Broadcast v2 : header commun (kicker famille + compLabel + n° match + seasonPill + eyebrowPill) + `ghostRoundLabel()` (927) + `neonHalo()` (939) |
-| 994 | `function unifiedScoreRow` | Le score commun à liveScore/halftime/recap |
+| 994 | `function unifiedScoreRow` | Le score des cartes de secours (sans photo) : liveScore / halftime / goal |
 | 1047 | `function venueFooter` | Pied de carte avec lieu + pastille DOM/EXT (DOM bleu / EXT rouge, loi club) |
-| 1077 | `matchBallSponsorsBlock` | Bloc sponsors « Ballon de match » (matchday/kickoff/recap) |
 | 1122 | `function shellWrap` | Coque commune : ring dégradé DOM bleu / EXT rouge (variants à venir), atmosphère, sweep famille, ghost label géant, watermark |
-| — | `duel(top, crest` | `FB.duel` : l'AFFICHE (écussons héros + noms officiels + VS), `FB.atmosphere` (le visuel en atmosphère), `FB.note` |
-| — | `function affichePoster` | Layout unique des cartes d'affiche ; `classicPoster()` (matchday) et `kickoffPoster()` ne font que lui passer leurs textes |
-| 1201-1660 | `function liveScorePoster` | Fonctions de poster des autres variants (`liveScorePoster`, `goalPoster`, `halftimePoster`, `recapPoster`, `lineupPoster`) |
+| — | `duel(top, size` | `FB.duel` : l'AFFICHE (écussons héros + noms officiels + VS, ou le SCORE à la place du VS sur la carte résultat), `FB.buteurs` (buteurs sous l'affiche), `FB.atmosphere` (le visuel en atmosphère), `FB.note` |
+| — | `function affichePoster` | Layout unique des cartes d'affiche ; `classicPoster()` (matchday), `kickoffPoster()` et `recapPoster()` (résultat) ne font que lui passer leurs textes |
+| 1201-1660 | `function liveScorePoster` | Fonctions de poster des autres variants (`liveScorePoster`, `goalPoster`, `halftimePoster`, `lineupPoster`) |
 | 1749-1780 | `function applyMatchFields` | `applyMatchFields(m)` (tous les champs + sous-label fixture-ou-défaut + reset sponsors), `applyMatch(id)` (garde `_userPickedMatch`), `setMatchBrowser(comp)` (filtre d'affichage only) |
 | 1782 | `function panelMatch` | Onglet Match v2 : segmented Amical/Championnat/BCV Cup + liste tappable des fixtures + input Heure (seul champ) + ballons de match |
 | 1946 | `function panelLineup` | UI sélection 11+banc avec compteurs par poste + joueurs invités |
@@ -103,23 +102,24 @@ Toute nouvelle brique s'ajoute à `FB` ET au document.
 
 1. **Photos `.webp` pas `.png`** — le site fc-atlantic-vevey.ch a migré tout en webp. Toute URL en `.png` dans ROSTER → 404 → fallback initiales. Toujours utiliser `.webp`.
 2. **Badges jersey/capitaine clippés** — pattern actuel : conteneur extérieur `position:relative; width:Xpx; height:Xpx;` + wrapper photo intérieur `position:absolute; inset:0; border-radius:50%; overflow:hidden;` + badges en `position:absolute` SIBLINGS du wrapper photo (pas dedans) avec `z-index:3`. Si tu re-fusionnes en un seul div avec `overflow:hidden`, les badges disparaissent.
-3. **Score glow** — `unifiedScoreRow` utilise `getVariant().accent`, pas la constante `ACCENT`. Garder pour cohérence chromatique entre halftime (orange), recap (vert), kickoff (violet).
+3. **Score glow** — `unifiedScoreRow` (cartes de secours live / mi-temps / but) utilise `getVariant().accent`, pas la constante `ACCENT`. Garder pour la cohérence chromatique entre variants.
 4. **COUP D'ENVOI** — depuis le 10.10 le titre tient sur DEUX lignes (« COUP / D'ENVOI », 92px) à gauche du portrait ; sur une ligne il passait sous le visage. Historique : à 150px il débordait, à 120px le 'I' final clippait.
 5. **Jamais de `window.open()` / `navigator.share()` après un await** — iOS expire le geste utilisateur pendant le rendu html2canvas (plusieurs secondes dès qu'une photo est sur la carte) → popup/partage bloqués EN SILENCE. Tout export passe par l'overlay in-app (`openExportOverlay`/`fillExportOverlay`) : appui long → Photos, bouton Partager = tap frais. Le tap sur la CARTE (`#preview-tap`) est le seul déclencheur (les boutons PNG/SHARE ont été supprimés le 15.08).
 6. **Tout fetch d'asset a un timeout** — `fetchAsDataUrl` porte un AbortController 10 s par tentative. Sans ça, un réseau de stade qui flanche gèle l'export pour toujours (spinner infini, verrou `_exporting` bloqué — bug du 15.08). `exportFromCard` a en plus un watchdog 45 s, et fermer le tiroir relâche le verrou (jeton `_exportSeq` posé APRÈS `openExportOverlay()` qui bumpe le jeton en fermant l'ancien tiroir).
-7. **BUILD_TAG dans l'appbar** (`v2026-10-10 · affiche`) — à BUMPER à chaque déploiement. Les PWA iOS servent des snapshots HTML périmés ; le tampon est le seul moyen de savoir ce que le téléphone exécute. Symptôme classique : « ça ne marche pas » alors que WebKit headless passe → vieille version en cache, tuer/réinstaller la PWA.
+7. **BUILD_TAG dans l'appbar** (`v2026-10-11 · resultat`) — à BUMPER à chaque déploiement. Les PWA iOS servent des snapshots HTML périmés ; le tampon est le seul moyen de savoir ce que le téléphone exécute. Symptôme classique : « ça ne marche pas » alors que WebKit headless passe → vieille version en cache, tuer/réinstaller la PWA.
 8. **html2canvas ne clone QUE le poster** (`ignoreElements` dans `renderFullRes`) — bug du 10.10, « ça bug, il faut changer de variant et revenir ». html2canvas clone le DOCUMENT ENTIER dans une iframe et attend, sans timeout, que toutes les `<img>` du clone aient chargé. Le clone embarquait le panneau de réglages : avec l'onglet Match, Compo ou Buts ouvert, des dizaines de vignettes distantes étaient re-demandées à CHAQUE export ; une seule sans réponse sur le réseau du stade et la capture ne finissait jamais (« Rendu trop long », pareil au 2e essai). L'onglet Variant n'a aucune image → d'où le contournement. Ne JAMAIS retirer `ignoreElements`, ne jamais mettre d'URL distante dans le poster.
 9. **L'aperçu suit les caches** — tout chargement d'asset passe par `loadAsset()`, qui redessine l'aperçu à l'arrivée (`scheduleRefresh`). Un cache rempli « à la main » sans redessiner = aperçu périmé jusqu'au prochain changement de variant.
 10. **Jamais d'attente sans borne** — `document.fonts.ready` reste en attente sur WebKit/iOS tant que la page n'a pas fini de charger toutes ses ressources (un CDN qui traîne suffisait à geler le démarrage sur « Chargement… » et l'export). Toute promesse du navigateur se met en course avec `waitMs()`.
 11. **Noms de clubs** — jamais `shortName`, `abbr` ou un littéral dans un poster : `clubNames()` + `fitName()`/`fitDuel()`. « ATLANTIC » seul est interdit, le chiffre d'équipe (II, III, IA…) ne se perd jamais. Détail : DESIGN-SYSTEM-2627.md §5quater.
-12. **Compteurs par poste** — `panelLineup` parse la formation via `FORMATION_ROWS` (6 formations : 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 5-3-2, 3-4-3 ; ex. 4-3-3 → G:1 DEF:4 MIL:3 AT:3) et affiche pastilles vert/orange/rouge. Si la compo ne matche pas la formation, warning visible. Le `lineupPoster` fait du bucketing par `p.position` et place les surplus dans les rangs vides — un défenseur en surplus peut donc finir ailier (warning UI prévient).
+12. **Carte résultat** — le score se pose avec `FB.duel(top, size, score)` et les buteurs avec `FB.buteurs()`, jamais à la main : c'est `affichePoster` qui centre l'ensemble et resserre les buteurs quand la place manque (avant le 10.10 ils écrivaient sur les parrains). On ne liste que NOS buteurs : jamais deux colonnes alignées sous les deux écussons. Toute retouche se valide par `node tests/recap.mjs`. Détail : DESIGN-SYSTEM-2627.md §3ter.
+13. **Compteurs par poste** — `panelLineup` parse la formation via `FORMATION_ROWS` (6 formations : 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 5-3-2, 3-4-3 ; ex. 4-3-3 → G:1 DEF:4 MIL:3 AT:3) et affiche pastilles vert/orange/rouge. Si la compo ne matche pas la formation, warning visible. Le `lineupPoster` fait du bucketing par `p.position` et place les surplus dans les rangs vides — un défenseur en surplus peut donc finir ailier (warning UI prévient).
 
 ## Backlog non bloquant
 
 - Safe zones Insta : story actuelle a 80px de padding interne, Insta demande ~220px haut + 250px bas. `venueFooter` risque d'être masqué par UI Insta sur certains devices.
 - Post format = story scalée à 70%, pas un vrai 4:5 retravaillé. Si Boss fait surtout des stories : low priority.
 - Surplus par poste : warning UI visible mais le placement final reste imparfait. Pourrait bloquer le clic sur un poste plein au lieu d'avertir.
-- ~~Emoji recap~~ : réglé le 15.08 — tous les emojis des posters sont des SVG inline (posterIcon/trophyIcon/handshakeIcon/ballIcon/flameIcon).
+- ~~Emoji recap~~ : réglé le 15.08 — tous les emojis des posters sont des SVG inline (posterIcon/trophyIcon/ballIcon/flameIcon).
 
 ## Si Boss demande un nouveau match (workflow type)
 
@@ -141,7 +141,15 @@ Toute nouvelle brique s'ajoute à `FB` ET au document.
 ## Chantier du 10.10.2026 — export fiable, noms officiels, affiche
 - **Export** — cause racine et correctifs : piège n°8 ci-dessus. En plus : l'export n'attend plus que les images de SA carte (`cardAssets`, 6 s max) au lieu du préchargement des ~45 assets du roster ; la photo de shooting choisie comme visuel est re-téléchargée après une relance ; html2canvas se recharge à la demande ; les invités sont ré-indexés à la reprise d'un snapshot ; un export raté garde le tiroir ouvert avec la raison et un bouton « Réessayer ».
 - **Noms** — piège n°11. `OPPONENTS[].mediumName` / `shortName` sont des replis curés conformes à la loi ; un adversaire venu du bundle prend le nom court du site en repli.
-- **Affiche** — matchday (story + post) et coup d'envoi : les écussons sont le héros (DESIGN-SYSTEM-2627.md §3bis). Le post 4:5 a enfin sa propre mise en page (plus de zones mortes story). Le recap garde l'affiche en rappel compact ; son pied était calculé sur d'anciennes cotes et les buteurs écrivaient sur les parrains — corrigé.
+- **Affiche** — matchday (story + post) et coup d'envoi : les écussons sont le héros (DESIGN-SYSTEM-2627.md §3bis). Le post 4:5 a enfin sa propre mise en page (plus de zones mortes story). Le recap gardait l'affiche en rappel compact (refait le 11.10, section suivante) ; son pied était calculé sur d'anciennes cotes et les buteurs écrivaient sur les parrains — corrigé.
+
+## Chantier du 11.10.2026 — carte résultat
+- **Décision Boss** — « Seulement le résultat final » passe en « logos au centre », comme l'annonce du match validée la veille. En direct, mi-temps et but gardent le visage du joueur en héros : non touchés (exports identiques au pixel près, vérifié).
+- **Le recap = l'affiche avec le score à la place du VS** (story + post) : `recapPoster()` passe par `affichePoster()`. Écussons héros sur leur halo, noms officiels dessous, score final en chiffres du maillot entre les deux (domicile à gauche), verdict en titre du header, date du match à la place de l'heure, dernier buteur en portrait d'atmosphère, buteurs sous l'affiche, puis le pied standard (parrains, lieu, signature). Détail et cotes : DESIGN-SYSTEM-2627.md §3ter.
+- **Arrangement** — deux pistes rendues et comparées (`validation-recap-1011/_essai-A-vs-B.jpg`) : score entre les écussons (retenu) ou en ligne sous les noms (écarté : écussons plus petits, score détaché, plus de place pour les buteurs).
+- **Plus de carte de secours** pour le recap : l'affiche tient sans photo. `matchBallSponsorsBlock()` et `handshakeIcon` ne servaient qu'à elle, supprimés. Le message personnalisé du recap s'affiche maintenant en ligne micro sous les noms (il n'apparaissait pas sur la carte photo).
+- **Inchangé** — le choix du visuel : s'il y a un buteur FCA avec photo, c'est lui qu'on voit, même si une photo de shooting est choisie dans l'onglet Match (loi de la carte BUT) ; « aucun visage » prime sur tout. Seuls NOS buteurs sont listés.
+- **Banc** — `node tests/recap.mjs` vérifie la géométrie de ~4 900 combinaisons par moteur (0 à 8 buteurs × 0 à 3 parrains × story/post × domicile/extérieur × portrait / aucun visuel / photo plein cadre × message × scores à un et deux chiffres) ; `--export` sort les images de validation dans `validation-recap-1011/` (non commité).
 
 ## Features saison 26/27 (juillet 2026)
 - **Onglet Match v2** — array `MATCHES` (26 fixtures : 3 amicaux + 1 BCV Cup + 22 journées de championnat avec n° ACVF, horaires `timeProvisional` quand l'ACVF n'a pas confirmé ; les fixtures de coupe portent leur `competitionSub`). Segmented Amical/Championnat/BCV Cup + liste tappable ; taper un match → `applyMatch()` applique tout et **reset les sponsors** ; seul l'input Heure reste éditable ; `state._userPickedMatch` (posé par le pick ET par l'édition de l'heure) empêche `loadFromSite()` d'écraser le choix. `init()` auto-sélectionne le prochain fixture par date réelle si l'API du site est muette.
@@ -184,6 +192,7 @@ All marketing intelligence and production for this business lives in the marketi
 | Test · smoke | `node tests/smoke.mjs` — boots the app on chromium + webkit (iPhone viewport) and exports one card through the real tap path |
 | Test · export robustness | `node tests/stress.mjs` — seeded random user actions + an export after each, healthy/slow/flaky network, both engines; must end with 0 failure. `node tests/rootcause.mjs` replays each failure mechanism in isolation |
 | Test · club names | `node tests/names.mjs` — naming rule + geometry (no overflow/clipping/overlap) on every card that prints a name |
+| Test · result card | `node tests/recap.mjs` — every block of the recap present, inside the card and touching no other, for every combination of scorers, sponsors, format, home/away, visual and score; `--export --tag apres` → `validation-recap-1011/` |
 | Test · export = preview | `node tests/parity.mjs` — html2canvas export vs the browser's own rendering |
 | Validation images | `node tests/cards.mjs --tag after` → `validation-cartes-1010/` (look at them: the PNG is the truth, never the preview alone) |
 | Build | `n/a` — `index.html` is served as-is by GitHub Pages |
@@ -196,6 +205,6 @@ The 7 poster variants render correctly in-browser (photos load, badges not clipp
 ### Conventions to match (§0.3 Surgical Changes)
 - Single-file architecture: everything lives in `index.html` (fonts base64-inline, crest SVG inline, html2canvas via CDN). No new files, no toolchain.
 - New match = tap it in the Match tab fixture list when it's a season fixture; hand-edits are the fallback: patch the state block (~608-652: opponentSlug, homeAway, competition/competitionSub, matchNumber, venue/venueCity, kickoff, matchBallSponsors) + HTML fallback (~292) only; never rewrite surrounding code.
-- Respect the "Pièges à NE PAS réintroduire" above (`.webp` not `.png`, badge sibling pattern, `getVariant().accent`, html2canvas clones only the poster, assets through `loadAsset()`, bounded waits, club names through `clubNames()`, per-position counters).
+- Respect the "Pièges à NE PAS réintroduire" above (`.webp` not `.png`, badge sibling pattern, `getVariant().accent`, html2canvas clones only the poster, assets through `loadAsset()`, bounded waits, club names through `clubNames()`, result card through `FB.duel`/`FB.buteurs`, per-position counters).
 - The tests run against a hermetic network (`tests/lib.mjs` intercepts every external request and answers from `tests/.cache`, filled from the live site on first use, never committed).
 - Player photos `.webp` from `fc-atlantic-vevey.ch/players/`, club crests `.png` from `/logos/clubs/`; both fetched at runtime and cached as dataURL.

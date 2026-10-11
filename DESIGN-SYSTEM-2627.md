@@ -83,6 +83,58 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
 - Le message du président (onglet Personnaliser) s'affiche en ligne micro sous
   les noms ; il n'apparaissait sur aucune carte photo auparavant.
 
+### 3ter. Carte RÉSULTAT — recap (Boss 11.10)
+
+« Seulement le résultat final » passe lui aussi en « logos au centre ». C'est
+la MÊME affiche que l'annonce (`affichePoster`), avec le score final à la place
+du VS. En direct, mi-temps et but gardent le visage du joueur en héros.
+
+```
+STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1536×1920)
+ 238       kicker (gauche) · jour (droite)     138
+ 282       VERDICT 92 px · date 40 px (droite)       verdict 126 px · date 46 px
+ 266–606   PORTRAIT d'atmosphère (dernier      166–566
+           buteur, sinon rotation / choix)
+ centré    ÉCUSSONS 320 px (module × 0.762),   ÉCUSSONS 427 px (300 px réels)
+           centres à ± 310 de l'axe
+           SCORE Outlined 200 px entre eux     267 px (188 px réels)
+           (140 px dès qu'un côté a deux       186 px (131 px réels)
+           chiffres) · tiret sur l'axe + 2 filets
+ +30       NOMS OFFICIELS 45 px, même corps    60 px
+ +30       message du président (ligne micro)
+ +40       BUTEURS — label 15 px, lignes de    × 1.33
+           44 px : minute or 28 px + nom 30 px
+ 1392…     pied standard (parrains, lieu,      pied descendu de 128
+           signature) — inchangé
+```
+
+- **Arrangement retenu : le score ENTRE les écussons.** L'autre piste (écussons
+  en haut, score en ligne sous les noms) a été rendue et écartée : écussons
+  plus petits (300 px), score détaché des clubs, pile de cinq étages qui écrase
+  les buteurs sur les parrains. Planche : `validation-recap-1011/_essai-A-vs-B.jpg`.
+- **Le score est la vedette, l'écusson reste le héros** : il cède un quart de
+  sa largeur au score (420 → 320 px en story), pas plus — les noms gardent le
+  corps de l'annonce.
+- **Loi domicile / extérieur** : le club à domicile et SES buts à gauche. Le
+  tiret reste sur l'axe de la carte, les chiffres s'y adossent (1 – 0, 10 – 0).
+  Deux corps seulement ; un score hors norme (20 et plus) se resserre à la
+  mesure, il ne touche jamais un écusson.
+- **Verdict** = titre du header : VICTOIRE or `#F5B82E`, MATCH NUL blanc,
+  DÉFAITE rouge doux `#F87171`. La date du match prend la place de l'heure du
+  coup d'envoi (colonne droite) ; plus large qu'un jour de la semaine, le titre
+  resserre son corps (MATCH NUL = 84 px en story) pour ne pas toucher le portrait.
+- **Buteurs** : les nôtres uniquement, TOUS (jamais « + 2 autres »), un joueur
+  qui marque plusieurs fois sur une ligne (« 9' + 19' NOM »). Jusqu'à 4
+  marqueurs : un par ligne. Au-delà : deux par ligne séparés d'un point — une
+  phrase, pas deux colonnes (aucun buteur ne doit sembler appartenir à
+  l'écusson de droite). 8 marqueurs tiennent dans la hauteur de 4.
+- **L'ensemble affiche + message + buteurs se centre** entre la bande du header
+  et le pied. Si la place manque (7-8 marqueurs + parrains + message, surtout
+  en post), le bloc des buteurs se resserre d'un seul tenant : jamais moins de
+  36 px d'air au-dessus du pied, jamais un buteur sur un parrain.
+- **Un seul layout** : la « carte de secours » du recap a disparu, comme celle
+  des cartes d'annonce.
+
 ## 4. Composants (implémentés dans `FB` — index.html)
 
 - `FB.bg()` — radial nuit 9 paliers + nappe basse + aura haut-droite (TOUJOURS bleues)
@@ -90,10 +142,16 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
 - `FB.scrim(topY)` — fondu bas 5 paliers → noir plein
 - `FB.kicker(txt)` / `FB.titre(txt, size)` / `FB.chiffre(txt, size, color)` (Outlined)
 - `FB.rail()` — hashtag vertical
-- `FB.duel(top, crest)` — L'AFFICHE : deux écussons face à face (home à
+- `FB.duel(top, size, score)` — L'AFFICHE : deux écussons face à face (home à
   gauche) sur leur halo, nom officiel dessous (même corps des deux côtés,
-  ajusté par `fitDuel`), VS au centre. `crest` 420 (story) / 560 (post) pour
-  les cartes d'affiche, 104 en simple rappel sur le recap. `FB.duelH(crest)`
+  ajusté par `fitDuel`), VS au centre. `size` = module de l'affiche, 420
+  (story) / 560 (post) : c'est le côté d'un écusson sur une carte d'annonce.
+  Avec `score` = `[domicile, extérieur]` (carte résultat), le score en chiffres
+  du maillot remplace le VS et les écussons lui cèdent de la largeur (× 0.762).
+  `FB.duelH(size, score)` donne la hauteur du bloc.
+- `FB.buteurs(list, y, k)` — buteurs sous l'affiche du résultat : label or +
+  lignes « minute or · nom », un par ligne jusqu'à 4, par paires au-delà.
+  `list` = `[{ mins, name }]`, `k` = échelle du format. `FB.buteursH(n, k)`
   donne la hauteur du bloc.
 - `FB.atmosphere(img, band)` — le visuel en atmosphère des cartes d'affiche
   (portrait centré dans la bande du header, ou photo plein cadre voilée) + la
@@ -113,7 +171,7 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
 | **live** | EN DIRECT (point rouge) / compét° | minute Outlined blanc | score géant · message d'état · venue | rotation |
 | **halftime** | MI-TEMPS / compét° | 45' fixe | score géant · message · venue | rotation |
 | **goal** | compét° micro | minute or | BUT ! or · nom buteur · venue | LE BUTEUR |
-| **recap** | RÉSULTAT FINAL / mot résultat (or/blanc/rouge) | score Outlined | affiche en rappel (`FB.duel(y, 104)`, repliée si les buteurs manquent de place) · buteurs (minutes or) · parrains · venue | dernier buteur FCA, sinon rotation |
+| **recap** | RÉSULTAT FINAL / verdict (or/blanc/rouge) / compét° | jour + date du match | **AFFICHE héros avec le SCORE à la place du VS** (`FB.duel(y, size, score)`) · message · buteurs (minutes or) · parrains · venue | portrait d'atmosphère : dernier buteur FCA, sinon rotation (§3ter) |
 | **lineup** | COMPOSITION / jour+date | formation Outlined | terrain tactique (pas de photo héros) · banc · venue | — |
 
 ## 5bis. Grille verrouillée (audit panel DA, 11.08)
@@ -124,7 +182,7 @@ mesuré les dérives qu'elles corrigent.
 | Élément | Ancre | Règle |
 |---|---|---|
 | Kicker gauche | y238 | bleu `#5E9BFF`, Inter 700, 21px, .34em |
-| Titre display | y282 | rampe FIXE : 156px, ou 126px si > 10 caractères. Jamais d'autre valeur. Exception décidée par Boss le 10.10 : cartes d'affiche en story = 92px (heure 96px), le portrait vit entre les deux |
+| Titre display | y282 | rampe FIXE : 156px, ou 126px si > 10 caractères. Jamais d'autre valeur. Exception décidée par Boss le 10.10 : cartes d'affiche (annonce et résultat) en story = 92px (heure 96px), le portrait vit entre les deux ; un titre plus large qu'un jour de la semaine s'y resserre à la mesure |
 | Colonne droite | y238 (label) | `FB.colDroite(label, chiffre)` — micro-label sur la MÊME ligne de base que le kicker |
 | Ligne compétition | y470-545 | opacité .66 minimum (mesuré 4.4:1 avant, ≥7:1 après) |
 | Info stack | grandit vers le HAUT | dernier pixel de contenu ≤ **y1650** (Instagram masque les 250 derniers px) |
@@ -157,9 +215,9 @@ exposée par le bundle en `photoCutoutUrl`).
   sinon le quota localStorage explose et l'état du match est perdu.
 - **Décalage par variante** (`FB.side`) — deux stories publiées à la suite ne
   montrent jamais l'image au même endroit :
-  live **droite** · mi-temps **gauche** · recap **droite** · but **centré**
-  (c'est le buteur). Matchday et coup d'envoi n'ont plus de buste latéral :
-  portrait centré dans la bande du header (§3bis).
+  live **droite** · mi-temps **gauche** · but **centré** (c'est le buteur).
+  Matchday, coup d'envoi et résultat n'ont plus de buste latéral : portrait
+  centré dans la bande du header (§3bis, §3ter).
 - **Choix du visage** : le président peut fixer le joueur de fond
   (`state.heroPlayerId`, onglet Match). Vide = rotation automatique sans
   répétition. La variante **But** ignore ce choix — son héros est le buteur.
@@ -212,7 +270,7 @@ chaque libellé de l'interface.
   redimensionnée laisse filer sa dernière rangée en liseré au-dessus d'elle :
   la rogner de 3px dans un cadre `overflow:hidden`.
 - **Fallback offline** : pas de photo cachée → layout carte historique (live,
-  mi-temps, but, recap). Matchday et coup d'envoi n'en ont plus besoin.
+  mi-temps, but). Matchday, coup d'envoi et résultat n'en ont plus besoin.
 - **Une ligne reste une ligne** : nom de club, lieu → corps ajusté à la largeur
   mesurée, jamais de retour à la ligne improvisé sur l'élément du dessous.
 - Vérité terrain : export PNG jugé, jamais le preview seul.
