@@ -2046,9 +2046,12 @@
     /* Bande du header : le titre à gauche, l'heure à droite, le portrait
        entre les deux. En story la bande est étroite → corps réduits, et la
        ligne compétition se resserre pour ne pas toucher le portrait. */
-    const h = post ? { titre: 126, sub: 46, heure: 118, visage: 400, comp: 0.3 }
-                   : { titre: 92,  sub: 40, heure: 96,  visage: 340, comp: 0.22 };
-    const lines = String(o.titre).split('<br>').length;
+    const h = post ? { titre: 126, sub: 46, heure: 118, visage: 400, comp: 0.3, titreW: 526 }
+                   : { titre: 92,  sub: 40, heure: 96,  visage: 340, comp: 0.22, titreW: 300 };
+    const titres = String(o.titre).split('<br>'), lines = titres.length;
+    /* Le titre s'arrête avant le portrait : plus large qu'un jour de la
+       semaine (« MATCH NUL »), il resserre son corps à la mesure. */
+    const titreSize = Math.min(h.titre, ...titres.map(t => Math.floor(h.titreW / unitWidth(t, 0.015))));
     const subY = 282 - up + Math.round(h.titre * (0.95 * lines + 0.13));
     const subSize = o.subSize ? Math.round(o.subSize * h.sub / 40) : h.sub;
     const compY = o.sub ? subY + Math.round(subSize * 1.5) : subY + 14;
@@ -2058,7 +2061,11 @@
        bas du header sans portrait) et le haut du pied. Sur la carte résultat
        c'est l'ensemble affiche + buteurs qui se centre. */
     const bandBottom = FB.isPortrait(img) ? band.top + band.visage + 44 : compY + 76;
-    const notesH = o.notes.length * 50;
+    /* Une ligne micro = 50 px ; un message long passe à la ligne, on lui
+       compte sa hauteur (mesurée) pour que rien ne s'écrive dessous. */
+    const noteH = o.notes.map(n => 25 + 25 * Math.max(1, Math.ceil(
+      unitWidth(n.replace(/<[^>]*>/g, '').toUpperCase(), 0.26, "600 'Inter', sans-serif") * 19 / (FB.vw - 144))));
+    const notesH = noteH.reduce((a, b) => a + b, 0);
     const footTop = (hasSponsors ? 1392 : 1512) + down;
     const duelH = FB.duelH(crest, o.score);
     /* Les buteurs prennent ce que l'affiche laisse. Une liste longue (7-8
@@ -2067,7 +2074,7 @@
     const buteurs = o.buteurs || [];
     let k = crest / 420;
     const buteursFull = buteurs.length ? 40 * k + FB.buteursH(buteurs.length, k) : 0;
-    if (buteursFull) k *= Math.min(1, (footTop - bandBottom - duelH - notesH - 72 * k) / buteursFull);
+    if (buteursFull) k *= Math.max(0.55, Math.min(1, (footTop - bandBottom - duelH - notesH - 72 * k) / buteursFull));
     const buteursGap = Math.round(40 * k);
     const stackH = duelH + notesH + (buteurs.length ? buteursGap + FB.buteursH(buteurs.length, k) : 0);
     const duelTop = Math.round((bandBottom + footTop - stackH) / 2);
@@ -2075,13 +2082,13 @@
         ${FB.bg()}
         ${FB.atmosphere(img, band)}
         ${FB.kicker(o.kicker, 238 - up)}
-        ${FB.titre(o.titre, h.titre, 282 - up, o.color)}
+        ${FB.titre(o.titre, titreSize, 282 - up, o.color)}
         ${o.sub ? FB.sub(o.sub, subY, subSize) : ''}
         ${FB.compline(compY, h.comp)}
         ${FB.colDroite(o.label, o.droite ? o.droite(h) : FB.timeBlock(h.heure), 238 - up)}
         ${FB.rail(post ? 1530 : 1420)}
         ${FB.duel(duelTop, crest, o.score)}
-        ${o.notes.map((n, i) => FB.note(n, duelTop + duelH + 30 + i * 50)).join('')}
+        ${o.notes.map((n, i) => FB.note(n, duelTop + duelH + 30 + noteH.slice(0, i).reduce((a, b) => a + b, 0))).join('')}
         ${FB.buteurs(buteurs, duelTop + duelH + notesH + buteursGap, k)}
         ${FB.bottom(true, down)}`;
     return { fullBleed: true, html };

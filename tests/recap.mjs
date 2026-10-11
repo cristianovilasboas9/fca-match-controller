@@ -31,7 +31,7 @@ const CASES = [
   { key: 'draw-0-0',     slug: 'fc-leysin',               ha: 'away', sponsors: 0, goals: [] },
   { key: 'win-10-0',     slug: 'fc-turc-lausanne',        ha: 'home', sponsors: 2, goals: [[3, 0], [9, 0], [15, 1], [22, 2], [31, 0], [44, 3], [56, 1], [63, 4], [79, 5], [90, 2]] },
   { key: 'long-racing',  slug: 'racing-club-lausanne-ii', ha: 'home', sponsors: 2, goals: [[9, 2], [19, 2], [35, 'opp'], [72, 5]] },
-  { key: 'long-latour',  slug: 'cs-la-tour-de-peilz-ii',  ha: 'away', sponsors: 0, goals: [[28, 'opp'], [61, 3], [84, 6]] },
+  { key: 'long-latour',  slug: 'cs-la-tour-de-peilz-ii',  ha: 'away', sponsors: 0, goals: [[28, 'opp'], [61, 3], [84, 6]], message: 'Trois points ramenés de La Tour' },
   { key: 'shooting',     slug: 'fc-slavia-ls',            ha: 'away', sponsors: 0, goals: [[14, 'g1'], [48, 'opp'], [66, 'g2'], [90, 'g1']], shooting: 3 },
   { key: 'sans-visuel',  slug: 'fc-saint-legier-iii',     ha: 'away', sponsors: 0, goals: [[20, 0], [75, 'opp']], heroOff: true },
 ].filter(c => !arg('only', '') || arg('only', '').split(',').includes(c.key));
@@ -95,6 +95,7 @@ if (doExport) {
       state.minute = 90;
       state.heroOff = !!c.heroOff;
       state.matchBallSponsors = SPONSORS.slice(0, c.sponsors);
+      state.customMessage = c.message ? { recap: c.message } : {};
       renderAll();
     }, { c, SPONSORS });
     await tab('variant');
@@ -143,7 +144,7 @@ for (const engine of engines) {
     for (const format of ['story', 'post'])
     for (const visual of ['portrait', 'none', 'bg'])
     for (const nSponsors of [0, 1, 2, 3])
-    for (const note of ['', 'Merci à tous nos supporters présents au bord du terrain'])
+    for (const note of ['', 'Merci à tous nos supporters', 'Merci à tous nos supporters présents au bord du terrain malgré la pluie, on se retrouve dimanche prochain à la Veyre'])
     for (const nScorers of [0, 1, 2, 3, 4, 5, 6, 7, 8])
     for (const perScorer of nScorers ? [1, 3] : [1]) {
       const M = MATCHES.find(x => x.opponentSlug === slug && x.homeAway === ha);

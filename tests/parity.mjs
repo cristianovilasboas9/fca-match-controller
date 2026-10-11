@@ -23,6 +23,7 @@ const CARDS = [
   { name: 'matchday-away',  variant: 'matchday', format: 'story', slug: 'cs-la-tour-de-peilz-ii', ha: 'away' },
   { name: 'kickoff-story',  variant: 'kickoff',  format: 'story', slug: 'fc-slavia-ls', ha: 'home' },
   { name: 'recap-story',    variant: 'recap',    format: 'story', slug: 'racing-club-lausanne-ii', ha: 'home', goals: 2 },
+  { name: 'recap-post',     variant: 'recap',    format: 'post',  slug: 'fc-slavia-ls', ha: 'away', goals: 6 },
 ];
 const srv = await startServer(path.resolve(arg('root', ROOT)));
 let failures = 0;
