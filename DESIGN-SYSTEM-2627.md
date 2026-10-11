@@ -116,8 +116,12 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
   plus petits (300 px), score détaché des clubs, pile de cinq étages qui écrase
   les buteurs sur les parrains. Planche : `validation-recap-1011/_essai-A-vs-B.jpg`.
 - **Le score est la vedette, l'écusson reste le héros** : il cède un quart de
-  sa largeur au score (420 → 320 px en story), pas plus — les noms gardent le
-  corps de l'annonce.
+  sa largeur au score (420 → 320 px en story), pas plus. Les noms gardent le
+  corps nominal de l'annonce (45 / 60 px) ; en story la place sous un écusson
+  passe de 406 à 316 px, donc les plus longs se resserrent (FC RAPID-MONTREUX
+  II 39 px, FC MONTREUX-SPORTS II et CS LA TOUR-DE-PEILZ II 37 px) et RACING
+  CLUB LAUSANNE II prend sa forme curée RACING CLUB LS II — la loi §5quater,
+  rien de plus. En post tous les noms officiels tiennent en entier.
 - **Loi domicile / extérieur** : le club à domicile et SES buts à gauche. Le
   tiret reste sur l'axe de la carte, les chiffres s'y adossent (1 – 0, 10 – 0).
   Deux corps seulement ; un score hors norme (20 et plus) se resserre à la
@@ -125,7 +129,7 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
 - **Verdict** = titre du header : VICTOIRE or `#F5B82E`, MATCH NUL blanc,
   DÉFAITE rouge doux `#F87171`. La date du match prend la place de l'heure du
   coup d'envoi (colonne droite) ; plus large qu'un jour de la semaine, le titre
-  resserre son corps (MATCH NUL = 84 px en story, même ligne de base) : mesuré
+  resserre son corps (MATCH NUL = 85 px en story, même ligne de base) : mesuré
   sur les 28 bustes de l'effectif, les cheveux descendent jusqu'à x386 à cette
   hauteur. Le kicker s'arrête lui aussi avant le crâne : « RÉSULTAT FINAL ·
   26/27 » (x474), pas « … · SAISON 26/27 » (x609, il coiffait le portrait).
@@ -142,6 +146,10 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
   et le pied. Si la place manque (7-8 marqueurs + parrains + message, surtout
   en post), le bloc des buteurs se resserre d'un seul tenant : jamais moins de
   36 px d'air au-dessus du pied, jamais un buteur sur un parrain.
+- **Le portrait** : le dernier but FCA (à la minute) d'un joueur qui a un buste
+  détouré — `recapScorer()`, UNE définition pour le poster, l'aperçu et
+  l'export. Un invité buteur n'a pas de portrait : la carte retombe sur le
+  visuel choisi (rotation, shooting, import). « Aucun visage » prime sur tout.
 - **Un seul layout** : la « carte de secours » du recap a disparu, comme celle
   des cartes d'annonce.
 

@@ -129,6 +129,10 @@ for (const engine of engines) {
     const pool = ROSTER.filter(p => !p.isGuest && p._active !== false && CUTOUT_CACHE[p.cutoutUrl])
       .sort((a, b) => b.lastName.length - a.lastName.length).slice(0, 8);
     S.captainId = pool[0].id;
+    /* eight guest scorers (no portrait): with them the president's full-frame visual is the one shown */
+    const guests = ['Pinheiro da Fonseca', 'Vasconcelos Teixeira', 'Krasniqi', 'De Oliveira Santos', 'Müller', 'Ben Abdallah', 'Rodrigues', 'Saint-Exupéry']
+      .map((lastName, i) => ({ id: 'guest-geom-' + i, jerseyDisplay: String(60 + i), firstName: 'Invité', lastName, position: 'AT', isGuest: true }));
+    guests.forEach(g => { BY_ID[g.id] = g; });
     const sponsors = (() => { const m = new Map(); MATCHES.forEach(x => ballSponsorsFor(x.id).forEach(s => m.set(s.name, s))); return [...m.values()]; })();
     while (sponsors.length < 3) sponsors.push({ name: 'Parrain ' + sponsors.length, abbr: 'P' + sponsors.length });
     await Promise.all(sponsors.map(s => loadAsset(SPONSOR_CACHE, s.logoUrl, s.logoUrl)));
@@ -144,17 +148,21 @@ for (const engine of engines) {
     for (const format of ['story', 'post'])
     for (const visual of ['portrait', 'none', 'bg'])
     for (const nSponsors of [0, 1, 2, 3])
-    for (const note of ['', 'Merci à tous nos supporters', 'Merci à tous nos supporters présents au bord du terrain malgré la pluie, on se retrouve dimanche prochain à la Veyre'])
+    for (const note of ['', 'Merci à tous nos supporters',
+      'Soirée raclette du club samedi prochain à la buvette, inscriptions auprès du comité, toutes les familles des juniors',
+      'Merci à tous nos supporters présents au bord du terrain malgré la pluie, on se retrouve dimanche prochain à la Veyre pour la réception du leader'])
     for (const nScorers of [0, 1, 2, 3, 4, 5, 6, 7, 8])
     for (const perScorer of nScorers ? [1, 3] : [1]) {
       const M = MATCHES.find(x => x.opponentSlug === slug && x.homeAway === ha);
       applyMatchFields(M);
       const conceded = [0, 3, 12][n % 3];
       const goals = [];
-      for (let i = 0; i < nScorers; i++) for (let j = 0; j < perScorer; j++) goals.push({ minute: 3 + i * 9 + j * 31, playerId: pool[i].id, side: 'home', ts: goals.length + 1 });
+      const scorers = visual === 'bg' ? guests : pool;
+      for (let i = 0; i < nScorers; i++) for (let j = 0; j < perScorer; j++) goals.push({ minute: 3 + i * 9 + j * 31, playerId: scorers[i].id, side: 'home', ts: goals.length + 1 });
       if (!nScorers && n % 2) goals.push({ minute: 50, playerId: '', side: 'home', ts: 1 });   // a goal without a scorer
       for (let i = 0; i < conceded; i++) goals.push({ minute: 5 + i * 7, playerId: '', side: 'away', ts: goals.length + 1 });
-      Object.assign(S, { variant: 'recap', format, goals, heroOff: visual === 'none', customHeroImage: visual === 'bg' ? BG : '', heroSceneId: '', sceneId: '',
+      /* heroPlayerId: without a scorer the portrait is the president's pick — a player whose cut-out is in */
+      Object.assign(S, { variant: 'recap', format, goals, heroOff: visual === 'none', customHeroImage: visual === 'bg' ? BG : '', heroSceneId: '', sceneId: '', heroPlayerId: pool[1].id,
         score: { home: goals.filter(g => g.side === 'home').length, away: conceded },
         matchBallSponsors: sponsors.slice(0, nSponsors), customMessage: { recap: note } });
       n++;
@@ -215,6 +223,10 @@ for (const engine of engines) {
         const [dl, dr] = digits.map(ink);
         if (dl.l - a.r < 10 || b.l - dr.r < 10) problems.push(`score trop près d'un écusson (${Math.round(dl.l - a.r)} / ${Math.round(b.l - dr.r)} px)`);
         if (Math.abs((dl.r + dr.l) / 2 - P.width / 2) > 2) problems.push('le tiret du score n\'est pas sur l\'axe de la carte');
+        /* the visual that was asked for is the one on the card */
+        const portrait = node.querySelector('[style*="opacity:0.74"]'), full = node.querySelector('[style*="background-size:cover"]');
+        if (!!portrait !== (visual === 'portrait') || !!full !== (visual === 'bg')) problems.push(`visuel attendu « ${visual} » : portrait ${!!portrait}, plein cadre ${!!full}`);
+        if (portrait && nScorers && !portrait.style.backgroundImage.includes(CUTOUT_CACHE[pool[nScorers - 1].cutoutUrl].slice(0, 120))) problems.push('le portrait n\'est pas celui du dernier buteur');
         /* no face behind a crest: the head ends above the crests */
         if (visual === 'portrait') {
           const headBottom = (format === 'post' ? 166 + 400 : 266 + 340) * (format === 'post' ? P.height / 1920 : 1);
@@ -225,7 +237,7 @@ for (const engine of engines) {
       if (rows.length !== nScorers) problems.push(`${rows.length} ligne(s) de buteur pour ${nScorers} buteur(s)`);
       rows.forEach((el, i) => {
         add(`buteur ${i + 1}`, el);
-        const p = pool[i], t = el.textContent;
+        const p = scorers[i], t = el.textContent;
         if (!t.includes(p.lastName.toUpperCase())) problems.push(`buteur ${i + 1} : nom absent (« ${t} »)`);
         goals.filter(g => g.playerId === p.id).forEach(g => { if (!t.includes(g.minute + "'")) problems.push(`buteur ${i + 1} : minute ${g.minute}' absente`); });
       });
@@ -251,6 +263,9 @@ for (const engine of engines) {
         const a = blocks[i], b = blocks[j];
         if (a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b) problems.push(`${a.name} chevauche ${b.name}`);
       }
+      /* a message that wraps keeps its distance from the scorers label */
+      const msg = blocks.find(b => b.name === 'message'), lab = blocks.find(b => b.name === 'label buteurs');
+      if (msg && lab && lab.t - msg.b < 14 * P.height / (format === 'post' ? 1350 : 1920)) problems.push(`message à ${Math.round(lab.t - msg.b)} px du label des buteurs`);
       /* scorers never near the foot: air above the sponsors (or the venue line) */
       const foot = blocks.find(b => b.name === 'parrains') || blocks.find(b => b.name === 'lieu');
       const last = blocks.filter(b => /^buteur |^message$|^nom /.test(b.name)).reduce((m, b) => Math.max(m, b.b), 0);
@@ -259,13 +274,47 @@ for (const engine of engines) {
       out.push({ id, problems, air: Math.round(air) });
     }
     stage.remove();
+    guests.forEach(g => { delete BY_ID[g.id]; });
+
+    /* ---------- the scorer's portrait: one definition for the poster, the preview and the export ---------- */
+    const visuel = [];
+    const until = async (fn, ms = 6000) => { const t0 = Date.now(); while (!fn() && Date.now() - t0 < ms) await new Promise(r => setTimeout(r, 60)); return !!fn(); };
+    const guest = { id: 'guest-geom-x', jerseyDisplay: '77', firstName: 'Invité', lastName: 'Moreira', position: 'AT', isGuest: true };
+    BY_ID[guest.id] = guest;
+    const [a, b] = pool;
+    const set = (goals) => Object.assign(S, { variant: 'recap', format: 'story', heroOff: false, customHeroImage: '', heroSceneId: '', heroPlayerId: '', goals,
+      score: { home: goals.filter(g => g.side === 'home').length, away: 0 } });
+    const shows = (p) => { const el = document.createElement('div'); el.innerHTML = posterHTML(); const po = el.querySelector('[style*="opacity:0.74"]');
+      return !!po && !!CUTOUT_CACHE[p.cutoutUrl] && po.style.backgroundImage.includes(CUTOUT_CACHE[p.cutoutUrl].slice(0, 120)); };
+    /* A · a roster player scores, a guest scores last, the cut-out is not in yet (app relaunched): the export fetches it */
+    set([{ minute: 10, playerId: a.id, side: 'home', ts: 1 }, { minute: 70, playerId: guest.id, side: 'home', ts: 2 }]);
+    delete CUTOUT_CACHE[a.cutoutUrl];
+    await Promise.race([Promise.all(cardAssets()), new Promise(r => setTimeout(r, 6000))]);
+    if (!shows(a)) visuel.push('A · buteur de l\'effectif puis invité : le portrait du buteur manque après le chargement de la carte');
+    /* B · goals entered out of order: the preview asks for the cut-out of the last goal by the clock */
+    set([{ minute: 80, playerId: b.id, side: 'home', ts: 1 }, { minute: 20, playerId: a.id, side: 'home', ts: 2 }]);
+    delete CUTOUT_CACHE[b.cutoutUrl];
+    refresh();
+    if (!(await until(() => CUTOUT_CACHE[b.cutoutUrl])) || !shows(b)) visuel.push('B · buts saisis dans le désordre : l\'aperçu ne demande pas le buste du dernier buteur à la minute');
+    /* C · a guest is the only scorer and a shooting photo is the visual: the export waits for that photo */
+    const scene = SCENES.find(x => x.group === 'shooting');
+    if (!scene) visuel.push('C · aucune photo de shooting dans le bundle');
+    else {
+      set([{ minute: 30, playerId: guest.id, side: 'home', ts: 1 }]);
+      S.heroSceneId = scene.id; delete SCENE_CACHE[scene.url];
+      await Promise.race([Promise.all(cardAssets()), new Promise(r => setTimeout(r, 6000))]);
+      if (!SCENE_CACHE[scene.url] || !posterHTML().includes('background-size:cover')) visuel.push('C · invité seul buteur + photo de shooting : l\'export ne l\'attend pas');
+    }
+    delete BY_ID[guest.id];
     Object.assign(S, JSON.parse(backup)); renderAll();
-    return out;
+    return { out, visuel };
   });
-  const bad = report.filter(r => r.problems.length);
+  const { out: cards, visuel } = report;
+  const bad = cards.filter(r => r.problems.length);
   const jsErrors = errors.filter(e => e.kind === 'pageerror');
-  failures += bad.length + jsErrors.length;
-  console.log(`[${engine}] ${report.length} cartes résultat vérifiées · ${bad.length} en défaut · air mini au-dessus du pied ${Math.min(...report.map(r => r.air))} px · erreurs JS : ${jsErrors.length}`);
+  failures += bad.length + jsErrors.length + visuel.length;
+  console.log(`[${engine}] ${cards.length} cartes résultat vérifiées · ${bad.length} en défaut · air mini au-dessus du pied ${Math.min(...cards.map(r => r.air))} px · visuel du buteur : ${visuel.length} défaut(s) · erreurs JS : ${jsErrors.length}`);
+  visuel.forEach(v => console.log('  ✗ ' + v));
   bad.slice(0, 30).forEach(r => console.log(`  ✗ ${r.id}\n      ${[...new Set(r.problems)].join('\n      ')}`));
   if (bad.length > 30) {
     const kinds = new Map();

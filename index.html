@@ -1094,6 +1094,17 @@
     if (_refreshQueued) return;
     _refreshQueued = setTimeout(() => { _refreshQueued = 0; refresh(); }, 80);
   }
+  /* Le buteur que montre la carte résultat : le DERNIER but FCA (à la minute,
+     puis dans l'ordre de saisie) d'un joueur qui a un portrait détouré. UNE
+     définition pour le poster, l'aperçu (refresh) et l'export (cardAssets) :
+     à trois définitions, un invité buteur ou un but saisi dans le désordre
+     laissait la carte sans visuel (le buste attendu n'était jamais demandé). */
+  function recapScorer() {
+    const g = [...(state.goals || [])]
+      .filter(g => g.side === 'home' && BY_ID[g.playerId] && BY_ID[g.playerId].cutoutUrl)
+      .sort((a, b) => (a.minute - b.minute) || (a.ts - b.ts)).pop();
+    return g ? BY_ID[g.playerId] : null;
+  }
   function heroImage(p, allowCustom = true) {
     /* Visage explicitement retiré → carte nette (fond + texte seuls). */
     if (allowCustom && state.heroOff) return null;
@@ -1870,8 +1881,10 @@
                  d'annonce c'est le côté d'un écusson.
          score : [domicile, extérieur] — carte RÉSULTAT (Boss 11.10). Le score
                  prend la place du VS, en chiffres du maillot ; les écussons lui
-                 cèdent de la largeur (×0.76) et s'écartent, les noms gardent
-                 le corps de l'annonce.
+                 cèdent de la largeur (×0.76) et s'écartent. Les noms gardent
+                 le corps nominal de l'annonce (45 / 60), mais la place sous un
+                 écusson passe de 406 à 316 px en story : les plus longs se
+                 resserrent ou prennent leur forme curée (loi §5quater).
        FB.duelH(size, score) donne la hauteur totale du bloc (écusson + nom). */
     duelSpec(size, score) {
       return {
@@ -2060,10 +2073,11 @@
        entre les deux. En story la bande est étroite → corps réduits, et la
        ligne compétition se resserre pour ne pas toucher le portrait. */
     const h = post ? { titre: 126, sub: 46, heure: 118, visage: 400, comp: 0.3, titreW: 526 }
-                   : { titre: 92,  sub: 40, heure: 96,  visage: 340, comp: 0.22, titreW: 300 };
+                   : { titre: 92,  sub: 40, heure: 96,  visage: 340, comp: 0.22, titreW: 304 };
     const titres = String(o.titre).split('<br>'), lines = titres.length;
     /* Le titre s'arrête avant le portrait : plus large qu'un jour de la
-       semaine (« MATCH NUL »), il resserre son corps à la mesure. */
+       semaine (DIMANCHE = 297 px en story), il resserre son corps à la mesure
+       — « MATCH NUL » = 85 px. */
     const titreSize = Math.min(h.titre, ...titres.map(t => Math.floor(h.titreW / unitWidth(t, 0.015))));
     const subY = 282 - up + Math.round(h.titre * (0.95 * lines + 0.13));
     const subSize = o.subSize ? Math.round(o.subSize * h.sub / 40) : h.sub;
@@ -2074,10 +2088,19 @@
        bas du header sans portrait) et le haut du pied. Sur la carte résultat
        c'est l'ensemble affiche + buteurs qui se centre. */
     const bandBottom = FB.isPortrait(img) ? band.top + band.visage + 44 : compY + 76;
-    /* Une ligne micro = 50 px ; un message long passe à la ligne, on lui
-       compte sa hauteur (mesurée) pour que rien ne s'écrive dessous. */
-    const noteH = o.notes.map(n => 25 + 25 * Math.max(1, Math.ceil(
-      unitWidth(n.replace(/<[^>]*>/g, '').toUpperCase(), 0.26, "600 'Inter', sans-serif") * 19 / (FB.vw - 144))));
+    /* Une ligne micro = 50 px ; un message long passe à la ligne : on compte
+       ses lignes comme le navigateur les coupe (mot à mot, à la mesure) pour
+       que rien ne s'écrive dessous. */
+    const noteW = (t) => unitWidth(t, 0.26, "600 'Inter', sans-serif") * 19;
+    const noteLines = (html) => {
+      let n = 1, w = 0;
+      html.replace(/<[^>]*>/g, '').toUpperCase().split(/\s+/).filter(Boolean).forEach(word => {
+        const ww = noteW(word);
+        if (w && w + noteW(' ') + ww > (FB.vw - 144) * 0.98) { n++; w = ww; } else w += (w ? noteW(' ') : 0) + ww;
+      });
+      return n;
+    };
+    const noteH = o.notes.map(n => 25 + 25 * noteLines(n));
     const notesH = noteH.reduce((a, b) => a + b, 0);
     const footTop = (hasSponsors ? 1392 : 1512) + down;
     const duelH = FB.duelH(crest, o.score);
@@ -2339,15 +2362,15 @@
       else parMarqueur.push({ p, minutes: [g.minute] });
     });
     const minutesOf = (mins) => mins.slice().sort((a, b) => a - b).map(m => `${m}'`).join(' + ');
-    /* Visuel = dernier buteur FCA (photo), sinon rotation */
-    const lastScorer = [...fcaGoals].reverse().map(g => BY_ID[g.playerId]).find(p => p && getCachedPhoto(p));
-    /* Même loi que la carte BUT : s'il y a un buteur, c'est lui qu'on voit —
-       la personnalisation du héros ne s'applique qu'au recap sans buteur. */
+    /* Visuel = dernier buteur FCA (recapScorer), sinon rotation. Même loi que
+       la carte BUT : s'il y a un buteur, c'est lui qu'on voit — la
+       personnalisation du héros ne s'applique qu'au recap sans buteur. */
     /* Boss 17.08 · heroOff (choix explicite « aucun visage ») prime sur le
        dernier buteur : la carte tient avec le FOND seul. */
+    const scorer = recapScorer();
     const img = state.heroOff
       ? null
-      : (lastScorer ? heroImage(lastScorer, false) : heroImage(heroPlayerFor(state.matchId)));
+      : (scorer ? heroImage(scorer, false) : heroImage(heroPlayerFor(state.matchId)));
     const isAway = state.homeAway === 'away';
     const msg = getCustomMessage();
     return affichePoster({
@@ -3602,10 +3625,9 @@
     ensureScene(heroScene());
     ensureCrest(getOpp());
     if (state.scorerId) ensureCutout(BY_ID[state.scorerId]);
-    /* dernier buteur FCA = héros du recap : sans lui, le recap retombe en
-       silence sur la photo à fond studio et perd son décalage */
-    const lastHome = [...(state.goals || [])].reverse().find(g => g.side === 'home' && g.playerId);
-    if (lastHome) ensureCutout(BY_ID[lastHome.playerId]);
+    /* dernier buteur FCA = le portrait de la carte résultat : sans son buste
+       détouré, elle reste sans visuel */
+    ensureCutout(recapScorer());
     updatePreview(); updateAppbar(); persistLive();
   }
   function renderAll() { renderSectionTabs(); renderPanel(); syncFormatToggle(); refresh(); }
@@ -3666,10 +3688,8 @@
     if (['matchday', 'kickoff', 'recap'].includes(v)) loads.push(ensureSponsorLogos());
     if (state.heroOff) return loads;
     /* recap : le dernier buteur FCA prime sur tout choix de visuel */
-    const lastHome = v === 'recap' && [...(state.goals || [])]
-      .filter(g => g.side === 'home' && BY_ID[g.playerId])
-      .sort((a, b) => (a.minute - b.minute) || (a.ts - b.ts)).pop();
-    if (lastHome) { loads.push(ensurePhoto(BY_ID[lastHome.playerId])); face(BY_ID[lastHome.playerId]); }
+    const scorer = v === 'recap' && recapScorer();
+    if (scorer) face(scorer);
     else if (state.heroSceneId) loads.push(ensureScene(heroScene()));
     else if (!state.customHeroImage) {
       heroPlayerFor._offset = v === 'kickoff' ? 1 : v === 'halftime' ? 2 : 0;
