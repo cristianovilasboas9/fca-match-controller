@@ -339,7 +339,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-11 · resultat</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-17 · csc</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -854,6 +854,12 @@
   // (_active=false, ex. Tiago Vilas Boas) n'y apparaissent PLUS — ils ne
   // restent lisibles que pour l'historique via BY_ID.
   const allPlayers = () => [...ROSTER.filter(p => p._active !== false), ...state.guests];
+  /* But contre son camp de l'adversaire (Boss 17.10) : un but FCA sans
+     buteur à nous. Il vit dans state.goals comme les autres (side 'home'),
+     avec ce playerId réservé : il compte au score, se corrige et se retire
+     comme un but nommé, mais ce n'est jamais un joueur (ni visage, ni nom). */
+  const OWN_GOAL_ID = 'csc';
+  const isOwnGoal = (g) => !!g && g.playerId === OWN_GOAL_ID;
 
   /* Candidats au rôle de visage : les convoqués d'abord (ils jouent), sinon
      tout l'effectif actif avec photo. */
@@ -1323,6 +1329,14 @@
     }
     if (v === 'goal') {
       if (state.scorerSide === 'home') {
+        if (state.scorerId === OWN_GOAL_ID) {
+          const og = [...(state.goals || [])].reverse().find(isOwnGoal);
+          return {
+            hook: `⚽⚽⚽ BUT À LA ${og ? og.minute : state.minute}' !`,
+            body: `Contre son camp de ${oppName} : le ballon est au fond, ${sh} — ${sa} pour les ${nickPlural} !\n\nScore : ${sh} — ${sa} face à ${oppName}.`,
+            tags: `${tagsBase} #But`,
+          };
+        }
         const sc = BY_ID[state.scorerId];
         if (!sc) {
           return {
@@ -1359,6 +1373,7 @@
       const homeGoals = (state.goals || []).filter(g => g.side === 'home');
       const scorersLine = homeGoals.length > 0
         ? '\n\nButeur' + (homeGoals.length > 1 ? 's' : '') + ' : ' + homeGoals.map(g => {
+            if (isOwnGoal(g)) return `CSC (${g.minute}')`;
             const p = BY_ID[g.playerId];
             return p ? `${p.firstName} ${p.lastName.toUpperCase()} (${g.minute}')` : '';
           }).filter(Boolean).join(', ')
@@ -2061,13 +2076,14 @@
      Carte RÉSULTAT (Boss 11.10) — même affiche, le score à la place du VS :
      o.score [domicile, extérieur], o.buteurs (liste sous l'affiche), o.color
      (teinte du verdict), o.droite (colonne droite à la place de l'heure),
-     o.img (visuel déjà résolu : le dernier buteur). */
+     o.img (visuel déjà résolu : le dernier buteur).
+     o.sponsors === false : pas de parrains (carte BUT contre son camp). */
   function affichePoster(o) {
     const post = state.format === 'post';
     /* Le 4:5 n'a pas les zones mortes d'une story Instagram : le header
        monte, le pied descend, l'affiche prend la place libérée. */
     const up = post ? 100 : 0, down = post ? 128 : 0;
-    const hasSponsors = (state.matchBallSponsors || []).length > 0;
+    const hasSponsors = o.sponsors !== false && (state.matchBallSponsors || []).length > 0;
     const crest = post ? 560 : 420;
     /* Bande du header : le titre à gauche, l'heure à droite, le portrait
        entre les deux. En story la bande est étroite → corps réduits, et la
@@ -2126,7 +2142,7 @@
         ${FB.duel(duelTop, crest, o.score)}
         ${o.notes.map((n, i) => FB.note(n, duelTop + duelH + 30 + noteH.slice(0, i).reduce((a, b) => a + b, 0))).join('')}
         ${FB.buteurs(buteurs, duelTop + duelH + notesH + buteursGap, k)}
-        ${FB.bottom(true, down)}`;
+        ${FB.bottom(o.sponsors !== false, down)}`;
     return { fullBleed: true, html };
   }
   function classicPoster() {
@@ -2217,6 +2233,27 @@
         </div>
         ${venueFooter()}
       `;
+    }
+    /* But contre son camp de l'adversaire (Boss 17.10) : pas de buteur à
+       nous, donc ni visage ni nom. La carte devient l'AFFICHE (§3ter) avec le
+       score à la place du VS : « BUT ! » or, « contre son camp » dessous, la
+       minute du but à droite. Jamais la carte « sélectionne le buteur ». */
+    if (state.scorerId === OWN_GOAL_ID) {
+      const og = [...(state.goals || [])].reverse().find(isOwnGoal);
+      const msg = getCustomMessage();
+      return affichePoster({
+        kicker: 'But · Saison 26/27',
+        titre: 'BUT !',
+        color: GOLD,
+        sub: 'Contre son camp',
+        label: 'Minute',
+        droite: (h) => FB.chiffre(`${og ? og.minute : (state.minute || 0)}'`, h.heure, GOLD),
+        img: null,
+        /* domicile à gauche — state.score.home est NOTRE score */
+        score: state.homeAway === 'away' ? [state.score.away, state.score.home] : [state.score.home, state.score.away],
+        notes: msg ? [msg] : [],
+        sponsors: false,
+      });
     }
     const sc = BY_ID[state.scorerId] || state.guests.find(g => g.id === state.scorerId);
     /* Minute DU BUT (dernière réalisation de ce buteur), pas la minute
@@ -2355,7 +2392,8 @@
        « + 2 autres ». */
     const parMarqueur = [];
     fcaGoals.forEach(g => {
-      const p = BY_ID[g.playerId] || state.guests.find(x => x.id === g.playerId);
+      /* un CSC adverse est listé « CSC » à sa minute, jamais comme un joueur */
+      const p = isOwnGoal(g) ? { id: OWN_GOAL_ID } : (BY_ID[g.playerId] || state.guests.find(x => x.id === g.playerId));
       if (!p) return;
       const hit = parMarqueur.find(x => x.p.id === p.id);
       if (hit) hit.minutes.push(g.minute);
@@ -2387,7 +2425,7 @@
       /* domicile à gauche, comme sur l'annonce — state.score.home est NOTRE score */
       score: isAway ? [state.score.away, state.score.home] : [state.score.home, state.score.away],
       notes: msg ? [msg] : [],
-      buteurs: parMarqueur.map(({ p, minutes }) => ({ mins: minutesOf(minutes), name: nameWithC(p) })),
+      buteurs: parMarqueur.map(({ p, minutes }) => ({ mins: minutesOf(minutes), name: p.id === OWN_GOAL_ID ? 'CSC' : nameWithC(p) })),
     });
   }
 
@@ -2913,7 +2951,7 @@
   }
   function panelGoal() {
     const goalsHtml = state.goals.length === 0
-      ? '<div class="goal-empty">Aucun but encore. Saisis la minute ci-dessus puis clique sur le buteur (ou "+ But adverse").</div>'
+      ? '<div class="goal-empty">Aucun but encore. Saisis la minute ci-dessus puis clique sur le buteur (ou "CSC adverse", ou "+ But adverse").</div>'
       : state.goals.map(g => {
           const p = g.playerId ? BY_ID[g.playerId] : null;
           const name = p ? `${p.firstName} ${p.lastName}` : 'But adverse';
@@ -2927,6 +2965,7 @@
             ${g.side === 'home'
               ? `<select class="g-scorer" data-ts="${g.ts}" aria-label="Buteur">
                    ${allPlayers().map(p => `<option value="${p.id}" ${p.id===g.playerId?'selected':''}>${p.jerseyDisplay} · ${p.lastName.toUpperCase()}</option>`).join('')}
+                   <option value="${OWN_GOAL_ID}" ${isOwnGoal(g)?'selected':''}>CSC · CONTRE SON CAMP</option>
                  </select>`
               : `<span class="g-name">${name}</span>${jersey}`}
             <button class="g-rm" onclick="removeGoal(${g.ts})" aria-label="Retirer">×</button>
@@ -2946,6 +2985,7 @@
       </div>
       ${state.scorerSide === 'home' ? `
         <div class="panel-label" style="margin-top:4px;">Tape sur le buteur <span class="b green">auto +1 + log</span></div>
+        <button id="own-goal-btn" onclick="logOwnGoal()" style="width:100%; margin-bottom:10px; padding:12px; border-radius:10px; border:1px solid rgba(245,184,46,0.55); background:rgba(245,184,46,0.12); color:#F5B82E; font-family:'Inter',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer;">⚽ CSC adverse à la ${state.minute || 0}' · but pour nous sans buteur</button>
         <div class="player-grid" id="scorer-grid">
           ${allPlayers().map(p => `<div class="player-mini ${state.scorerId===p.id?'on':''}${p.isGuest?' is-guest':''}" data-id="${p.id}">
             ${p.isGuest ? '<div class="pguest-tag">INVITÉ</div>' : ''}
@@ -3473,6 +3513,12 @@
   function syncScoreFromGoals() {
     state.score.home = state.goals.filter(g => g.side === 'home').length;
     state.score.away = state.goals.filter(g => g.side === 'away').length;
+    /* La carte « But » ne montre jamais un CSC qui n'existe plus : retiré
+       (×, annuler, −), elle revient au dernier but FCA nommé qui reste. */
+    if (state.scorerId === OWN_GOAL_ID && !state.goals.some(isOwnGoal)) {
+      const last = state.goals.filter(g => g.side === 'home' && g.playerId).pop();
+      state.scorerId = last ? last.playerId : '';
+    }
   }
   /* Retire le but le plus récent d'un camp — anonyme d'abord (un but nommé
      saisi par tap buteur ne saute jamais avant les ajustements manuels). */
@@ -3525,6 +3571,16 @@
     state.goals.push({ minute: state.minute || 0, playerId: '', side: 'away', ts: Date.now() });
     syncScoreFromGoals();
     toast(`😐 ${state.minute || 0}' · But encaissé · ${state.score.home}—${state.score.away}`, 'red');
+    renderPanel(); refresh();
+  };
+  /* But FCA marqué par l'adversaire contre son camp (Boss 17.10) : +1 pour
+     nous sans choisir de joueur ; la carte « But » passe sur l'affiche. */
+  window.logOwnGoal = function() {
+    state.scorerId = OWN_GOAL_ID;
+    state.scorerSide = 'home';
+    state.goals.push({ minute: state.minute || 0, playerId: OWN_GOAL_ID, side: 'home', ts: Date.now() });
+    syncScoreFromGoals();
+    toast(`⚽ ${state.minute || 0}' · CSC adverse · ${state.score.home}—${state.score.away}`);
     renderPanel(); refresh();
   };
   window.resetCaptionField = function(field) {

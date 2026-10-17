@@ -24,6 +24,7 @@ const CARDS = [
   { name: 'kickoff-story',  variant: 'kickoff',  format: 'story', slug: 'fc-slavia-ls', ha: 'home' },
   { name: 'recap-story',    variant: 'recap',    format: 'story', slug: 'racing-club-lausanne-ii', ha: 'home', goals: 2 },
   { name: 'recap-post',     variant: 'recap',    format: 'post',  slug: 'fc-slavia-ls', ha: 'away', goals: 6 },
+  { name: 'goal-csc',       variant: 'goal',     format: 'story', slug: 'fc-aigle-ii', ha: 'away', csc: true },
 ];
 const srv = await startServer(path.resolve(arg('root', ROOT)));
 let failures = 0;
@@ -37,6 +38,7 @@ for (const engine of engines) {
       const S = window.__mc.state;
       applyMatch(window.__mc.MATCHES.find(x => x.opponentSlug === c.slug && x.homeAway === c.ha).id);
       Object.assign(S, { variant: c.variant, format: c.format, heroOff: false, heroSceneId: '', sceneId: '', customHeroImage: '' });
+      if (c.csc) { S.goals = [{ minute: 34, playerId: 'csc', side: 'home', ts: 1 }]; S.scorerId = 'csc'; S.scorerSide = 'home'; syncScoreFromGoals(); }
       if (c.goals) { S.goals = window.__mc.ROSTER.filter(p => p._active !== false && p.photoUrl).slice(3, 3 + c.goals).map((p, i) => ({ minute: 12 + i * 21, playerId: p.id, side: 'home', ts: i + 1 })); syncScoreFromGoals(); }
       renderAll();
     }, c);

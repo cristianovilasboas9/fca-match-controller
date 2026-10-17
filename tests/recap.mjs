@@ -314,6 +314,62 @@ for (const engine of engines) {
       S.format = 'story';
       if (inPost !== posterHTML()) visuel.push(`D · bouton POST resté actif : la carte ${v} (story seulement) n'est plus composée sur 1080 px`);
     }
+    /* E · CSC adverse (Boss 17.10): an FCA goal without a scorer of ours */
+    const leafIn = (root, t) => [...root.querySelectorAll('div, span')].find(el => !el.children.length && el.textContent.trim() === t);
+    const render = (v) => { S.variant = v; const el = document.createElement('div'); el.innerHTML = posterHTML(); return el; };
+    const portraitOf = (el) => el.querySelector('[style*="opacity:0.74"]');
+    const csc = (minute, ts) => ({ minute, playerId: 'csc', side: 'home', ts });
+    for (const ha of ['home', 'away']) {
+      applyMatchFields(MATCHES.find(x => x.opponentSlug === 'fc-slavia-ls' && x.homeAway === ha));
+      /* E1 · CSC only: the goal card is the crest poster, the recap lists « CSC » */
+      set([csc(30, 1)]); S.scorerId = 'csc'; S.scorerSide = 'home';
+      let el = render('goal');
+      const t = el.textContent.replace(/\s+/g, ' ');
+      if (!leafIn(el, 'BUT !') || !/Contre son camp/i.test(t) || !t.includes("30'")) visuel.push(`E1 ${ha} · carte BUT CSC : titre, « contre son camp » ou minute absent`);
+      if (/S[ée]lectionne le buteur/.test(t) || portraitOf(el) || el.querySelector('[style*="background-size:cover"]')) visuel.push(`E1 ${ha} · carte BUT CSC : placeholder ou visage présent`);
+      const crestsG = el.querySelectorAll('[data-crest]').length, digitsG = [...el.querySelectorAll('[data-score]')].map(d => d.textContent.trim()).join('-');
+      if (crestsG !== 2 || digitsG !== (ha === 'home' ? '1-0' : '0-1') || el.querySelector('[data-vs]')) visuel.push(`E1 ${ha} · carte BUT CSC : ${crestsG} écusson(s), score ${digitsG}`);
+      el = render('recap');
+      let rows = [...el.querySelectorAll('[data-buteur]')].map(r => r.textContent.replace(/\s+/g, ' ').trim());
+      if (rows.length !== 1 || !/30'/.test(rows[0]) || !/CSC/.test(rows[0])) visuel.push(`E1 ${ha} · recap : lignes ${JSON.stringify(rows)}`);
+      S.variant = 'goal'; const cap = getCaption();   // defaultCaption() reads state.variant
+      if (!/30'/.test(cap.hook) || !/contre son camp/i.test(cap.body)) visuel.push(`E1 ${ha} · caption but : ${JSON.stringify(cap).slice(0, 140)}`);
+      S.variant = 'recap';
+      if (!/CSC \(30'\)/.test(getCaption().body)) visuel.push(`E1 ${ha} · caption recap sans « CSC (30') »`);
+      /* E2 · CSC between two scorers: chronological lines, the portrait is the last REAL scorer */
+      set([{ minute: 10, playerId: a.id, side: 'home', ts: 1 }, csc(40, 2), { minute: 70, playerId: b.id, side: 'home', ts: 3 }]);
+      el = render('recap');
+      rows = [...el.querySelectorAll('[data-buteur]')].map(r => r.textContent.replace(/\s+/g, ' ').trim());
+      if (rows.length !== 3 || !rows[0].includes(a.lastName.toUpperCase()) || !/40'.*CSC/.test(rows[1]) || !rows[2].includes(b.lastName.toUpperCase())) visuel.push(`E2 ${ha} · recap : lignes ${JSON.stringify(rows)}`);
+      if (!CUTOUT_CACHE[b.cutoutUrl] || !portraitOf(el) || !portraitOf(el).style.backgroundImage.includes(CUTOUT_CACHE[b.cutoutUrl].slice(0, 120))) visuel.push(`E2 ${ha} · recap : le portrait n'est pas celui du dernier vrai buteur`);
+      /* E3 · CSC as the last goal: recapScorer skips it, the goal card is the CSC poster */
+      set([{ minute: 10, playerId: a.id, side: 'home', ts: 1 }, csc(80, 2)]); S.scorerId = 'csc';
+      if (recapScorer() !== a) visuel.push(`E3 ${ha} · recapScorer() ne retombe pas sur le dernier vrai buteur`);
+      el = render('goal');
+      if (!el.textContent.includes("80'") || portraitOf(el) || /S[ée]lectionne/.test(el.textContent)) visuel.push(`E3 ${ha} · carte BUT : pas la carte CSC à la 80'`);
+      /* E4 · removal: the goal card falls back to the last named scorer, the score follows */
+      S.minute = 55; window.logOwnGoal();
+      if (S.score.home !== 3 || S.scorerId !== 'csc') visuel.push(`E4 ${ha} · logOwnGoal : score ${S.score.home}, scorerId ${S.scorerId}`);
+      [...S.goals].filter(g => g.playerId === 'csc').forEach(g => window.removeGoal(g.ts));
+      if (S.score.home !== 1 || S.scorerId !== a.id) visuel.push(`E4 ${ha} · retrait des CSC : score ${S.score.home}, scorerId ${S.scorerId}`);
+      window.undoGoal();
+      if (S.score.home !== 0 || S.scorerId !== a.id && S.scorerId !== '') visuel.push(`E4 ${ha} · annuler : score ${S.score.home}`);
+      /* E5 · geometry of the CSC goal card: inside the card, nothing touching, with a long message */
+      set([csc(90, 1)]); S.scorerId = 'csc'; S.customMessage = { goal: 'Merci à tous nos supporters présents au bord du terrain malgré la pluie, on se retrouve dimanche prochain' };
+      stage.innerHTML = render('goal').innerHTML; document.body.appendChild(stage);
+      const node = stage.querySelector('#poster-node'), P = node.getBoundingClientRect();
+      const rect = (e) => { const rg = document.createRange(); rg.selectNodeContents(e); const r = rg.getBoundingClientRect(); return { n: e.textContent.trim().slice(0, 18), l: r.left - P.left, t: r.top - P.top, r: r.right - P.left, b: r.bottom - P.top }; };
+      const parts = [leafIn(node, 'BUT !'), leafIn(node, 'Contre son camp'), leafIn(node, "90'"), ...node.querySelectorAll('[data-crest], [data-score], [data-club-name]'),
+        leafIn(node, S.customMessage.goal), leafIn(node, 'fc-atlantic-vevey.ch')].filter(Boolean);
+      if (parts.length < 11) visuel.push(`E5 ${ha} · carte BUT CSC : ${parts.length}/11 blocs trouvés`);
+      const R = parts.map(e => e.matches('[data-crest]') ? (({ left, top, right, bottom }) => ({ n: 'écusson', l: left - P.left, t: top - P.top, r: right - P.left, b: bottom - P.top }))(e.getBoundingClientRect()) : rect(e));
+      R.forEach(x => { if (x.l < 24 || x.r > P.width - 24 || x.t < 0 || x.b > P.height) visuel.push(`E5 ${ha} · « ${x.n} » sort de la carte`); });
+      for (let i = 0; i < R.length; i++) for (let j = i + 1; j < R.length; j++) {
+        const p = R[i], q = R[j];
+        if (p.l < q.r && q.l < p.r && p.t < q.b && q.t < p.b) visuel.push(`E5 ${ha} · « ${p.n} » chevauche « ${q.n} »`);
+      }
+      stage.remove(); S.customMessage = {};
+    }
     Object.assign(S, JSON.parse(backup)); renderAll();
     return { out, visuel };
   });
@@ -321,7 +377,7 @@ for (const engine of engines) {
   const bad = cards.filter(r => r.problems.length);
   const jsErrors = errors.filter(e => e.kind === 'pageerror');
   failures += bad.length + jsErrors.length + visuel.length;
-  console.log(`[${engine}] ${cards.length} cartes résultat vérifiées · ${bad.length} en défaut · air mini au-dessus du pied ${Math.min(...cards.map(r => r.air))} px · scénarios (portrait du buteur, bouton POST) : ${visuel.length} défaut(s) · erreurs JS : ${jsErrors.length}`);
+  console.log(`[${engine}] ${cards.length} cartes résultat vérifiées · ${bad.length} en défaut · air mini au-dessus du pied ${Math.min(...cards.map(r => r.air))} px · scénarios (portrait du buteur, bouton POST, CSC) : ${visuel.length} défaut(s) · erreurs JS : ${jsErrors.length}`);
   visuel.forEach(v => console.log('  ✗ ' + v));
   bad.slice(0, 30).forEach(r => console.log(`  ✗ ${r.id}\n      ${[...new Set(r.problems)].join('\n      ')}`));
   if (bad.length > 30) {

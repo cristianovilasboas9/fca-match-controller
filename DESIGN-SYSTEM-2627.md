@@ -190,6 +190,7 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
 | **live** | EN DIRECT (point rouge) / compét° | minute Outlined blanc | score géant · message d'état · venue | rotation |
 | **halftime** | MI-TEMPS / compét° | 45' fixe | score géant · message · venue | rotation |
 | **goal** | compét° micro | minute or | BUT ! or · nom buteur · venue | LE BUTEUR |
+| **goal · CSC** (Boss 17.10) | BUT · SAISON 26/27 / BUT ! or / « contre son camp » / compét° | minute du but or | **AFFICHE** avec le score à la place du VS (`affichePoster`, `sponsors:false`) · message · venue | aucun (pas de buteur à nous) |
 | **recap** | RÉSULTAT FINAL / verdict (or/blanc/rouge) / compét° | jour + date du match | **AFFICHE héros avec le SCORE à la place du VS** (`FB.duel(y, size, score)`) · message · buteurs (minutes or) · parrains · venue | portrait d'atmosphère : dernier buteur FCA, sinon rotation (§3ter) |
 | **lineup** | COMPOSITION / jour+date | formation Outlined | terrain tactique (pas de photo héros) · banc · venue | — |
 
