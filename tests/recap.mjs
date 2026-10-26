@@ -224,7 +224,7 @@ for (const engine of engines) {
         if (dl.l - a.r < 10 || b.l - dr.r < 10) problems.push(`score trop près d'un écusson (${Math.round(dl.l - a.r)} / ${Math.round(b.l - dr.r)} px)`);
         if (Math.abs((dl.r + dr.l) / 2 - P.width / 2) > 2) problems.push('le tiret du score n\'est pas sur l\'axe de la carte');
         /* the visual that was asked for is the one on the card */
-        const portrait = node.querySelector('[style*="opacity:0.74"]'), full = node.querySelector('[style*="background-size:cover"]');
+        const portrait = node.querySelector('[style*="opacity:0.74"]'), full = node.querySelector('[data-photo-frame]');   // photo plein cadre (FB.plein)
         if (!!portrait !== (visual === 'portrait') || !!full !== (visual === 'bg')) problems.push(`visuel attendu « ${visual} » : portrait ${!!portrait}, plein cadre ${!!full}`);
         if (portrait && nScorers && !portrait.style.backgroundImage.includes(CUTOUT_CACHE[pool[nScorers - 1].cutoutUrl].slice(0, 120))) problems.push('le portrait n\'est pas celui du dernier buteur');
         /* no face behind a crest: the head ends above the crests */
@@ -303,7 +303,7 @@ for (const engine of engines) {
       set([{ minute: 30, playerId: guest.id, side: 'home', ts: 1 }]);
       S.heroSceneId = scene.id; delete SCENE_CACHE[scene.url];
       await Promise.race([Promise.all(cardAssets()), new Promise(r => setTimeout(r, 6000))]);
-      if (!SCENE_CACHE[scene.url] || !posterHTML().includes('background-size:cover')) visuel.push('C · invité seul buteur + photo de shooting : l\'export ne l\'attend pas');
+      if (!SCENE_CACHE[scene.url] || !posterHTML().includes('data-photo-frame')) visuel.push('C · invité seul buteur + photo de shooting : l\'export ne l\'attend pas');
     }
     delete BY_ID[guest.id];
     /* D · the POST toggle left on after a result post must not change the story-only cards */
@@ -326,7 +326,7 @@ for (const engine of engines) {
       let el = render('goal');
       const t = el.textContent.replace(/\s+/g, ' ');
       if (!leafIn(el, 'BUT !') || !/Contre son camp/i.test(t) || !t.includes("30'")) visuel.push(`E1 ${ha} · carte BUT CSC : titre, « contre son camp » ou minute absent`);
-      if (/S[ée]lectionne le buteur/.test(t) || portraitOf(el) || el.querySelector('[style*="background-size:cover"]')) visuel.push(`E1 ${ha} · carte BUT CSC : placeholder ou visage présent`);
+      if (/S[ée]lectionne le buteur/.test(t) || portraitOf(el) || el.querySelector('[data-photo-frame]')) visuel.push(`E1 ${ha} · carte BUT CSC : placeholder ou visage présent`);
       const crestsG = el.querySelectorAll('[data-crest]').length, digitsG = [...el.querySelectorAll('[data-score]')].map(d => d.textContent.trim()).join('-');
       if (crestsG !== 2 || digitsG !== (ha === 'home' ? '1-0' : '0-1') || el.querySelector('[data-vs]')) visuel.push(`E1 ${ha} · carte BUT CSC : ${crestsG} écusson(s), score ${digitsG}`);
       el = render('recap');

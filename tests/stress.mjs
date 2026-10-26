@@ -51,7 +51,8 @@ const st = (page) => page.evaluate(() => {
   const s = window.__mc.state;
   return { variant: s.variant, format: s.format, section: s.activeSection, matchId: s.matchId, opp: s.opponentSlug,
     goals: s.goals.length, score: `${s.score.home}-${s.score.away}`, heroOff: s.heroOff, heroPlayerId: s.heroPlayerId,
-    heroSceneId: s.heroSceneId, sceneId: s.sceneId, custom: !!s.customHeroImage, sponsors: s.matchBallSponsors.length };
+    heroSceneId: s.heroSceneId, sceneId: s.sceneId, custom: !!s.customHeroImage, sponsors: s.matchBallSponsors.length,
+    photo: s.heroPhoto && s.heroPhoto.id, frame: `${s.visualPos.x}/${s.visualPos.y}@${s.visualZoom}·fx${s.visualFx}` };
 });
 
 const ACTIONS = {
@@ -139,6 +140,36 @@ const ACTIONS = {
     await page.locator('#hero-upload').setInputFiles({ name: 'photo.webp', mimeType: 'image/webp', buffer: fs.readFileSync(path.join(CACHE_DIR, key + '.bin')) });
     await page.waitForFunction(() => !!window.__mc.state.customHeroImage, null, { timeout: 5000 }).catch(() => {});
     return 'visuel → photo importée';
+  },
+  /* a match photo (photos/manifest.json) as the visual (Boss 26.10) */
+  async matchPhoto(page, rnd) {
+    await gotoTab(page, 'match');
+    if (!(await page.locator('.mp-thumb').count())) await tap(page, page.locator('#mp-toggle'));
+    await page.waitForSelector('.mp-thumb', { timeout: 8000 }).catch(() => {});
+    const thumbs = page.locator('.mp-thumb');
+    const n = await thumbs.count();
+    if (!n) return 'photos du match : grille vide';
+    const i = rnd.int(n);
+    await tap(page, thumbs.nth(i));
+    return `visuel → photo du match ${i}/${n}`;
+  },
+  /* framing of a full-frame photo: drag on the card, size, effects, Recentrer */
+  async framePhoto(page, rnd) {
+    if (await page.locator('#photo-tools').isHidden()) return null;
+    const kind = rnd.pick(['drag', 'drag', 'zoom', 'fx', 'recenter']);
+    if (kind === 'zoom') { await page.locator('#pt-zoom').fill(String(100 + rnd.int(201))); return 'cadrage : taille'; }
+    if (kind === 'fx') { await page.locator('#pt-fx').fill(String(rnd.int(201))); return 'cadrage : effets'; }
+    if (kind === 'recenter') { await tap(page, page.locator('#pt-recenter')); return 'cadrage : recentrer'; }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const box = await page.locator('#preview-tap .preview-inner').boundingBox();
+    if (!box) return null;
+    const x = box.x + box.width * (0.3 + 0.4 * rnd()), y = box.y + box.height * (0.3 + 0.4 * rnd());
+    const dx = (rnd() - 0.5) * 240, dy = (rnd() - 0.5) * 240;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) await page.mouse.move(x + dx * i / 6, y + dy * i / 6);
+    await page.mouse.up();
+    return `cadrage : glisser ${Math.round(dx)},${Math.round(dy)}`;
   },
   async captain(page, rnd) {
     await gotoTab(page, 'match');
@@ -265,6 +296,7 @@ const ACTIONS = {
   },
 };
 const WEIGHTS = { switchVariant: 6, switchTab: 3, pickMatch: 5, toggleFormat: 3, editTime: 2, heroOption: 5, uploadHero: 1,
+  matchPhoto: 2, framePhoto: 3,
   captain: 1, sponsor: 2, score: 3, goal: 4, lineup: 4, customMsg: 1, caption: 1, restart: 2 };
 const BAG = Object.entries(WEIGHTS).flatMap(([k, w]) => Array(w).fill(k));
 

@@ -46,7 +46,7 @@ export function rng(seed) {
 
 /* ---------- static server ---------- */
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.png': 'image/png',
-  '.webp': 'image/webp', '.json': 'application/json', '.css': 'text/css', '.svg': 'image/svg+xml' };
+  '.webp': 'image/webp', '.jpg': 'image/jpeg', '.json': 'application/json', '.css': 'text/css', '.svg': 'image/svg+xml' };
 export function startServer(rootDir) {
   return new Promise((resolve) => {
     const srv = http.createServer((req, res) => {

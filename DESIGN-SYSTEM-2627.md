@@ -175,6 +175,21 @@ STORY 1080×1920                               POST 1080×1350 (canvas virtuel 1
 - `FB.atmosphere(img, band)` — le visuel en atmosphère des cartes d'affiche
   (portrait centré dans la bande du header, ou photo plein cadre voilée) + la
   nuit sous lui. `FB.isPortrait(img)` dit si un portrait sera rendu.
+- `FB.plein(img, opacity)` — une photo PLEIN CADRE (photo du match, shooting,
+  import ; Boss 26.10) cadrée par le président : `<img>` aux cotes px
+  (`photoGeom` : « cover » × `visualZoom` 100-300 %, position `visualPos` en %
+  avec la sémantique de `background-position`, défaut 50/22) dans un cadre
+  `overflow:hidden` de `FB.vw`×1920. Jamais un background agrandi : html2canvas
+  le redimensionne dans un canvas intermédiaire (50 Mpx à 300 % en post, refusé
+  par iOS) ; l'`<img>`, lui, part en un drawImage dans sa boîte, au pixel près
+  de l'aperçu. Utilisée par `FB.photo` et `FB.atmosphere` pour `mode 'bg'`.
+- `FB.fx(a)` / `FB.fxClear()` / `FB.fxTint()` — curseur Effets (`visualFx`
+  0-200, 100 = défaut) sur les voiles posés sur une photo plein cadre
+  (voile haut de `FB.photo`, nuit de `FB.atmosphere`, `FB.scrim(y, true)`) :
+  100 rend les valeurs d'avant au chiffre près ; vers 0 les alphas tendent vers
+  0 (photo pure) ; vers 200 ils se referment sur la nuit et `fxTint` ajoute une
+  nappe bleu club plein cadre. Un arrêt à 0 reste à 0 : le bord haut d'un voile
+  partiel ne devient jamais une marche.
 - `FB.note(html, y)` — ligne micro centrée (capitaine, message du président)
 - `FB.scoreRow(y, size)` — crest 84 + score Outlined + crest 84
 - `FB.sponsors(y)` — label or + logos blancs nus 150×46 (fallback nom flocage)

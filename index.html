@@ -179,6 +179,23 @@
   .hero-jer { position:absolute; top:4px; right:6px; font-family:'Oswald',sans-serif; font-weight:700; font-size:10px; color:rgba(255,255,255,0.6); }
   .hero-name { margin-top:5px; font-family:'Inter',sans-serif; font-weight:600; font-size:9px; letter-spacing:0.04em; text-transform:uppercase; color:rgba(255,255,255,0.75); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .match-note { margin-top:8px; font-family:'Inter', sans-serif; font-size:10px; color:rgba(255,255,255,0.4); letter-spacing:0.04em; line-height:1.4; }
+  /* PHOTOS DU MATCH (Boss 26.10) — vignettes du manifeste, la plus récente série d'abord */
+  .mp-set { margin-top:12px; font-family:'Inter', sans-serif; font-weight:600; font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:rgba(255,255,255,0.62); }
+  .mp-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:8px; }
+  .mp-thumb { position:relative; aspect-ratio:3/4; padding:0; border:1px solid rgba(255,255,255,0.10); border-radius:8px; overflow:hidden; background:#0A1628; cursor:pointer; }
+  .mp-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .mp-thumb.on { border-color:#38BDF8; box-shadow:0 0 0 2px #38BDF8; }
+  /* CADRAGE du visuel plein cadre : glisser sur la carte + taille + effets */
+  .preview-wrap.pannable { touch-action:none; cursor:grab; }
+  .preview-wrap.pannable.panning { cursor:grabbing; }
+  .photo-tools { max-width:320px; margin:-2px auto 12px; padding:10px 12px; border-radius:14px; background:rgba(255,255,255,0.04); border:1px solid rgba(56,189,248,0.22); font-family:'Inter', sans-serif; }
+  .photo-tools .pt-head { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:0.06em; color:rgba(255,255,255,0.62); }
+  .photo-tools .pt-btn { flex-shrink:0; background:rgba(56,189,248,0.12); color:#38BDF8; border:1px solid rgba(56,189,248,0.45); border-radius:999px; padding:6px 11px; font-family:'Inter', sans-serif; font-weight:700; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; }
+  .photo-tools .pt-row { display:flex; align-items:center; gap:10px; margin-top:10px; }
+  .photo-tools .pt-row label { flex-shrink:0; width:48px; font-size:10px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.6); }
+  .photo-tools input[type=range] { flex:1; min-width:0; accent-color:#38BDF8; height:28px; }
+  .photo-tools .pt-val { flex-shrink:0; width:42px; text-align:right; font-size:11px; font-weight:700; color:#fff; }
+  .photo-tools .pt-ends { display:flex; justify-content:space-between; margin:-2px 52px 0 58px; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.4); }
 
   /* PLAYER GRID */
   .player-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:4px; }
@@ -339,7 +356,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-17 · csc</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-26 · photos</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -366,8 +383,10 @@
           </div>
         </div>
       </div>
-      <div style="text-align:center; margin-top:8px; font-family:'Inter',sans-serif; font-weight:600; font-size:10.5px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.4);">Tape la carte pour exporter</div>
+      <div id="preview-hint" style="text-align:center; margin-top:8px; font-family:'Inter',sans-serif; font-weight:600; font-size:10.5px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.4);">Tape la carte pour exporter</div>
     </div>
+    <!-- Cadrage de la photo plein cadre (Boss 26.10) — rempli par updatePhotoTools() -->
+    <div class="photo-tools" id="photo-tools" hidden></div>
 
     <div class="tabs" id="section-tabs"></div>
     <div id="panel-content"></div>
@@ -784,12 +803,22 @@
     competition: 'coupe',
     // Décor du club en fond (bundle.scenes) — le joueur reste DEVANT.
     sceneId: '',
-    visualZoom: 100,   // Boss 28.08 · zoom du visuel principal + décor (100-200 %)
+    visualZoom: 100,   // Boss 28.08 · zoom du visuel principal + décor (100-300 % depuis le 26.10 ; décor plafonné à 220)
+    /* Cadrage du visuel PLEIN CADRE (photo du match, shooting, import) —
+       Boss 26.10. Position = sémantique CSS background-position en % (50/22
+       = le cadrage d'avant) ; effets = force des voiles du club posés sur la
+       photo : 0 photo pure · 100 look par défaut · 200 effets dominants. */
+    visualPos: { x: 50, y: 22 },
+    visualFx: 100,
     // true = AUCUN visage (carte nette : juste le fond et le texte).
     heroOff: false,
     // Photo du shooting maillots utilisée comme visuel principal.
     heroSceneId: '',
     _shootingOpen: false,
+    /* Photo du MATCH (photos/manifest.json) choisie comme visuel — Boss 26.10.
+       { set, id, url, thumb, w, h } : des chemins relatifs, jamais une dataURL. */
+    heroPhoto: null,
+    _matchPhotosOpen: false,
     // Image de fond importée par le président (dataURL JPEG réduite).
     // Quand elle est posée, elle remplace le joueur sur toutes les variantes
     // sauf « But » (là, c'est toujours le buteur).
@@ -883,10 +912,14 @@
         c.width = Math.round(im.width * scale);
         c.height = Math.round(im.height * scale);
         c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        const wasPlein = hasPleinVisual();
         state.customHeroImage = c.toDataURL('image/jpeg', 0.86);
+        IMG_DIMS.set(state.customHeroImage, { w: c.width, h: c.height });
         state.heroPlayerId = '';
         state.heroSceneId = '';
+        state.heroPhoto = null;
         state.heroOff = false;
+        resetFraming(wasPlein);
         toast('Image de fond importée', 'blue');
         renderPanel(); refresh();
       };
@@ -913,7 +946,7 @@
   /* Boss 28.08 · zoom du visuel (variantes de cadrage avec les mêmes
      images). Appliqué au visuel principal (mode bg) ET au décor. */
   window.setVisualZoom = function(v) {
-    state.visualZoom = Math.max(100, Math.min(200, Math.round(+v || 100)));
+    state.visualZoom = Math.max(100, Math.min(300, Math.round(+v || 100)));
     persistLive();
     refresh();
   };
@@ -923,13 +956,192 @@
   let _pinchRefreshAt = 0;
   let _suppressTapUntil = 0;
   function _applyPinchZoom(z) {
-    state.visualZoom = Math.max(100, Math.min(220, Math.round(z)));
+    state.visualZoom = Math.max(100, Math.min(300, Math.round(z)));
+    /* Photo plein cadre : on la recadre en place (fluide) ; sinon (décor
+       derrière un joueur) on redessine la carte, au plus toutes les 90 ms. */
+    if (applyPhotoGeomLive()) return;
     const now = Date.now();
     if (now - _pinchRefreshAt > 90) { _pinchRefreshAt = now; refresh(); }
+  }
+
+  /* ── Cadrage du visuel PLEIN CADRE (Boss 26.10) ───────────────────────
+     « Quand on choisit une photo, pouvoir bien modifier l'emplacement, la
+     taille et les effets. » Une photo plein cadre (photo du match, shooting,
+     import) est une <img> aux cotes EXPLICITES (px) dans un cadre qui la
+     rogne : l'aperçu et l'export (html2canvas la dessine d'un drawImage dans
+     sa boîte) tombent sur les mêmes pixels, sans object-fit (inconnu de
+     html2canvas) ni background géant (html2canvas l'agrandirait dans un
+     canvas intermédiaire : à 300 % en post, 50 Mpx, au-delà de ce qu'iOS
+     accepte). Cotes : « cover » × zoom, position = sémantique
+     background-position en %. */
+  const IMG_DIMS = new Map();   // src → { w, h } (taille naturelle)
+  function measureImg(src) {
+    if (!src) return Promise.resolve(null);
+    if (IMG_DIMS.has(src)) return Promise.resolve(IMG_DIMS.get(src));
+    return new Promise(res => {
+      const im = new Image();
+      im.onload = () => { const d = { w: im.naturalWidth, h: im.naturalHeight }; IMG_DIMS.set(src, d); scheduleRefresh(); res(d); };
+      im.onerror = () => res(null);
+      im.src = src;
+    });
+  }
+  /* Taille naturelle du visuel : portée par la photo du match (manifeste),
+     mesurée une fois pour un décor de shooting ou un import. */
+  function imgDims(img) {
+    if (img.w && img.h) return { w: img.w, h: img.h };
+    if (IMG_DIMS.has(img.src)) return IMG_DIMS.get(img.src);
+    measureImg(img.src);
+    return null;
+  }
+  const clampZoom = (z) => Math.max(100, Math.min(300, Math.round(+z || 100)));
+  function photoGeom(iw, ih, W, H) {
+    const s = Math.max(W / iw, H / ih) * clampZoom(state.visualZoom) / 100;
+    const w = Math.max(W, Math.round(iw * s)), h = Math.max(H, Math.round(ih * s));
+    const p = state.visualPos || { x: 50, y: 22 };
+    return { w, h, left: Math.round((W - w) * p.x / 100), top: Math.round((H - h) * p.y / 100) };
+  }
+  /* Le visuel plein cadre de la carte en cours (photo du match, shooting,
+     import) — c'est lui que l'on cadre. */
+  const hasPleinVisual = () => !!(state.heroPhoto || state.heroSceneId || state.customHeroImage);
+  /* Changer de visuel = repartir du cadrage par défaut (position, taille) ;
+     les effets, eux, sont un choix de style : ils restent. */
+  function resetFraming(wasPlein) {
+    state.visualPos = { x: 50, y: 22 };
+    if (wasPlein || hasPleinVisual()) state.visualZoom = 100;
+  }
+  /* Recadre en place la photo de l'aperçu (glisser, pincer, curseur) sans
+     redessiner la carte. false = pas de photo plein cadre à l'écran. */
+  function applyPhotoGeomLive() {
+    const imgs = document.querySelectorAll('#poster-root img[data-photo-layer]');
+    let done = false;
+    imgs.forEach(el => {
+      const fr = el.parentElement;
+      if (!el.naturalWidth || !fr) return;
+      const g = photoGeom(el.naturalWidth, el.naturalHeight, fr.offsetWidth, fr.offsetHeight);
+      el.style.width = g.w + 'px'; el.style.height = g.h + 'px';
+      el.style.left = g.left + 'px'; el.style.top = g.top + 'px';
+      done = true;
+    });
+    if (done) syncPhotoTools();
+    return done;
+  }
+  window.recenterPhoto = function() {
+    state.visualPos = { x: 50, y: 22 };
+    state.visualZoom = 100;
+    toast('Photo recentrée', 'blue');
+    refresh();
+  };
+  let _zoomRefresh = 0;
+  window.onPhotoZoom = function(v, done) {
+    state.visualZoom = clampZoom(v);
+    applyPhotoGeomLive();
+    clearTimeout(_zoomRefresh);
+    _zoomRefresh = setTimeout(() => refresh(), done ? 0 : 250);
+  };
+  let _fxRefreshAt = 0;
+  window.onPhotoFx = function(v, done) {
+    /* aimanté sur le réglage par défaut : on le retrouve sans viser */
+    let f = Math.max(0, Math.min(200, Math.round(+v || 0)));
+    if (Math.abs(f - 100) <= 6) f = 100;
+    state.visualFx = f;
+    const now = Date.now();
+    if (done || now - _fxRefreshAt > 70) { _fxRefreshAt = now; refresh(); }
+  };
+  /* La barre de cadrage n'existe que si la carte en cours montre une photo
+     plein cadre. Reconstruite seulement quand elle apparaît : un curseur
+     redessiné pendant qu'on le tire lâcherait le doigt. */
+  function updatePhotoTools() {
+    const bar = document.getElementById('photo-tools');
+    const wrap = document.getElementById('preview-tap');
+    if (!bar || !wrap) return;
+    const on = !!document.querySelector('#poster-root [data-photo-frame]');
+    wrap.classList.toggle('pannable', on);
+    const hint = document.getElementById('preview-hint');
+    if (hint) {
+      hint.textContent = on ? 'Glisse : cadrer · tape : exporter' : 'Tape la carte pour exporter';
+      hint.style.letterSpacing = on ? '0.14em' : '';
+    }
+    if (!on) { if (!bar.hidden) { bar.hidden = true; bar.innerHTML = ''; } return; }
+    if (bar.hidden || !bar.firstElementChild) {
+      bar.innerHTML = `
+        <div class="pt-head"><span>✥ Glisse la photo sur la carte pour la placer</span>
+          <button type="button" class="pt-btn" id="pt-recenter" onclick="recenterPhoto()">Recentrer</button></div>
+        <div class="pt-row"><label for="pt-zoom">Taille</label>
+          <input type="range" id="pt-zoom" min="100" max="300" step="1" value="${clampZoom(state.visualZoom)}"
+            oninput="onPhotoZoom(this.value)" onchange="onPhotoZoom(this.value, true)" aria-label="Taille de la photo">
+          <span class="pt-val" id="pt-zoom-val"></span></div>
+        <div class="pt-row"><label for="pt-fx">Effets</label>
+          <input type="range" id="pt-fx" min="0" max="200" step="1" value="${state.visualFx}"
+            oninput="onPhotoFx(this.value)" onchange="onPhotoFx(this.value, true)" aria-label="Effets du club sur la photo">
+          <span class="pt-val" id="pt-fx-val"></span></div>
+        <div class="pt-ends"><span>Photo pure</span><span>Dominants</span></div>`;
+      bar.hidden = false;
+    }
+    syncPhotoTools();
+  }
+  function syncPhotoTools() {
+    const z = document.getElementById('pt-zoom'), fx = document.getElementById('pt-fx');
+    if (!z || !fx) return;
+    if (document.activeElement !== z) z.value = clampZoom(state.visualZoom);
+    if (document.activeElement !== fx) fx.value = state.visualFx;
+    document.getElementById('pt-zoom-val').textContent = clampZoom(state.visualZoom) + ' %';
+    document.getElementById('pt-fx-val').textContent = state.visualFx === 100 ? 'défaut' : state.visualFx + ' %';
+  }
+  /* Glisser la photo sur l'aperçu (doigt ou souris). Le déplacement est
+     mesuré en pixels d'écran puis ramené aux pixels de la carte (le rapport
+     des deux boîtes absorbe l'échelle de l'aperçu ET celle du post 4:5) ; la
+     photo ne découvre jamais un bord. Un tap reste un tap : sous 6 px, rien
+     ne bouge et la carte s'exporte. */
+  let _pan = null;
+  function panStart(e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (_pan) { _pan.cancel = true; return; }   // 2e doigt : le pincement prend la main
+    const el = document.querySelector('#poster-root img[data-photo-layer]');
+    const fr = el && el.parentElement;
+    if (!fr || !el.naturalWidth) return;
+    const k = fr.getBoundingClientRect().width / fr.offsetWidth;
+    if (!(k > 0)) return;
+    _pan = { id: e.pointerId, x0: e.clientX, y0: e.clientY, k, W: fr.offsetWidth, H: fr.offsetHeight,
+      w: el.offsetWidth, h: el.offsetHeight, l0: el.offsetLeft, t0: el.offsetTop, moved: false, cancel: false };
+  }
+  function panMove(e) {
+    if (!_pan || e.pointerId !== _pan.id || _pan.cancel || _pinch) return;
+    const sx = e.clientX - _pan.x0, sy = e.clientY - _pan.y0;
+    if (!_pan.moved) {
+      if (Math.hypot(sx, sy) < 6) return;
+      _pan.moved = true;
+      document.getElementById('preview-tap').classList.add('panning');
+      /* capture sur la carte elle-même : la photo peut être redessinée sous le doigt */
+      try { document.getElementById('preview-tap').setPointerCapture(e.pointerId); } catch (err) { /* pointeur déjà relâché */ }
+    }
+    const ox = _pan.W - _pan.w, oy = _pan.H - _pan.h;   // ≤ 0 : ce qui dépasse du cadre
+    const l = Math.max(ox, Math.min(0, _pan.l0 + sx / _pan.k));
+    const t = Math.max(oy, Math.min(0, _pan.t0 + sy / _pan.k));
+    const p = state.visualPos || { x: 50, y: 22 };
+    state.visualPos = {
+      x: ox < 0 ? Math.round(l / ox * 1000) / 10 : p.x,
+      y: oy < 0 ? Math.round(t / oy * 1000) / 10 : p.y };
+    applyPhotoGeomLive();
+  }
+  function panEnd(e) {
+    if (!_pan || (e && e.pointerId !== _pan.id)) return;
+    const moved = _pan.moved;
+    _pan = null;
+    document.getElementById('preview-tap').classList.remove('panning');
+    if (moved) {
+      _suppressTapUntil = Date.now() + 450;   // le clic qui suit ne doit pas exporter
+      persistLive();
+      refresh();
+    }
   }
   window.addEventListener('DOMContentLoaded', () => {
     const wrap = document.getElementById('preview-tap');
     if (!wrap) return;
+    wrap.addEventListener('pointerdown', panStart);
+    wrap.addEventListener('dragstart', (e) => e.preventDefault());   // pas de glisser-déposer natif de l'image
+    wrap.addEventListener('pointermove', panMove);
+    window.addEventListener('pointerup', panEnd);
+    window.addEventListener('pointercancel', panEnd);
     wrap.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -938,6 +1150,9 @@
       }
     }, { passive: true });
     wrap.addEventListener('touchmove', (e) => {
+      /* un doigt qui cadre la photo ne fait pas défiler la page (filet si
+         touch-action n'est pas respecté) */
+      if (_pan && e.touches.length === 1) { e.preventDefault(); return; }
       if (_pinch && e.touches.length === 2) {
         e.preventDefault();
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -970,12 +1185,77 @@
     if (state._shootingOpen) SCENES.filter(s => s.group === 'shooting').slice(0, 4).forEach(ensureScene);
     renderPanel();
   };
+
+  /* ── Photos du match (Boss 26.10) ─────────────────────────────────────
+     photos/manifest.json liste les séries (une par match) : un nouveau match
+     = un dossier photos/<série>/ + une entrée du manifeste
+     (tools/match-photos.py fait les deux). Les chemins du manifeste sont
+     relatifs à lui ; le state ne garde que le chemin de la photo choisie et
+     sa taille — l'image passe par loadAsset() (dataURL en cache) comme tout
+     ce qui entre dans un poster. */
+  const MATCH_PHOTOS_MANIFEST = 'photos/manifest.json';
+  const MATCH_PHOTO_CACHE = {};
+  let MATCH_PHOTO_SETS = null;      // null = pas encore lu · [] = rien de publié / injoignable
+  let _manifestLoading = null;
+  function loadMatchPhotoManifest() {
+    if (MATCH_PHOTO_SETS && MATCH_PHOTO_SETS.length) return Promise.resolve(MATCH_PHOTO_SETS);
+    if (_manifestLoading) return _manifestLoading;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    _manifestLoading = fetch(MATCH_PHOTOS_MANIFEST, { cache: 'no-cache', signal: ctrl.signal })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(m => {
+        const base = new URL(MATCH_PHOTOS_MANIFEST, location.href);
+        const rel = (f) => new URL(f, base).pathname.replace(new URL('.', location.href).pathname, '');
+        MATCH_PHOTO_SETS = (m.sets || []).map(st => ({ id: st.id, label: st.label, date: st.date,
+          items: (st.items || []).map(it => ({ id: it.id, url: rel(it.file), thumb: rel(it.thumb), w: it.width, h: it.height })) }))
+          .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      })
+      .catch(() => { MATCH_PHOTO_SETS = []; })
+      .then(() => { clearTimeout(timer); _manifestLoading = null; if (state._matchPhotosOpen) renderPanel(); return MATCH_PHOTO_SETS; });
+    return _manifestLoading;
+  }
+  function ensureMatchPhoto() {
+    const p = state.heroPhoto;
+    return loadAsset(MATCH_PHOTO_CACHE, p && p.url, p && new URL(p.url, location.href).href);
+  }
+  /* La photo du match choisie, prête à poser — null tant qu'elle n'est pas en cache. */
+  function matchPhotoImg() {
+    const p = state.heroPhoto;
+    const d = p && MATCH_PHOTO_CACHE[p.url];
+    return d ? { src: d, mode: 'bg', w: p.w, h: p.h } : null;
+  }
+  window.toggleMatchPhotos = function() {
+    state._matchPhotosOpen = !state._matchPhotosOpen;
+    if (state._matchPhotosOpen) loadMatchPhotoManifest();
+    renderPanel();
+  };
+  /* Retaper la photo active la retire (retour à la rotation automatique). */
+  window.setHeroPhoto = function(setId, itemId) {
+    const st = (MATCH_PHOTO_SETS || []).find(x => x.id === setId);
+    const it = st && st.items.find(x => x.id === itemId);
+    if (!it) return;
+    const off = !!state.heroPhoto && state.heroPhoto.url === it.url;
+    const wasPlein = hasPleinVisual();
+    state.heroPhoto = off ? null : { set: st.id, id: it.id, url: it.url, thumb: it.thumb, w: it.w, h: it.h };
+    state.heroPlayerId = '';
+    state.heroSceneId = '';
+    state.customHeroImage = '';
+    state.heroOff = false;
+    resetFraming(wasPlein);
+    if (state.heroPhoto) ensureMatchPhoto();
+    toast(state.heroPhoto ? `Photo du match · ${st.label}` : 'Visuel : rotation automatique', 'blue');
+    renderPanel(); refresh();
+  };
   window.setHeroScene = function(id) {
     const off = state.heroSceneId === id;
+    const wasPlein = hasPleinVisual();
     state.heroSceneId = off ? '' : id;
     state.heroPlayerId = '';
     state.customHeroImage = '';
+    state.heroPhoto = null;
     state.heroOff = false;
+    resetFraming(wasPlein);
     const s = SCENES.find(x => x.id === state.heroSceneId);
     if (s) ensureScene(s);
     toast(s ? `Visuel : ${s.label}` : 'Visuel : rotation automatique', 'blue');
@@ -986,7 +1266,9 @@
      obligatoires, sinon le clic rouvre le sélecteur de fichier. */
   window.clearHeroUpload = function(ev) {
     if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+    const wasPlein = hasPleinVisual();
     state.customHeroImage = '';
+    resetFraming(wasPlein);
     toast('Photo importée retirée', 'blue');
     renderPanel(); refresh();
   };
@@ -1000,9 +1282,12 @@
   window.setHeroPlayer = function(id) {
     /* Retaper la case active = plus AUCUN visage (carte nette). */
     const wasThis = id ? (state.heroPlayerId === id && !state.heroOff)
-                       : (!state.heroPlayerId && !state.customHeroImage && !state.heroSceneId && !state.heroOff);
+                       : (!state.heroPlayerId && !state.customHeroImage && !state.heroSceneId && !state.heroPhoto && !state.heroOff);
+    const wasPlein = hasPleinVisual();
     state.customHeroImage = '';
     state.heroSceneId = '';
+    state.heroPhoto = null;
+    resetFraming(wasPlein);
     state.heroPlayerId = wasThis ? '' : (id || '');
     state.heroOff = wasThis;
     const p = state.heroPlayerId ? BY_ID[state.heroPlayerId] : null;
@@ -1114,6 +1399,8 @@
   function heroImage(p, allowCustom = true) {
     /* Visage explicitement retiré → carte nette (fond + texte seuls). */
     if (allowCustom && state.heroOff) return null;
+    /* Photo du match choisie comme visuel (null tant qu'elle n'est pas arrivée). */
+    if (allowCustom && state.heroPhoto) return matchPhotoImg();
     /* Photo du shooting choisie comme visuel principal. */
     if (allowCustom && state.heroSceneId) {
       const s = SCENES.find(x => x.id === state.heroSceneId);
@@ -1749,7 +2036,9 @@
       const sc = currentScene();
       const scData = sc && SCENE_CACHE[sc.url];
       if (scData) {
-        const zi = -((Math.max(100, state.visualZoom || 100) - 100) / 2);
+        /* plafonné à 220 % : le décor est un background, html2canvas l'agrandit
+           dans un canvas intermédiaire (au-delà, trop gros pour iOS) */
+        const zi = -((Math.max(100, Math.min(220, state.visualZoom || 100)) - 100) / 2);
         return `<div style="position:absolute; inset:${zi}%; background-image:url('${scData}'); background-size:cover; background-position:center 38%; background-repeat:no-repeat;"></div>
       <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,10,24,0.68) 0%, rgba(4,10,24,0.44) 34%, rgba(4,8,15,0.55) 68%, rgba(4,8,15,0.82) 100%);"></div>
       <div style="position:absolute; inset:0; background:radial-gradient(120% 80% at 72% -10%, rgba(23,65,127,0.42) 0%, rgba(10,32,64,0.2) 45%, transparent 78%);"></div>`;
@@ -1765,11 +2054,11 @@
        masque sa boîte. */
     photo(img, side = 'center', frame = null) {
       if (!img) return '';
-      /* Image importée par le président : plein cadre, cadrée au centre. */
+      /* Photo plein cadre (match, shooting, import) : cadrée par le président. */
       if (img.mode === 'bg') {
-        const zi = -((Math.max(100, state.visualZoom || 100) - 100) / 2);
-        return `<div style="position:absolute; inset:${zi}%; background-image:url('${img.src}'); background-size:cover; background-position:center 22%; background-repeat:no-repeat; opacity:0.96;"></div>
-        <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,8,15,0.72) 0%, rgba(4,8,15,0.3) 22%, transparent 44%);"></div>`;
+        const a = FB.fx;
+        return `${FB.plein(img, 0.96)}
+        <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,8,15,${a(0.72)}) 0%, rgba(4,8,15,${a(0.3)}) 22%, ${FB.fxClear()} 44%);"></div>${FB.fxTint()}`;
       }
       const haloX = side === 'right' ? '60%' : side === 'left' ? '40%' : '50%';
       const halo = `<div style="position:absolute; top:${side === 'center' ? 430 : 480}px; left:${haloX}; margin-left:-420px; width:840px; height:840px; background:radial-gradient(circle, rgba(46,123,255,0.28) 0%, rgba(46,123,255,0.1) 42%, transparent 68%);"></div>`;
@@ -1801,8 +2090,42 @@
     /* Le buste détouré monte plus haut dans le cadre et le maillot est GRIS
        CLAIR : sans un voile qui mord tôt, l'info stack tombe à 2-3:1 (mesuré).
        Opaque dès y1290, là où commence la première rangée. */
-    scrim(topY = 900) {
-      return `<div style="position:absolute; left:0; right:0; top:${topY}px; bottom:0; background:linear-gradient(180deg, transparent 0%, rgba(4,8,15,0.45) 14%, rgba(4,8,15,0.82) 26%, rgba(4,8,15,0.96) 36%, rgba(4,8,15,1) 46%);"></div>`;
+    scrim(topY = 900, onPhoto = false) {
+      /* Sur une photo plein cadre, le voile suit le curseur Effets. */
+      const a = onPhoto ? FB.fx : (x) => x;
+      return `<div style="position:absolute; left:0; right:0; top:${topY}px; bottom:0; background:linear-gradient(180deg, ${onPhoto ? FB.fxClear() : 'transparent'} 0%, rgba(4,8,15,${a(0.45)}) 14%, rgba(4,8,15,${a(0.82)}) 26%, rgba(4,8,15,${a(0.96)}) 36%, rgba(4,8,15,${a(1)}) 46%);"></div>`;
+    },
+    /* ── Photo PLEIN CADRE cadrée par le président (Boss 26.10) ──
+       <img> aux cotes px dans un cadre qui la rogne (voir photoGeom) : même
+       rendu dans l'aperçu et l'export, sans canvas géant côté html2canvas.
+       Taille naturelle pas encore connue (décor / import pas encore mesuré) :
+       l'ancien rendu le temps d'une image — l'export attend la mesure. */
+    plein(img, opacity = 1) {
+      const W = FB.vw, H = 1920;
+      const d = imgDims(img);
+      const op = opacity < 1 ? ` opacity:${opacity};` : '';
+      if (!d) return `<div data-photo-frame style="position:absolute; inset:0; background-image:url('${img.src}'); background-size:cover; background-position:center 22%; background-repeat:no-repeat;${op}"></div>`;
+      const g = photoGeom(d.w, d.h, W, H);
+      return `<div data-photo-frame style="position:absolute; left:0; top:0; width:${W}px; height:${H}px; overflow:hidden;"><img data-photo-layer draggable="false" alt="" src="${img.src}" style="position:absolute; left:${g.left}px; top:${g.top}px; width:${g.w}px; height:${g.h}px; max-width:none; max-height:none;${op}"></div>`;
+    },
+    /* Effets du club sur la photo : chaque voile garde son dessin, seule sa
+       force change. 100 = le look d'avant (mêmes valeurs, au chiffre près) ;
+       vers 0 les voiles s'effacent (photo pure) ; vers 200 ils se referment
+       sur la nuit du club et une nappe bleu club teinte toute la photo. Un
+       arrêt transparent le reste : le bord d'un voile partiel (haut du voile
+       du score) ne doit jamais devenir une marche visible. */
+    fx(a) {
+      const f = (state.visualFx == null ? 100 : state.visualFx) / 100;
+      if (f === 1 || a === 0) return a;
+      return f < 1 ? Math.round(a * f * 1000) / 1000 : Math.round((a + (1 - a) * (f - 1) * 0.45) * 1000) / 1000;
+    },
+    /* l'arrêt « transparent » d'un voile (gardé tel quel au réglage par défaut) */
+    fxClear() {
+      return (state.visualFx == null || state.visualFx === 100) ? 'transparent' : 'rgba(4,8,15,0)';
+    },
+    fxTint() {
+      const f = (state.visualFx == null ? 100 : state.visualFx) / 100;
+      return f > 1 ? `<div style="position:absolute; inset:0; background:rgba(12,44,104,${Math.round((f - 1) * 0.34 * 1000) / 1000});"></div>` : '';
     },
     kicker(txt, y = 238) {
       return `<div style="position:absolute; left:72px; top:${y}px; font-family:'Inter', sans-serif; font-weight:700; font-size:21px; letter-spacing:0.34em; text-transform:uppercase; color:#5E9BFF;">${txt}</div>`;
@@ -1871,9 +2194,9 @@
          laissait un liseré sombre d'1px sur toute la largeur de la carte. */
       const night = (y) => `<div style="position:absolute; left:0; right:0; top:${y}px; bottom:0; overflow:hidden;"><div style="position:absolute; left:0; right:0; top:-3px; bottom:0; background:linear-gradient(180deg, rgba(4,8,15,0) 3px, rgba(4,8,15,0.52) 73px, rgba(4,8,15,0.92) 143px, rgba(4,8,15,0.99) 203px, #04080F 283px);"></div></div>`;
       if (img && img.mode === 'bg') {
-        const zi = -((Math.max(100, state.visualZoom || 100) - 100) / 2);
-        return `<div style="position:absolute; inset:${zi}%; background-image:url('${img.src}'); background-size:cover; background-position:center 22%; background-repeat:no-repeat;"></div>
-        <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,8,15,0.78) 0%, rgba(4,8,15,0.60) 24%, rgba(4,8,15,0.72) 50%, rgba(4,8,15,0.92) 74%, #04080F 100%);"></div>`;
+        const a = FB.fx;
+        return `${FB.plein(img)}
+        <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,8,15,${a(0.78)}) 0%, rgba(4,8,15,${a(0.60)}) 24%, rgba(4,8,15,${a(0.72)}) 50%, rgba(4,8,15,${a(0.92)}) 74%, ${state.visualFx === 100 || state.visualFx == null ? '#04080F' : `rgba(4,8,15,${a(1)})`} 100%);"></div>${FB.fxTint()}`;
       }
       if (!FB.isPortrait(img)) return night(band.top + band.visage - 150);
       /* Les découpes du site : la tête occupe ~46 % de la hauteur du buste. */
@@ -2192,7 +2515,7 @@
       const html = `
         ${FB.bg()}
         ${FB.photo(heroLImg, FB.side('live-score'))}
-        ${FB.scrim()}
+        ${FB.scrim(900, !!heroLImg && heroLImg.mode === 'bg')}
         ${FB.kicker('<span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#EF4444; margin-right:14px;"></span>Match en cours · Saison 26/27')}
         ${FB.titre('EN DIRECT', 140)}
         ${FB.compline(470)}
@@ -2248,7 +2571,7 @@
         sub: 'Contre son camp',
         label: 'Minute',
         droite: (h) => FB.chiffre(`${og ? og.minute : (state.minute || 0)}'`, h.heure, GOLD),
-        img: null,
+        img: matchPhotoImg(),   // photo du match choisie (Boss 26.10), sinon aucun visuel
         /* domicile à gauche — state.score.home est NOTRE score */
         score: state.homeAway === 'away' ? [state.score.away, state.score.home] : [state.score.home, state.score.away],
         notes: msg ? [msg] : [],
@@ -2281,15 +2604,17 @@
     }
     /* Boss 15.08 · la carte BUT montre LE BUTEUR, toujours. Une photo de
        shooting, un upload ou « aucun visage » choisis pour le matchday ne
-       doivent jamais remplacer le joueur qui vient de marquer. */
-    const photo = heroImage(sc, false);
+       doivent jamais remplacer le joueur qui vient de marquer.
+       Exception Boss 26.10 : une PHOTO DU MATCH choisie passe sur toutes les
+       cartes (« dans tous les variants ») — le nom du buteur reste écrit. */
+    const photo = matchPhotoImg() || heroImage(sc, false);
     /* Full-bleed Gil Vicente (Boss 11.08) : plus de carte panini à bordure —
        le buteur PLEIN CADRE, « BUT ! » et le score posés par-dessus. */
     if (photo) {
       const html = `
         ${FB.bg()}
         ${FB.photo(photo, 'center', { top: 470, h: 1450 })}
-        ${FB.scrim(1120)}
+        ${FB.scrim(1120, photo.mode === 'bg')}
         ${FB.kicker('But · Saison 26/27')}
         ${FB.titre('BUT<span style="padding-left:26px;">!</span>', 156, 282, GOLD)}
         ${FB.colDroite('Minute', FB.chiffre(goalMinute + "'", 140, GOLD))}
@@ -2353,7 +2678,7 @@
       const html = `
         ${FB.bg()}
         ${FB.photo(heroHImg, FB.side('halftime'))}
-        ${FB.scrim()}
+        ${FB.scrim(900, !!heroHImg && heroHImg.mode === 'bg')}
         ${FB.kicker('Match en cours · Saison 26/27')}
         ${FB.titre('MI-TEMPS', 150)}
         ${FB.compline(470)}
@@ -2406,8 +2731,11 @@
     /* Boss 17.08 · heroOff (choix explicite « aucun visage ») prime sur le
        dernier buteur : la carte tient avec le FOND seul. */
     const scorer = recapScorer();
+    /* Boss 26.10 · une photo du match choisie prime sur le buteur (elle passe
+       sur toutes les cartes) ; les buteurs restent listés. */
     const img = state.heroOff
       ? null
+      : state.heroPhoto ? matchPhotoImg()
       : (scorer ? heroImage(scorer, false) : heroImage(heroPlayerFor(state.matchId)));
     const isAway = state.homeAway === 'away';
     const msg = getCustomMessage();
@@ -2844,13 +3172,19 @@
         <span class="b blue">${state.heroPlayerId ? 'choisi' : 'auto'}</span>
       </div>
       <div class="hero-grid">
-        <div class="hero-mini ${(state.heroPlayerId || state.customHeroImage || state.heroSceneId || state.heroOff) ? '' : 'on'}" onclick="setHeroPlayer('')">
+        <div class="hero-mini ${(state.heroPlayerId || state.customHeroImage || state.heroSceneId || state.heroPhoto || state.heroOff) ? '' : 'on'}" onclick="setHeroPlayer('')">
           <div class="hero-auto">AUTO</div>
           <div class="hero-name">Rotation</div>
         </div>
         <div class="hero-mini ${state._shootingOpen || state.heroSceneId ? 'on' : ''}" onclick="toggleShooting()">
           <div class="hero-auto" style="border-style:solid; border-color:rgba(245,184,46,0.55); background:rgba(245,184,46,0.14); color:#F5B82E;">📸</div>
           <div class="hero-name">Shooting</div>
+        </div>
+        <div class="hero-mini ${state._matchPhotosOpen || state.heroPhoto ? 'on' : ''}" id="mp-toggle" onclick="toggleMatchPhotos()">
+          ${state.heroPhoto
+            ? `<div class="hero-img"><img src="${state.heroPhoto.thumb}" alt=""></div>`
+            : `<div class="hero-auto" style="border-style:solid; border-color:rgba(56,189,248,0.55); background:rgba(56,189,248,0.12); color:#38BDF8;">${ballIcon(18)}</div>`}
+          <div class="hero-name">Photos</div>
         </div>
         <label class="hero-mini ${state.customHeroImage ? 'on' : ''}" style="cursor:pointer; position:relative;">
           <div class="hero-img" style="display:flex; align-items:center; justify-content:center; border:1px dashed rgba(255,255,255,0.35);">
@@ -2862,6 +3196,17 @@
           ${state.customHeroImage ? `<button type="button" onclick="clearHeroUpload(event)" aria-label="Retirer la photo importée" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:1px solid rgba(255,255,255,0.35); background:#0A1628; color:#fff; font-size:12px; line-height:1; z-index:2;">✕</button>` : ''}
           <input type="file" accept="image/*" id="hero-upload" style="display:none;">
         </label>
+      </div>
+      ${state._matchPhotosOpen ? `
+        <div class="panel-label" style="margin-top:12px;">Photos du match <span class="b blue">${MATCH_PHOTO_SETS ? MATCH_PHOTO_SETS.reduce((n, st) => n + st.items.length, 0) : '…'}</span></div>
+        ${!MATCH_PHOTO_SETS ? '<div class="match-note">Chargement des photos…</div>'
+          : !MATCH_PHOTO_SETS.length ? '<div class="match-note">Aucune photo de match disponible (réseau ?). Referme et rouvre pour réessayer.</div>'
+          : MATCH_PHOTO_SETS.map(st => `
+            <div class="mp-set">${st.label} <span style="color:rgba(255,255,255,0.35);">· ${st.items.length}</span></div>
+            <div class="mp-grid">
+              ${st.items.map(it => `<button type="button" class="mp-thumb ${state.heroPhoto && state.heroPhoto.url === it.url ? 'on' : ''}" data-mp="${it.id}" onclick="setHeroPhoto('${st.id}','${it.id}')" aria-label="Photo ${it.id}"><img src="${it.thumb}" loading="lazy" decoding="async" alt=""></button>`).join('')}
+            </div>`).join('')}` : ''}
+      <div class="hero-grid">
         ${heroCandidates().map(p => `
           <div class="hero-mini ${state.heroPlayerId === p.id ? 'on' : ''}" onclick="setHeroPlayer('${p.id}')">
             <div class="hero-img">${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy">` : ''}</div>
@@ -2880,6 +3225,7 @@
         </div>` : ''}
       <div class="match-note">${state.heroOff
         ? 'Carte nette : aucun visage.'
+        : state.heroPhoto ? 'Photo du match : sur toutes les cartes, But et Résultat compris. Cadre-la en la glissant sur la carte.'
         : 'Le visage des visuels. « But » utilise toujours le buteur.'} Retape la case active pour la désélectionner.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
 
       <!-- DÉCOR — passe DERRIÈRE le joueur -->
@@ -3603,6 +3949,7 @@
   const LAST_KEY = 'fca-mc:v1:last';
   const LIVE_TTL_MS = 12 * 3600 * 1000;
   const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage','sceneId','visualZoom','heroOff','heroSceneId',
+    'heroPhoto','visualPos','visualFx',
     /* venue/venueCity ABSENTS volontairement (Boss 19.09) : le lieu appartient
        au fixture, jamais au téléphone. Persisté, un snapshot écrit AVANT une
        correction de terrain rejouait l'ancien lieu par-dessus le fixture
@@ -3683,12 +4030,14 @@
        sinon la carte retombe pour de bon sur l'ancien layout. Idem l'écusson
        adverse quand son premier fetch a échoué. */
     ensureScene(heroScene());
+    /* idem la photo du match choisie (seul son chemin est persisté) */
+    ensureMatchPhoto();
     ensureCrest(getOpp());
     if (state.scorerId) ensureCutout(BY_ID[state.scorerId]);
     /* dernier buteur FCA = le portrait de la carte résultat : sans son buste
        détouré, elle reste sans visuel */
     ensureCutout(recapScorer());
-    updatePreview(); updateAppbar(); persistLive();
+    updatePreview(); updatePhotoTools(); updateAppbar(); persistLive();
   }
   function renderAll() { renderSectionTabs(); renderPanel(); syncFormatToggle(); refresh(); }
 
@@ -3744,14 +4093,19 @@
       [...state.lineupStarters, ...state.lineupBench].forEach(id => { if (BY_ID[id]) loads.push(ensurePhoto(BY_ID[id])); });
       return loads;
     }
+    /* photo du match choisie : sur toutes les cartes, But et Résultat compris */
+    if (state.heroPhoto && !state.heroOff) loads.push(ensureMatchPhoto());
     if (v === 'goal') { face(BY_ID[state.scorerId]); return loads; }
     if (['matchday', 'kickoff', 'recap'].includes(v)) loads.push(ensureSponsorLogos());
-    if (state.heroOff) return loads;
+    if (state.heroOff || state.heroPhoto) return loads;
     /* recap : le dernier buteur FCA prime sur tout choix de visuel */
     const scorer = v === 'recap' && recapScorer();
     if (scorer) face(scorer);
-    else if (state.heroSceneId) loads.push(ensureScene(heroScene()));
-    else if (!state.customHeroImage) {
+    /* décor de shooting ou import en plein cadre : il faut aussi sa taille
+       naturelle pour le cadrer (photoGeom) */
+    else if (state.heroSceneId) loads.push(ensureScene(heroScene()).then(ok => ok && measureImg(SCENE_CACHE[heroScene().url])));
+    else if (state.customHeroImage) loads.push(measureImg(state.customHeroImage));
+    else {
       heroPlayerFor._offset = v === 'kickoff' ? 1 : v === 'halftime' ? 2 : 0;
       face(heroPlayerFor(state.matchId));
       heroPlayerFor._offset = 0;

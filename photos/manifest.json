@@ -1,0 +1,476 @@
+{
+ "version": 1,
+ "sets": [
+  {
+   "id": "racing-2510",
+   "label": "Racing LS II · 25.10",
+   "date": "2026-10-25",
+   "items": [
+    {
+     "id": "dsc-0829",
+     "file": "racing-2510/dsc-0829.webp",
+     "thumb": "racing-2510/thumbs/dsc-0829.jpg",
+     "width": 2400,
+     "height": 1600,
+     "orientation": "landscape"
+    },
+    {
+     "id": "dsc9365",
+     "file": "racing-2510/dsc9365.webp",
+     "thumb": "racing-2510/thumbs/dsc9365.jpg",
+     "width": 2400,
+     "height": 1600,
+     "orientation": "landscape"
+    },
+    {
+     "id": "dsc-0952",
+     "file": "racing-2510/dsc-0952.webp",
+     "thumb": "racing-2510/thumbs/dsc-0952.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-0972",
+     "file": "racing-2510/dsc-0972.webp",
+     "thumb": "racing-2510/thumbs/dsc-0972.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-0977",
+     "file": "racing-2510/dsc-0977.webp",
+     "thumb": "racing-2510/thumbs/dsc-0977.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-0986",
+     "file": "racing-2510/dsc-0986.webp",
+     "thumb": "racing-2510/thumbs/dsc-0986.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1003",
+     "file": "racing-2510/dsc-1003.webp",
+     "thumb": "racing-2510/thumbs/dsc-1003.jpg",
+     "width": 2400,
+     "height": 1600,
+     "orientation": "landscape"
+    },
+    {
+     "id": "dsc-1019",
+     "file": "racing-2510/dsc-1019.webp",
+     "thumb": "racing-2510/thumbs/dsc-1019.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1077",
+     "file": "racing-2510/dsc-1077.webp",
+     "thumb": "racing-2510/thumbs/dsc-1077.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1094",
+     "file": "racing-2510/dsc-1094.webp",
+     "thumb": "racing-2510/thumbs/dsc-1094.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1167",
+     "file": "racing-2510/dsc-1167.webp",
+     "thumb": "racing-2510/thumbs/dsc-1167.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1258",
+     "file": "racing-2510/dsc-1258.webp",
+     "thumb": "racing-2510/thumbs/dsc-1258.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1311",
+     "file": "racing-2510/dsc-1311.webp",
+     "thumb": "racing-2510/thumbs/dsc-1311.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1370",
+     "file": "racing-2510/dsc-1370.webp",
+     "thumb": "racing-2510/thumbs/dsc-1370.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1407",
+     "file": "racing-2510/dsc-1407.webp",
+     "thumb": "racing-2510/thumbs/dsc-1407.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1442",
+     "file": "racing-2510/dsc-1442.webp",
+     "thumb": "racing-2510/thumbs/dsc-1442.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1483",
+     "file": "racing-2510/dsc-1483.webp",
+     "thumb": "racing-2510/thumbs/dsc-1483.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1584",
+     "file": "racing-2510/dsc-1584.webp",
+     "thumb": "racing-2510/thumbs/dsc-1584.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1721",
+     "file": "racing-2510/dsc-1721.webp",
+     "thumb": "racing-2510/thumbs/dsc-1721.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1729",
+     "file": "racing-2510/dsc-1729.webp",
+     "thumb": "racing-2510/thumbs/dsc-1729.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1787",
+     "file": "racing-2510/dsc-1787.webp",
+     "thumb": "racing-2510/thumbs/dsc-1787.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1870",
+     "file": "racing-2510/dsc-1870.webp",
+     "thumb": "racing-2510/thumbs/dsc-1870.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1887",
+     "file": "racing-2510/dsc-1887.webp",
+     "thumb": "racing-2510/thumbs/dsc-1887.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1903",
+     "file": "racing-2510/dsc-1903.webp",
+     "thumb": "racing-2510/thumbs/dsc-1903.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1922",
+     "file": "racing-2510/dsc-1922.webp",
+     "thumb": "racing-2510/thumbs/dsc-1922.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1936",
+     "file": "racing-2510/dsc-1936.webp",
+     "thumb": "racing-2510/thumbs/dsc-1936.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-1973",
+     "file": "racing-2510/dsc-1973.webp",
+     "thumb": "racing-2510/thumbs/dsc-1973.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2007",
+     "file": "racing-2510/dsc-2007.webp",
+     "thumb": "racing-2510/thumbs/dsc-2007.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2036",
+     "file": "racing-2510/dsc-2036.webp",
+     "thumb": "racing-2510/thumbs/dsc-2036.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2060",
+     "file": "racing-2510/dsc-2060.webp",
+     "thumb": "racing-2510/thumbs/dsc-2060.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2090",
+     "file": "racing-2510/dsc-2090.webp",
+     "thumb": "racing-2510/thumbs/dsc-2090.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2138",
+     "file": "racing-2510/dsc-2138.webp",
+     "thumb": "racing-2510/thumbs/dsc-2138.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2203",
+     "file": "racing-2510/dsc-2203.webp",
+     "thumb": "racing-2510/thumbs/dsc-2203.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2314",
+     "file": "racing-2510/dsc-2314.webp",
+     "thumb": "racing-2510/thumbs/dsc-2314.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2337",
+     "file": "racing-2510/dsc-2337.webp",
+     "thumb": "racing-2510/thumbs/dsc-2337.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2448",
+     "file": "racing-2510/dsc-2448.webp",
+     "thumb": "racing-2510/thumbs/dsc-2448.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2490",
+     "file": "racing-2510/dsc-2490.webp",
+     "thumb": "racing-2510/thumbs/dsc-2490.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2532",
+     "file": "racing-2510/dsc-2532.webp",
+     "thumb": "racing-2510/thumbs/dsc-2532.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2542",
+     "file": "racing-2510/dsc-2542.webp",
+     "thumb": "racing-2510/thumbs/dsc-2542.jpg",
+     "width": 2400,
+     "height": 1600,
+     "orientation": "landscape"
+    },
+    {
+     "id": "dsc-2608",
+     "file": "racing-2510/dsc-2608.webp",
+     "thumb": "racing-2510/thumbs/dsc-2608.jpg",
+     "width": 2400,
+     "height": 1600,
+     "orientation": "landscape"
+    },
+    {
+     "id": "dsc-2636",
+     "file": "racing-2510/dsc-2636.webp",
+     "thumb": "racing-2510/thumbs/dsc-2636.jpg",
+     "width": 2400,
+     "height": 1600,
+     "orientation": "landscape"
+    },
+    {
+     "id": "dsc-2774",
+     "file": "racing-2510/dsc-2774.webp",
+     "thumb": "racing-2510/thumbs/dsc-2774.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2781",
+     "file": "racing-2510/dsc-2781.webp",
+     "thumb": "racing-2510/thumbs/dsc-2781.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2843",
+     "file": "racing-2510/dsc-2843.webp",
+     "thumb": "racing-2510/thumbs/dsc-2843.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2862",
+     "file": "racing-2510/dsc-2862.webp",
+     "thumb": "racing-2510/thumbs/dsc-2862.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2896",
+     "file": "racing-2510/dsc-2896.webp",
+     "thumb": "racing-2510/thumbs/dsc-2896.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-2933",
+     "file": "racing-2510/dsc-2933.webp",
+     "thumb": "racing-2510/thumbs/dsc-2933.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3058",
+     "file": "racing-2510/dsc-3058.webp",
+     "thumb": "racing-2510/thumbs/dsc-3058.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3117",
+     "file": "racing-2510/dsc-3117.webp",
+     "thumb": "racing-2510/thumbs/dsc-3117.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3132",
+     "file": "racing-2510/dsc-3132.webp",
+     "thumb": "racing-2510/thumbs/dsc-3132.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3248",
+     "file": "racing-2510/dsc-3248.webp",
+     "thumb": "racing-2510/thumbs/dsc-3248.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3419",
+     "file": "racing-2510/dsc-3419.webp",
+     "thumb": "racing-2510/thumbs/dsc-3419.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3515",
+     "file": "racing-2510/dsc-3515.webp",
+     "thumb": "racing-2510/thumbs/dsc-3515.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3548",
+     "file": "racing-2510/dsc-3548.webp",
+     "thumb": "racing-2510/thumbs/dsc-3548.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3616",
+     "file": "racing-2510/dsc-3616.webp",
+     "thumb": "racing-2510/thumbs/dsc-3616.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3782",
+     "file": "racing-2510/dsc-3782.webp",
+     "thumb": "racing-2510/thumbs/dsc-3782.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3791",
+     "file": "racing-2510/dsc-3791.webp",
+     "thumb": "racing-2510/thumbs/dsc-3791.jpg",
+     "width": 1600,
+     "height": 2400,
+     "orientation": "portrait"
+    },
+    {
+     "id": "dsc-3827",
+     "file": "racing-2510/dsc-3827.webp",
+     "thumb": "racing-2510/thumbs/dsc-3827.jpg",
+     "width": 2400,
+     "height": 1600,
+     "orientation": "landscape"
+    }
+   ]
+  }
+ ]
+}
