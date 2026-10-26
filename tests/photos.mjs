@@ -144,14 +144,26 @@ for (const engine of engines) {
   /* every variant that carries a visual shows the photo, both formats where they exist */
   const CARDS = [['matchday', 'story'], ['matchday', 'post'], ['kickoff', 'story'], ['live-score', 'story'],
     ['goal', 'story'], ['halftime', 'story'], ['recap', 'story'], ['recap', 'post']];
+  /* Boss 27.10: BUT and Résultat keep THE SCORER by default; the match photo goes there only once
+     « Aussi sur BUT et Résultat » (state.photoOnGoal) is switched on. */
+  const SCORER_CARDS = new Set(['goal-story', 'recap-story', 'recap-post']);
   for (const [v, f] of CARDS) {
     await setCard(page, v, f);
     const p = await previewPhoto(page);
-    check(engine, `photo plein cadre sur ${v} ${f}`, !!p && p.isData && p.w >= p.W && p.h >= p.H, JSON.stringify(p));
+    if (SCORER_CARDS.has(`${v}-${f}`)) check(engine, `${v} ${f} : le buteur par défaut, pas la photo`, !p, JSON.stringify(p));
+    else check(engine, `photo plein cadre sur ${v} ${f}`, !!p && p.isData && p.w >= p.W && p.h >= p.H, JSON.stringify(p));
+  }
+  const toggle = await page.evaluate(() => !!document.getElementById('photo-on-goal'));
+  check(engine, 'interrupteur « Aussi sur BUT et Résultat » présent', toggle);
+  await page.evaluate(() => window.setPhotoOnGoal(true));
+  for (const [v, f] of CARDS.filter(([v, f]) => SCORER_CARDS.has(`${v}-${f}`))) {
+    await setCard(page, v, f);
+    const p = await previewPhoto(page);
+    check(engine, `photo activée sur ${v} ${f}`, !!p && p.isData && p.w >= p.W && p.h >= p.H, JSON.stringify(p));
   }
   /* CSC goal card too */
   await page.evaluate(() => { const S = window.__mc.state; S.variant = 'goal'; S.scorerId = 'csc'; S.goals.push({ minute: 88, playerId: 'csc', side: 'home', ts: 9 }); syncScoreFromGoals(); renderAll(); });
-  check(engine, 'photo plein cadre sur le but CSC', !!(await previewPhoto(page)));
+  check(engine, 'photo activée sur le but CSC', !!(await previewPhoto(page)));
   await racingMatch(page, { variant: 'live-score', format: 'story' });
 
   /* ---------- B. drag ---------- */
@@ -201,7 +213,9 @@ for (const engine of engines) {
     check(engine, 'glisser (doigt) déplace la photo', x1 > x0 && !ov, `pos.x ${x0} → ${x1}, tiroir ${ov}`);
     await page.evaluate(() => { window.__mc.state.visualPos = { x: 50, y: 22 }; refresh(); });
   }
-  /* a plain tap still exports */
+  /* a plain tap still exports — a human taps well after the end of a drag; the click that FOLLOWS a drag
+     (same gesture, a few ms) is swallowed on purpose for 300 ms, so wait past that window */
+  await sleep(500);
   const tap = await exportViaTap(page);
   check(engine, 'un tap exporte toujours', tap.status === 'ok' && !tap.png.blank, tap.status + ' ' + (tap.message || ''));
 

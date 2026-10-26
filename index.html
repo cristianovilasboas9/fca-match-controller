@@ -356,7 +356,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-26 · photos</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-27 · photos</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -818,6 +818,8 @@
     /* Photo du MATCH (photos/manifest.json) choisie comme visuel — Boss 26.10.
        { set, id, url, thumb, w, h } : des chemins relatifs, jamais une dataURL. */
     heroPhoto: null,
+    /* Boss 27.10 · BUT et Résultat gardent LE BUTEUR par défaut ; la photo du match n'y passe que si le président l'active. */
+    photoOnGoal: false,
     _matchPhotosOpen: false,
     // Image de fond importée par le président (dataURL JPEG réduite).
     // Quand elle est posée, elle remplace le joueur sur toutes les variantes
@@ -1095,14 +1097,16 @@
   let _pan = null;
   function panStart(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (_pan) { _pan.cancel = true; return; }   // 2e doigt : le pincement prend la main
+    /* 2e doigt PENDANT un glisser : le pincement prend la main. Un _pan resté orphelin (pointerup perdu,
+       capture relâchée par le navigateur) ne doit jamais bloquer les taps suivants : on le remplace. */
+    if (_pan && _pan.id !== e.pointerId && Date.now() - _pan.ts < 1500) { _pan.cancel = true; return; }
     const el = document.querySelector('#poster-root img[data-photo-layer]');
     const fr = el && el.parentElement;
     if (!fr || !el.naturalWidth) return;
     const k = fr.getBoundingClientRect().width / fr.offsetWidth;
     if (!(k > 0)) return;
     _pan = { id: e.pointerId, x0: e.clientX, y0: e.clientY, k, W: fr.offsetWidth, H: fr.offsetHeight,
-      w: el.offsetWidth, h: el.offsetHeight, l0: el.offsetLeft, t0: el.offsetTop, moved: false, cancel: false };
+      w: el.offsetWidth, h: el.offsetHeight, l0: el.offsetLeft, t0: el.offsetTop, moved: false, cancel: false, ts: Date.now() };
   }
   function panMove(e) {
     if (!_pan || e.pointerId !== _pan.id || _pan.cancel || _pinch) return;
@@ -1129,7 +1133,7 @@
     _pan = null;
     document.getElementById('preview-tap').classList.remove('panning');
     if (moved) {
-      _suppressTapUntil = Date.now() + 450;   // le clic qui suit ne doit pas exporter
+      _suppressTapUntil = Date.now() + 300;   // le clic qui suit le glisser (quelques ms) ne doit pas exporter ; un vrai tap ensuite, oui
       persistLive();
       refresh();
     }
@@ -1225,6 +1229,11 @@
     const d = p && MATCH_PHOTO_CACHE[p.url];
     return d ? { src: d, mode: 'bg', w: p.w, h: p.h } : null;
   }
+  window.setPhotoOnGoal = function(on) {
+    state.photoOnGoal = !!on;
+    renderPanel(); refresh();
+    toast(state.photoOnGoal ? 'Photo du match aussi sur BUT et Résultat' : 'BUT et Résultat : le buteur', 'blue');
+  };
   window.toggleMatchPhotos = function() {
     state._matchPhotosOpen = !state._matchPhotosOpen;
     if (state._matchPhotosOpen) loadMatchPhotoManifest();
@@ -2571,7 +2580,7 @@
         sub: 'Contre son camp',
         label: 'Minute',
         droite: (h) => FB.chiffre(`${og ? og.minute : (state.minute || 0)}'`, h.heure, GOLD),
-        img: matchPhotoImg(),   // photo du match choisie (Boss 26.10), sinon aucun visuel
+        img: state.photoOnGoal ? matchPhotoImg() : null,   // photo du match seulement si activée pour BUT (Boss 27.10), sinon aucun visuel
         /* domicile à gauche — state.score.home est NOTRE score */
         score: state.homeAway === 'away' ? [state.score.away, state.score.home] : [state.score.home, state.score.away],
         notes: msg ? [msg] : [],
@@ -2605,9 +2614,9 @@
     /* Boss 15.08 · la carte BUT montre LE BUTEUR, toujours. Une photo de
        shooting, un upload ou « aucun visage » choisis pour le matchday ne
        doivent jamais remplacer le joueur qui vient de marquer.
-       Exception Boss 26.10 : une PHOTO DU MATCH choisie passe sur toutes les
-       cartes (« dans tous les variants ») — le nom du buteur reste écrit. */
-    const photo = matchPhotoImg() || heroImage(sc, false);
+       Boss 27.10 : une PHOTO DU MATCH ne remplace le buteur que si le président
+       l'active (« Aussi sur BUT et Résultat ») — le nom du buteur reste écrit. */
+    const photo = (state.photoOnGoal && matchPhotoImg()) || heroImage(sc, false);
     /* Full-bleed Gil Vicente (Boss 11.08) : plus de carte panini à bordure —
        le buteur PLEIN CADRE, « BUT ! » et le score posés par-dessus. */
     if (photo) {
@@ -2731,10 +2740,12 @@
     /* Boss 17.08 · heroOff (choix explicite « aucun visage ») prime sur le
        dernier buteur : la carte tient avec le FOND seul. */
     const scorer = recapScorer();
-    /* Boss 26.10 · une photo du match choisie prime sur le buteur (elle passe
-       sur toutes les cartes) ; les buteurs restent listés. */
+    /* Boss 27.10 · le dernier buteur reste le visuel par défaut ; une photo du match
+       ne le remplace que si « Aussi sur BUT et Résultat » est activé. Sans buteur, la
+       photo du match choisie passe comme les autres visuels. */
     const img = state.heroOff
       ? null
+      : (scorer && !(state.photoOnGoal && state.heroPhoto)) ? heroImage(scorer, false)
       : state.heroPhoto ? matchPhotoImg()
       : (scorer ? heroImage(scorer, false) : heroImage(heroPlayerFor(state.matchId)));
     const isAway = state.homeAway === 'away';
@@ -3225,7 +3236,7 @@
         </div>` : ''}
       <div class="match-note">${state.heroOff
         ? 'Carte nette : aucun visage.'
-        : state.heroPhoto ? 'Photo du match : sur toutes les cartes, But et Résultat compris. Cadre-la en la glissant sur la carte.'
+        : state.heroPhoto ? `Photo du match : cadre-la en la glissant sur la carte. <label style="display:inline-flex; align-items:center; gap:6px; margin-left:4px; cursor:pointer;"><input type="checkbox" id="photo-on-goal" ${state.photoOnGoal ? 'checked' : ''} onchange="setPhotoOnGoal(this.checked)"> Aussi sur BUT et Résultat</label> (sinon le buteur).`
         : 'Le visage des visuels. « But » utilise toujours le buteur.'} Retape la case active pour la désélectionner.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
 
       <!-- DÉCOR — passe DERRIÈRE le joueur -->
@@ -3949,7 +3960,7 @@
   const LAST_KEY = 'fca-mc:v1:last';
   const LIVE_TTL_MS = 12 * 3600 * 1000;
   const PERSIST_FIELDS = ['variant','format','homeAway','competition','convokedPlayers','heroPlayerId','customHeroImage','sceneId','visualZoom','heroOff','heroSceneId',
-    'heroPhoto','visualPos','visualFx',
+    'heroPhoto','photoOnGoal','visualPos','visualFx',
     /* venue/venueCity ABSENTS volontairement (Boss 19.09) : le lieu appartient
        au fixture, jamais au téléphone. Persisté, un snapshot écrit AVANT une
        correction de terrain rejouait l'ancien lieu par-dessus le fixture
