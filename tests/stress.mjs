@@ -101,8 +101,11 @@ const ACTIONS = {
     return `heure → « ${t} »`;
   },
   async heroOption(page, rnd) {
-    await gotoTab(page, 'match');
+    await gotoTab(page, 'visual');
     const kind = rnd.pick(['player', 'player', 'auto', 'scene', 'scene', 'shooting', 'sameAgain']);
+    /* Boss 27.10 · onglet Fond en familles repliées : ouvrir la bonne famille avant de toucher ses vignettes */
+    const family = { player: 'players', auto: 'players', sameAgain: 'players', scene: 'decor', shooting: 'shooting' }[kind];
+    if (!(await page.evaluate((f) => window.__mc.state._familyOpen === f, family))) await tap(page, page.locator(`#fam-${family}`));
     if (kind === 'auto') { await tap(page, page.locator('[onclick="setHeroPlayer(\'\')"]')); return 'visage → auto'; }
     if (kind === 'player' || kind === 'sameAgain') {
       const tiles = page.locator('[onclick^="setHeroPlayer(\'"]:not([onclick="setHeroPlayer(\'\')"])');
@@ -121,7 +124,6 @@ const ACTIONS = {
       return `décor → tuile ${i}/${n}`;
     }
     /* shooting photo as the main visual */
-    if (!(await page.locator('[onclick^="setHeroScene("]').count())) await tap(page, page.locator('[onclick="toggleShooting()"]'));
     const shots = page.locator('[onclick^="setHeroScene("]');
     const n = await shots.count();
     if (!n) return 'shooting : aucune photo (bundle absent)';
@@ -130,7 +132,7 @@ const ACTIONS = {
     return `visuel → shooting ${i}/${n}`;
   },
   async uploadHero(page, rnd) {
-    await gotoTab(page, 'match');
+    await gotoTab(page, 'visual');
     const files = fs.readdirSync(CACHE_DIR).filter(f => f.endsWith('.json'))
       .map(f => JSON.parse(fs.readFileSync(path.join(CACHE_DIR, f), 'utf8')))
       .filter(m => m.status === 200 && /\/decors\//.test(m.url));
@@ -143,7 +145,7 @@ const ACTIONS = {
   },
   /* a match photo (photos/manifest.json) as the visual (Boss 26.10) */
   async matchPhoto(page, rnd) {
-    await gotoTab(page, 'match');
+    await gotoTab(page, 'visual');
     if (!(await page.locator('.mp-thumb').count())) await tap(page, page.locator('#mp-toggle'));
     await page.waitForSelector('.mp-thumb', { timeout: 8000 }).catch(() => {});
     const thumbs = page.locator('.mp-thumb');
@@ -180,7 +182,7 @@ const ACTIONS = {
     return 'capitaine changé';
   },
   async sponsor(page, rnd) {
-    await gotoTab(page, 'match');
+    await gotoTab(page, 'customize');   // Boss 27.10 : les ballons de match sont dans « Personnaliser »
     const rm = page.locator('.sponsor-rm');
     if ((await rm.count()) && rnd.chance(0.4)) { await tap(page, rm.first()); return 'parrain retiré'; }
     const name = rnd.pick(['TECHAUTO AG', 'Barbey Frères SA', 'Garage du Lac', 'Boulangerie Müller & Fils Sàrl']);

@@ -74,6 +74,7 @@ if (doExport) {
     await page.locator(`.match-row[data-mid="${m.id}"]`).tap();
     await sleep(300);
     if (c.shooting !== undefined) {
+      await tab('visual');
       await page.evaluate(() => window.toggleShooting());
       await sleep(500);
       const ids = await page.evaluate(() => [...document.querySelectorAll('.hero-mini[onclick^="setHeroScene"]')].map(e => e.getAttribute('onclick').match(/'([^']+)'/)[1]));

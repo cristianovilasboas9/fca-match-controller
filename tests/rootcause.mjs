@@ -108,8 +108,8 @@ for (const engine of engines) {
     const app = await openApp(engine, srv.url, { profile: PROFILES.ok });
     const { page } = app;
     await warm(page);
-    await tapTab(page, 'match');
-    await page.locator('[onclick="toggleShooting()"]').tap();
+    await tapTab(page, 'visual');
+    await page.locator('#fam-shooting').tap();
     await page.locator('[onclick^="setHeroScene("]').nth(2).tap();
     await page.waitForFunction(() => { const s = window.__mc.state; const sc = SCENES.find(x => x.id === s.heroSceneId); return sc && !!SCENE_CACHE[sc.url]; }, null, { timeout: 15000 });
     const layout = () => page.evaluate(() => {

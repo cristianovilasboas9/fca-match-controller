@@ -170,6 +170,13 @@
   .match-row.on .mr-opp, .match-row.on .mr-time { color:#38BDF8; }
   .match-row.on .mr-tag { color:#38BDF8; background:rgba(56,189,248,0.12); border-color:rgba(56,189,248,0.4); }
   .hero-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(74px, 1fr)); gap:10px; margin-top:10px; }
+  .fam-row { grid-template-columns:repeat(5, 1fr); gap:8px; }
+  .hero-mini.fam.open { box-shadow:0 0 0 2px rgba(56,189,248,0.55) inset; }
+  .cap-strip { display:flex; gap:6px; overflow-x:auto; margin-top:10px; padding:2px 2px 8px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+  .cap-chip { flex:0 0 auto; scroll-snap-align:start; display:inline-flex; align-items:baseline; gap:6px; padding:8px 12px; border-radius:999px; border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.82); font-family:'Inter',sans-serif; font-weight:600; font-size:13px; letter-spacing:0.02em; white-space:nowrap; cursor:pointer; }
+  .cap-chip b { font-family:'Inter',sans-serif; font-weight:800; font-size:11px; color:rgba(255,255,255,0.45); }
+  .cap-chip.on { border-color:#F5B82E; background:rgba(245,184,46,0.16); color:#F5B82E; }
+  .cap-chip.on b { color:#F5B82E; }
   .hero-mini { position:relative; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); border-radius:12px; padding:6px 4px 7px; text-align:center; cursor:pointer; }
   .hero-mini.on { border-color:#2E7BFF; background:rgba(46,123,255,0.14); }
   .hero-mini.on.cap { border-color:#F5B82E; background:rgba(245,184,46,0.14); }
@@ -356,7 +363,7 @@
       <!-- BUILD_TAG · bumpé à chaque déploiement — permet de VOIR quelle
            version la PWA sert (les PWA iOS cachent agressivement le HTML ;
            Boss 15.08 : exports « cassés » = vieille version en cache). -->
-      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-27 · photos</span></div>
+      <div class="sub">Match Controller · <span id="build-tag" style="opacity:0.55;">v2026-10-27 · familles fond</span></div>
       <div class="title" id="appbar-club-name"></div>
     </div>
     <div class="format-toggle" id="format-toggle">
@@ -815,6 +822,7 @@
     // Photo du shooting maillots utilisée comme visuel principal.
     heroSceneId: '',
     _shootingOpen: false,
+    _familyOpen: '',   // onglet Fond : famille ouverte ('' | shooting | photos | players | decor)
     /* Photo du MATCH (photos/manifest.json) choisie comme visuel — Boss 26.10.
        { set, id, url, thumb, w, h } : des chemins relatifs, jamais une dataURL. */
     heroPhoto: null,
@@ -1184,11 +1192,16 @@
     }, { passive: false });
   });
 
-  window.toggleShooting = function() {
-    state._shootingOpen = !state._shootingOpen;
+  /* Boss 27.10 · familles de l'onglet Fond : une seule ouverte à la fois, retaper la referme. */
+  window.openFamily = function(id) {
+    state._familyOpen = state._familyOpen === id ? '' : id;
+    state._shootingOpen = state._familyOpen === 'shooting';
+    state._matchPhotosOpen = state._familyOpen === 'photos';
     if (state._shootingOpen) SCENES.filter(s => s.group === 'shooting').slice(0, 4).forEach(ensureScene);
+    if (state._matchPhotosOpen) loadMatchPhotoManifest();
     renderPanel();
   };
+  window.toggleShooting = function() { window.openFamily('shooting'); };
 
   /* ── Photos du match (Boss 26.10) ─────────────────────────────────────
      photos/manifest.json liste les séries (une par match) : un nouveau match
@@ -1234,11 +1247,7 @@
     renderPanel(); refresh();
     toast(state.photoOnGoal ? 'Photo du match aussi sur BUT et Résultat' : 'BUT et Résultat : le buteur', 'blue');
   };
-  window.toggleMatchPhotos = function() {
-    state._matchPhotosOpen = !state._matchPhotosOpen;
-    if (state._matchPhotosOpen) loadMatchPhotoManifest();
-    renderPanel();
-  };
+  window.toggleMatchPhotos = function() { window.openFamily('photos'); };
   /* Retaper la photo active la retire (retour à la rotation automatique). */
   window.setHeroPhoto = function(setId, itemId) {
     const st = (MATCH_PHOTO_SETS || []).find(x => x.id === setId);
@@ -2998,10 +3007,10 @@
     else if (v === 'recap') extra = ['score','goal'];          // recap can edit goal timeline
     else if (['live-score','halftime'].includes(v)) extra = ['score','goal'];
     // Insert extras before customize — dom/ext + lieu viennent toujours du match sélectionné
-    return ['variant','match', ...extra, 'customize','caption'];
+    return ['variant','visual','match', ...extra, 'customize','caption'];   // Boss 27.10 : « Fond » juste à côté de « Variant »
   }
   const SECTION_LABELS = {
-    variant:'Variant', match:'Match', lineup:'Compo',
+    variant:'Variant', match:'Match', visual:'Fond', lineup:'Compo',
     goal:'Buts ⚽', score:'Score',
     customize:'Personnaliser', caption:'Caption'
   };
@@ -3023,6 +3032,7 @@
     const s = state.activeSection;
     if (s === 'variant') el.innerHTML = panelVariant();
     else if (s === 'match') el.innerHTML = panelMatch();
+    else if (s === 'visual') el.innerHTML = panelVisual();
     else if (s === 'lineup') el.innerHTML = panelLineup();
     else if (s === 'goal') el.innerHTML = panelGoal();
     else if (s === 'score') el.innerHTML = panelScore();
@@ -3126,6 +3136,104 @@
     renderPanel();
   };
 
+  /* Boss 27.10 · l'onglet « Fond » regroupe TOUT ce qui se met derrière le texte, en cinq familles
+     repliées : Shooting · Photos · Joueurs · Décor · Importer. Une seule famille ouverte à la fois,
+     le contenu (vignettes, têtes de joueurs) n'apparaît qu'au tap sur sa famille. */
+  function panelVisual() {
+    const fam = state._familyOpen || '';
+    const shootingScenes = SCENES.filter(s => s.group === 'shooting');
+    const decorScenes = SCENES.filter(s => s.group !== 'shooting');
+    const heroP = state.heroPlayerId && BY_ID[state.heroPlayerId];
+    const decor = state.sceneId && SCENES.find(s => s.id === state.sceneId);
+    const heroScene = state.heroSceneId && SCENES.find(s => s.id === state.heroSceneId);
+    const current = state.heroOff ? 'carte nette'
+      : state.heroPhoto ? 'photo du match'
+      : heroScene ? `shooting · ${heroScene.label}`
+      : state.customHeroImage ? 'ma photo'
+      : heroP ? heroP.lastName : 'joueur auto';
+    const ico = (glyph, rgb) => `<div class="hero-auto" style="border-style:solid; border-color:rgba(${rgb},0.55); background:rgba(${rgb},0.12); color:rgb(${rgb});">${glyph}</div>`;
+    const tile = (id, on, inner, name, extra = '') =>
+      `<div class="hero-mini fam ${on ? 'on' : ''} ${fam === id ? 'open' : ''}" ${extra} onclick="openFamily('${id}')">${inner}<div class="hero-name">${name}</div></div>`;
+    return `<div class="panel">
+      <div class="panel-label">Fond <span class="b blue">${current}${decor ? ' · décor ' + decor.label : ''}</span></div>
+      <div class="hero-grid fam-row">
+        ${tile('shooting', !!state.heroSceneId,
+          heroScene ? `<div class="hero-img"><img src="${heroScene.url}" alt=""></div>` : ico('📸', '245,184,46'), 'Shooting', 'id="fam-shooting"')}
+        ${tile('photos', !!state.heroPhoto,
+          state.heroPhoto ? `<div class="hero-img"><img src="${state.heroPhoto.thumb}" alt=""></div>` : ico(ballIcon(18), '56,189,248'), 'Photos', 'id="mp-toggle"')}
+        ${tile('players', !state.heroPhoto && !state.heroSceneId && !state.customHeroImage && !state.heroOff,
+          heroP && heroP.photoUrl ? `<div class="hero-img"><img src="${heroP.photoUrl}" alt=""></div>` : `<div class="hero-auto">AUTO</div>`, 'Joueurs', 'id="fam-players"')}
+        ${tile('decor', !!state.sceneId,
+          decor ? `<div class="hero-img"><img src="${decor.url}" alt=""></div>` : ico('—', '148,163,184'), 'Décor', 'id="fam-decor"')}
+        <label class="hero-mini fam ${state.customHeroImage ? 'on' : ''}" style="cursor:pointer; position:relative;">
+          <div class="hero-img" style="display:flex; align-items:center; justify-content:center; border:1px dashed rgba(255,255,255,0.35);">
+            ${state.customHeroImage
+              ? `<img src="${state.customHeroImage}">`
+              : `<span style="font-family:'Inter',sans-serif; font-weight:700; font-size:16px; color:rgba(255,255,255,0.6);">+</span>`}
+          </div>
+          <div class="hero-name">${state.customHeroImage ? 'Ma photo' : 'Importer'}</div>
+          ${state.customHeroImage ? `<button type="button" onclick="clearHeroUpload(event)" aria-label="Retirer la photo importée" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:1px solid rgba(255,255,255,0.35); background:#0A1628; color:#fff; font-size:12px; line-height:1; z-index:2;">✕</button>` : ''}
+          <input type="file" accept="image/*" id="hero-upload" style="display:none;">
+        </label>
+      </div>
+
+      ${fam === 'shooting' ? `
+        <div class="panel-label" style="margin-top:14px;">Shooting maillots <span class="b">${shootingScenes.length}</span></div>
+        <div class="hero-grid">
+          ${shootingScenes.map(s => `
+            <div class="hero-mini ${state.heroSceneId === s.id ? 'on' : ''}" onclick="setHeroScene('${s.id}')">
+              <div class="hero-img"><img src="${s.url}" loading="lazy"></div>
+              <div class="hero-name">${s.label}</div>
+            </div>`).join('')}
+        </div>` : ''}
+
+      ${fam === 'photos' ? `
+        <div class="panel-label" style="margin-top:14px;">Photos du match <span class="b blue">${MATCH_PHOTO_SETS ? MATCH_PHOTO_SETS.reduce((n, st) => n + st.items.length, 0) : '…'}</span></div>
+        ${!MATCH_PHOTO_SETS ? '<div class="match-note">Chargement des photos…</div>'
+          : !MATCH_PHOTO_SETS.length ? '<div class="match-note">Aucune photo de match disponible (réseau ?). Referme et rouvre pour réessayer.</div>'
+          : MATCH_PHOTO_SETS.map(st => `
+            <div class="mp-set">${st.label} <span style="color:rgba(255,255,255,0.35);">· ${st.items.length}</span></div>
+            <div class="mp-grid">
+              ${st.items.map(it => `<button type="button" class="mp-thumb ${state.heroPhoto && state.heroPhoto.url === it.url ? 'on' : ''}" data-mp="${it.id}" onclick="setHeroPhoto('${st.id}','${it.id}')" aria-label="Photo ${it.id}"><img src="${it.thumb}" loading="lazy" decoding="async" alt=""></button>`).join('')}
+            </div>`).join('')}` : ''}
+
+      ${fam === 'players' ? `
+        <div class="panel-label" style="margin-top:14px;">Joueurs <span class="b blue">${heroP ? heroP.lastName : 'rotation auto'}</span></div>
+        <div class="hero-grid">
+          <div class="hero-mini ${(state.heroPlayerId || state.customHeroImage || state.heroSceneId || state.heroPhoto || state.heroOff) ? '' : 'on'}" onclick="setHeroPlayer('')">
+            <div class="hero-auto">AUTO</div>
+            <div class="hero-name">Rotation</div>
+          </div>
+          ${heroCandidates().map(p => `
+            <div class="hero-mini ${state.heroPlayerId === p.id ? 'on' : ''}" onclick="setHeroPlayer('${p.id}')">
+              <div class="hero-img">${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy">` : ''}</div>
+              <div class="hero-jer">${p.jerseyDisplay}</div>
+              <div class="hero-name">${p.lastName}</div>
+            </div>`).join('')}
+        </div>` : ''}
+
+      ${fam === 'decor' ? `
+        <div class="panel-label" style="margin-top:14px;">Décor <span class="b blue">${decor ? decor.label : 'bleu nuit'}</span></div>
+        <div class="hero-grid">
+          <div class="hero-mini ${state.sceneId ? '' : 'on'}" onclick="setScene('')">
+            <div class="hero-auto">—</div>
+            <div class="hero-name">Bleu nuit</div>
+          </div>
+          ${decorScenes.map(s => `
+            <div class="hero-mini ${state.sceneId === s.id ? 'on' : ''}" onclick="setScene('${s.id}')">
+              <div class="hero-img"><img src="${s.url}" loading="lazy"></div>
+              <div class="hero-name">${s.label}</div>
+            </div>`).join('')}
+        </div>
+        <div class="match-note">Le décor passe derrière le joueur.</div>` : ''}
+
+      <div class="match-note">${state.heroOff
+        ? 'Carte nette : aucun visage.'
+        : state.heroPhoto ? `Photo du match : cadre-la en la glissant sur la carte. <label style="display:inline-flex; align-items:center; gap:6px; margin-left:4px; cursor:pointer;"><input type="checkbox" id="photo-on-goal" ${state.photoOnGoal ? 'checked' : ''} onchange="setPhotoOnGoal(this.checked)"> Aussi sur BUT et Résultat</label> (sinon le buteur).`
+        : 'Touche une famille pour voir son contenu. « But » utilise toujours le buteur.'} Retape la case active pour la désélectionner.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
+    </div>`;
+  }
+
   function panelMatch() {
     const comps = [
       { id:'amical',      label:'Amical' },
@@ -3168,114 +3276,12 @@
       <div class="panel-label" style="margin-top:18px;">Capitaine
         <span class="b gold">${(BY_ID[state.captainId] || {}).lastName ? BY_ID[state.captainId].lastName.toUpperCase() : 'à désigner'}</span>
       </div>
-      <div class="hero-grid">
-        ${heroCandidates().map(p => `
-          <div class="hero-mini ${state.captainId === p.id ? 'on cap' : ''}" onclick="setCaptain('${p.id}')">
-            <div class="hero-img">${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy">` : ''}</div>
-            <div class="hero-jer">${p.jerseyDisplay}</div>
-            <div class="hero-name">${p.lastName}</div>
-          </div>`).join('')}
+      <!-- Boss 27.10 : une bande de noms qui défile, pas une grille de photos (place à l'écran) -->
+      <div class="cap-strip" id="cap-strip">
+        ${heroCandidates().map(p => `<button type="button" class="cap-chip ${state.captainId === p.id ? 'on' : ''}" onclick="setCaptain('${p.id}')"><b>${p.jerseyDisplay}</b>${p.lastName}</button>`).join('')}
       </div>
       <div class="match-note">Son nom porte un (C) sur tous les visuels.${state.convokedPlayers && state.convokedPlayers.length ? ` Liste limitée aux ${state.convokedPlayers.length} convoqués.` : ''}</div>
 
-      <!-- JOUEUR EN FOND — visage des visuels (sauf « But », où c'est le buteur) -->
-      <div class="panel-label" style="margin-top:18px;">Joueur en fond
-        <span class="b blue">${state.heroPlayerId ? 'choisi' : 'auto'}</span>
-      </div>
-      <div class="hero-grid">
-        <div class="hero-mini ${(state.heroPlayerId || state.customHeroImage || state.heroSceneId || state.heroPhoto || state.heroOff) ? '' : 'on'}" onclick="setHeroPlayer('')">
-          <div class="hero-auto">AUTO</div>
-          <div class="hero-name">Rotation</div>
-        </div>
-        <div class="hero-mini ${state._shootingOpen || state.heroSceneId ? 'on' : ''}" onclick="toggleShooting()">
-          <div class="hero-auto" style="border-style:solid; border-color:rgba(245,184,46,0.55); background:rgba(245,184,46,0.14); color:#F5B82E;">📸</div>
-          <div class="hero-name">Shooting</div>
-        </div>
-        <div class="hero-mini ${state._matchPhotosOpen || state.heroPhoto ? 'on' : ''}" id="mp-toggle" onclick="toggleMatchPhotos()">
-          ${state.heroPhoto
-            ? `<div class="hero-img"><img src="${state.heroPhoto.thumb}" alt=""></div>`
-            : `<div class="hero-auto" style="border-style:solid; border-color:rgba(56,189,248,0.55); background:rgba(56,189,248,0.12); color:#38BDF8;">${ballIcon(18)}</div>`}
-          <div class="hero-name">Photos</div>
-        </div>
-        <label class="hero-mini ${state.customHeroImage ? 'on' : ''}" style="cursor:pointer; position:relative;">
-          <div class="hero-img" style="display:flex; align-items:center; justify-content:center; border:1px dashed rgba(255,255,255,0.35);">
-            ${state.customHeroImage
-              ? `<img src="${state.customHeroImage}">`
-              : `<span style="font-family:'Inter',sans-serif; font-weight:700; font-size:16px; color:rgba(255,255,255,0.6);">+</span>`}
-          </div>
-          <div class="hero-name">${state.customHeroImage ? 'Ma photo' : 'Importer'}</div>
-          ${state.customHeroImage ? `<button type="button" onclick="clearHeroUpload(event)" aria-label="Retirer la photo importée" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:1px solid rgba(255,255,255,0.35); background:#0A1628; color:#fff; font-size:12px; line-height:1; z-index:2;">✕</button>` : ''}
-          <input type="file" accept="image/*" id="hero-upload" style="display:none;">
-        </label>
-      </div>
-      ${state._matchPhotosOpen ? `
-        <div class="panel-label" style="margin-top:12px;">Photos du match <span class="b blue">${MATCH_PHOTO_SETS ? MATCH_PHOTO_SETS.reduce((n, st) => n + st.items.length, 0) : '…'}</span></div>
-        ${!MATCH_PHOTO_SETS ? '<div class="match-note">Chargement des photos…</div>'
-          : !MATCH_PHOTO_SETS.length ? '<div class="match-note">Aucune photo de match disponible (réseau ?). Referme et rouvre pour réessayer.</div>'
-          : MATCH_PHOTO_SETS.map(st => `
-            <div class="mp-set">${st.label} <span style="color:rgba(255,255,255,0.35);">· ${st.items.length}</span></div>
-            <div class="mp-grid">
-              ${st.items.map(it => `<button type="button" class="mp-thumb ${state.heroPhoto && state.heroPhoto.url === it.url ? 'on' : ''}" data-mp="${it.id}" onclick="setHeroPhoto('${st.id}','${it.id}')" aria-label="Photo ${it.id}"><img src="${it.thumb}" loading="lazy" decoding="async" alt=""></button>`).join('')}
-            </div>`).join('')}` : ''}
-      <div class="hero-grid">
-        ${heroCandidates().map(p => `
-          <div class="hero-mini ${state.heroPlayerId === p.id ? 'on' : ''}" onclick="setHeroPlayer('${p.id}')">
-            <div class="hero-img">${p.photoUrl ? `<img src="${p.photoUrl}" loading="lazy">` : ''}</div>
-            <div class="hero-jer">${p.jerseyDisplay}</div>
-            <div class="hero-name">${p.lastName}</div>
-          </div>`).join('')}
-      </div>
-      ${state._shootingOpen ? `
-        <div class="panel-label" style="margin-top:12px;">Shooting maillots <span class="b">${SCENES.filter(s => s.group === 'shooting').length}</span></div>
-        <div class="hero-grid">
-          ${SCENES.filter(s => s.group === 'shooting').map(s => `
-            <div class="hero-mini ${state.heroSceneId === s.id ? 'on' : ''}" onclick="setHeroScene('${s.id}')">
-              <div class="hero-img"><img src="${s.url}" loading="lazy"></div>
-              <div class="hero-name">${s.label}</div>
-            </div>`).join('')}
-        </div>` : ''}
-      <div class="match-note">${state.heroOff
-        ? 'Carte nette : aucun visage.'
-        : state.heroPhoto ? `Photo du match : cadre-la en la glissant sur la carte. <label style="display:inline-flex; align-items:center; gap:6px; margin-left:4px; cursor:pointer;"><input type="checkbox" id="photo-on-goal" ${state.photoOnGoal ? 'checked' : ''} onchange="setPhotoOnGoal(this.checked)"> Aussi sur BUT et Résultat</label> (sinon le buteur).`
-        : 'Le visage des visuels. « But » utilise toujours le buteur.'} Retape la case active pour la désélectionner.${state.customHeroImage ? ' <a href="#" onclick="clearHeroUpload();return false;" style="color:#F87171;">Retirer l\'image</a>' : ''}</div>
-
-      <!-- DÉCOR — passe DERRIÈRE le joueur -->
-      <div class="panel-label" style="margin-top:18px;">Décor en fond
-        <span class="b blue">${state.sceneId ? (SCENES.find(s => s.id === state.sceneId) || {}).label || 'choisi' : 'aucun'}</span>
-      </div>
-      <div class="hero-grid">
-        <div class="hero-mini ${state.sceneId ? '' : 'on'}" onclick="setScene('')">
-          <div class="hero-auto">—</div>
-          <div class="hero-name">Bleu nuit</div>
-        </div>
-        ${SCENES.filter(s => s.group !== 'shooting').map(s => `
-          <div class="hero-mini ${state.sceneId === s.id ? 'on' : ''}" onclick="setScene('${s.id}')">
-            <div class="hero-img"><img src="${s.url}" loading="lazy"></div>
-            <div class="hero-name">${s.label}</div>
-          </div>`).join('')}
-      </div>
-      <div class="match-note">Le joueur reste devant le décor.</div>
-
-      <!-- BALLONS DE MATCH — sponsors qui apparaîtront sur matchday / kickoff / recap -->
-      <div class="panel-label" style="margin-top:18px;">Ballons de match <span class="b">${state.matchBallSponsors.length}</span></div>
-      ${state.matchBallSponsors.length > 0 ? `
-        <div class="sponsor-list">
-          ${state.matchBallSponsors.map((s, i) => `
-            <div class="sponsor-row">
-              <span class="sponsor-tile">${s.abbr}</span>
-              <span class="sponsor-name">${s.name}</span>
-              <button class="sponsor-rm" onclick="removeMatchBallSponsor(${i})" aria-label="Retirer ${s.name}">×</button>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-      <div class="sponsor-form">
-        <div class="sponsor-form-row">
-          <input type="text" id="sponsor-name" placeholder="Nom de l'entreprise (ex: TECHAUTO AG)" autocomplete="off">
-          <button class="sponsor-add-btn" onclick="addMatchBallSponsor()">+ Ajouter</button>
-        </div>
-        <small>Visible sur matchday, kickoff et recap. Les initiales sont auto-générées.</small>
-      </div>
     </div>`;
   }
   function panelScore() {
@@ -3522,6 +3528,27 @@
   function panelCustomize() {
     const msg = state.customMessage[state.variant] || '';
     return `<div class="panel">
+      <!-- BALLONS DE MATCH (Boss 27.10 : sortis de l'onglet Match) — sponsors qui apparaîtront sur matchday / kickoff / recap -->
+      <div class="panel-label">Ballons de match <span class="b">${state.matchBallSponsors.length}</span></div>
+      ${state.matchBallSponsors.length > 0 ? `
+        <div class="sponsor-list">
+          ${state.matchBallSponsors.map((s, i) => `
+            <div class="sponsor-row">
+              <span class="sponsor-tile">${s.abbr}</span>
+              <span class="sponsor-name">${s.name}</span>
+              <button class="sponsor-rm" onclick="removeMatchBallSponsor(${i})" aria-label="Retirer ${s.name}">×</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div class="sponsor-form">
+        <div class="sponsor-form-row">
+          <input type="text" id="sponsor-name" placeholder="Nom de l'entreprise (ex: TECHAUTO AG)" autocomplete="off">
+          <button class="sponsor-add-btn" onclick="addMatchBallSponsor()">+ Ajouter</button>
+        </div>
+        <small>Visible sur matchday, kickoff et recap. Les initiales sont auto-générées.</small>
+      </div>
+      <div style="height:18px;"></div>
       <div class="panel-label">Message personnalisé sur la carte <span class="b">Optionnel</span></div>
       <div class="custom-msg-field">
         <textarea id="custom-msg-input" placeholder="Ex: Soirée à thème, match décisif, retour du capitaine...">${msg}</textarea>

@@ -121,7 +121,7 @@ for (const engine of engines) {
   await racingMatch(page, { variant: 'matchday', format: 'story' });
 
   /* ---------- A. picker ---------- */
-  await page.locator('#section-tabs .tab[data-s="match"]').tap();
+  await page.locator('#section-tabs .tab[data-s="visual"]').tap();
   await page.locator('#mp-toggle').tap();
   await page.waitForSelector('.mp-thumb', { timeout: 10000 });
   const grid = await page.evaluate(() => ({

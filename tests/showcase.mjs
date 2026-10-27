@@ -76,7 +76,7 @@ if (!PART.includes('B')) { await app.close(); await srv.close(); process.exit(0)
 
 /* ---------- B. cartes d'annonce avec les photos du shooting ---------- */
 await page.evaluate(() => { window.__mc.state.goals = []; });
-await tab('match');
+await tab('visual');
 await page.evaluate(() => window.toggleShooting());
 await sleep(600);
 const scenes = await page.evaluate(() => [...document.querySelectorAll('.hero-mini[onclick^="setHeroScene"]')]
